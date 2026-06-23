@@ -6,7 +6,7 @@
 
 ¹ Iowa State University &nbsp;&nbsp; ² Stanford University
 
-*Reference implementation and full reproduction harness for the AAAI submission.*
+*Reference implementation and full reproduction harness. Manuscript currently under review (AAAI); not yet accepted.*
 
 </div>
 
@@ -359,13 +359,17 @@ each pass, so a gene's realized recursion depth is an adaptive, compute-allocati
 
 ## Citation
 
+> **Status:** this manuscript is **under review** (submitted to AAAI); it has **not** been
+> accepted or published yet. Please cite it as an unpublished manuscript until a venue is
+> confirmed.
+
 ```bibtex
-@inproceedings{howlader2026smart,
-  title     = {SMART: Selective Marker-guided Adaptive Recursive Transformer
-               for Transcriptomic Classification},
-  author    = {Howlader, Koushik and Roy, Tirtho and Islam, Md Tauhidul and Le, Wei},
-  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
-  year      = {2026}
+@unpublished{howlader2026smart,
+  title  = {SMART: Selective Marker-guided Adaptive Recursive Transformer
+            for Transcriptomic Classification},
+  author = {Howlader, Koushik and Roy, Tirtho and Islam, Md Tauhidul and Le, Wei},
+  note   = {Manuscript under review},
+  year   = {2026}
 }
 ```
 
