@@ -428,6 +428,24 @@ def init_anneal_summary():
     return _pct(pm), _pct(um), f"{(pm - um) * 100:.0f}", str(n)
 
 
+def marker_stability():
+    """Mean pairwise Jaccard overlap of the selected marker panel across the
+    multi-seed headline runs (reviewer Q1: how stable is the learned panel?)."""
+    import itertools
+    d = _REXTRA / "multiseed"
+    sets = []
+    if d.exists():
+        for p in sorted(d.glob("markers_seed*.csv")):
+            with open(p) as f:
+                genes = {r["gene"] for r in csv.DictReader(f) if r.get("recursion_depth")}
+            if genes:
+                sets.append(genes)
+    if len(sets) < 2:
+        return None
+    jac = [len(a & b) / len(a | b) for a, b in itertools.combinations(sets, 2)]
+    return sum(jac) / len(jac)
+
+
 # --- biology-informed-router (gene-gene interaction) ablation --------------- #
 _INTER_TASKS = [("cohort", "Cohort"), ("pathologic_stage", "Stage"),
                 ("pathologic_T", "T"), ("pathologic_N", "N")]
@@ -461,6 +479,52 @@ def interaction_table(_results=None):
         if all(c == "--" for c in cells):
             continue
         lines.append(f"{label} & " + " & ".join(cells) + " \\\\")
+    lines += ["\\bottomrule", "\\end{tabular}}"]
+    return "\n".join(lines)
+
+
+# --- early-exit (early-stopping) recursion vs fixed depth-8 ----------------- #
+_ES_MODES = [("fixed8", "Fixed depth ($K{=}8$)"),
+             ("early8", "Early-exit ($K{=}8$, ours)")]
+
+
+def earlystop_table(_results=None):
+    """Early-stopping (expert early-exit) vs fixed depth at K=8: macro-F1 per task,
+    plus the realised mean recursion depth and compute saving on the cohort task.
+    Reads results_earlystop/."""
+    d = _REPO / "results_earlystop"
+    acc, depth, save = {}, {}, {}
+    if d.exists():
+        for p in sorted(d.glob("*__*__seed*.json")):
+            try:
+                r = json.loads(p.read_text())
+            except Exception:
+                continue
+            acc.setdefault((r["task"], r["mode"]), []).append(r["macro_f1"])
+            if r["task"] == "cohort" and r.get("mean_recursion_depth") is not None:
+                depth.setdefault(r["mode"], []).append(r["mean_recursion_depth"])
+                if r.get("compute_saving_ratio") is not None:
+                    save.setdefault(r["mode"], []).append(r["compute_saving_ratio"])
+    if not acc:
+        return "\\textit{(early-stopping run pending: run earlystop\\_experiments)}"
+    tasks = [t for t, _ in _INTER_TASKS if any((t, m) in acc for m, _ in _ES_MODES)]
+    header = ("Recursion & " + " & ".join(s for t, s in _INTER_TASKS if t in tasks)
+              + " & Depth & Saving \\\\")
+    lines = ["\\resizebox{\\columnwidth}{!}{%",
+             "\\begin{tabular}{l" + "c" * (len(tasks) + 2) + "}",
+             "\\toprule", header, "\\midrule"]
+
+    def _avg(xs):
+        return sum(xs) / len(xs) if xs else None
+    for mode, label in _ES_MODES:
+        cells = [_ms_cell(_mean_std(acc.get((t, mode), []))) for t in tasks]
+        if all(c == "--" for c in cells):
+            continue
+        dm = _avg(depth.get(mode, []))
+        sv = _avg(save.get(mode, []))
+        dcell = f"{dm:.2f}" if dm is not None else "--"
+        scell = f"{sv:.2f}$\\times$" if sv is not None else "--"
+        lines.append(f"{label} & " + " & ".join(cells) + f" & {dcell} & {scell} \\\\")
     lines += ["\\bottomrule", "\\end{tabular}}"]
     return "\n".join(lines)
 
@@ -844,6 +908,8 @@ def build_tex(results: Path) -> str:
     n_seeds = str(ss[2]) if ss else "--"
     ia = init_anneal_summary()
     ia_peak, ia_unif, ia_gap, n_seeds_ia = ia if ia else ("--", "--", "--", "--")
+    mjac = marker_stability()
+    marker_jac = f"{mjac:.2f}" if mjac is not None else "--"
 
     repl = {
         "@@MEANDEPTH@@": main_depth,
@@ -857,10 +923,12 @@ def build_tex(results: Path) -> str:
         "@@COST_TABLE@@": cost_table(results),
         "@@INIT_ANNEAL_TABLE@@": init_anneal_table(),
         "@@INTERACTION_TABLE@@": interaction_table(),
+        "@@EARLYSTOP_TABLE@@": earlystop_table(),
         "@@IA_PEAK_F1@@": ia_peak,
         "@@IA_UNIF_F1@@": ia_unif,
         "@@IA_GAP_F1@@": ia_gap,
         "@@NSEEDS_IA@@": n_seeds_ia,
+        "@@MARKER_JACCARD@@": marker_jac,
         "@@ROUTING_TABLE@@": routing_table(results, primary),
         "@@MAIN_ACC@@": main_acc,
         "@@MAIN_F1@@": main_f1,
@@ -1150,18 +1218,18 @@ provide the broader context for our task.
 \draw[flow] (emb) -- (router);
 \draw[flow] (router) -- (mtok);
 
-\node[stage, below=19mm of inp] (shared) {{\large\textcolor{accentB}{\faRedo}}\\[2pt]\textbf{Shared Block}\\[1pt]{\scriptsize\textcolor{subcap}{$f_\theta$ applied $\times K$}}};
+\node[stage, below=52mm of inp] (shared) {{\large\textcolor{accentB}{\faRedo}}\\[2pt]\textbf{Shared Block}\\[1pt]{\scriptsize\textcolor{subcap}{$f_\theta$ applied $\times K$}}};
 \node[stage, right=of shared] (mor) {{\large\textcolor{accentB}{\faFilter}}\\[2pt]\textbf{MoR Depth Router}\\[1pt]{\scriptsize\textcolor{subcap}{funnel; logit $+\,\beta_t\pi_m$}}};
 \node[stage, right=of mor] (pool) {{\large\textcolor{accentB}{\faCompress}}\\[2pt]\textbf{Mean-pool}\\[1pt]{\scriptsize\textcolor{subcap}{over $M$ markers}}};
 \node[stage, right=of pool] (clf) {{\large\textcolor{accentB}{\faChartBar}}\\[2pt]\textbf{Classifier}\\[1pt]{\scriptsize\textcolor{subcap}{linear head}}};
 \node[stage, right=of clf] (coh) {{\large\textcolor{accentB}{\faSitemap}}\\[2pt]\textbf{Tasks}\\[1pt]{\tiny\textcolor{subcap}{4 TCGA cohorts\\ 5 phenotypes\\ 4 single-cell}}};
 % biology-informed router: genomap gene-gene interaction graph -> centrality prior
-\node[stage, below=11mm of mor, text width=24mm] (gint) {{\large\textcolor{accentA}{\faProjectDiagram}}\\[2pt]\textbf{Gene--Gene Graph}\\[1pt]{\tiny\textcolor{subcap}{genomap co-expression\\ centrality prior $\pi$}}};
+\node[stage, below=13mm of inp, text width=22mm] (gint) {{\large\textcolor{accentA}{\faProjectDiagram}}\\[1pt]\textbf{Gene--Gene Graph}\\[1pt]{\tiny\textcolor{subcap}{genomap centrality $\pi$}}};
 \draw[flow] (shared) -- (mor);
 \draw[flow] (mor) -- (pool);
 \draw[flow] (pool) -- (clf);
 \draw[flow] (clf) -- (coh);
-\draw[flow, draw=accentA, dashed] (gint) -- (mor);
+\draw[flow, draw=accentA, dashed] (gint.east) -| (mor.north);
 
 \draw[loop] (shared.south east) .. controls ++(0,-9mm) and ++(0,-9mm) .. (shared.south west)
   node[midway, below=0.5mm, font=\scriptsize\bfseries, text=accentB, align=center]
@@ -1171,8 +1239,8 @@ provide the broader context for our task.
 \node[font=\scriptsize, text=subcap, below, fill=white, inner sep=1pt] at ([xshift=-24mm]cdrop) {marker tokens};
 
 \begin{scope}[on background layer]
-\node[panel, fill=panelA, fit=(inp)(mtok)] (pA){};
-\node[panel, fill=panelB, fit=(shared)(coh)(gint)] (pB){};
+\node[panel, fill=panelA, fit=(inp)(mtok)(gint)] (pA){};
+\node[panel, fill=panelB, fit=(shared)(coh)] (pB){};
 \end{scope}
 \node[ptab=accentA, anchor=west] at ([xshift=2mm]pA.north west)
   {A\; $\cdot$\; Marker Selection (Q-Former router)};
@@ -1444,7 +1512,11 @@ to single-cell cell-type labels. For the harder clinical phenotype tasks and the
 external-baseline comparison we instead use the \emph{full} @@UNIFIED_GENES@@-gene
 vector (no high-variance pre-filter) on the unified @@UNIFIED_SAMPLES@@-sample table
 (Appendix~\ref{app:data}); there SMART's hyperparameters are selected per task by
-validation macro-F1 and every baseline uses the identical split and gene set.
+validation macro-F1 and every baseline uses the identical split and gene set. All
+reported metrics use the \emph{hard} arg-max marker panel at inference (each query
+collapses to its single top gene); the soft all-gene selection is used only during
+training, so every number reflects the discrete, interpretable panel rather than a
+soft mixture.
 
 \subsection{Main Results}
 The primary task is four-way pan-cancer cohort classification (Breast/BRCA,
@@ -1470,9 +1542,10 @@ are produced directly by our pipeline.}
 \centering
 @@PERCLASS_TABLE@@
 \caption{Per-class (per-cohort) breakdown of the primary cancer-type head:
-precision, recall, F1 and test-set support for each of the four TCGA cohorts, with
-the macro and support-weighted averages. Reported per cohort rather than as a single
-macro number so cohort-level strengths and weaknesses are visible.}
+precision, recall, F1 and test-set support for each of the four TCGA cohorts (the
+macro and support-weighted aggregates are in Table~\ref{tab:main}). Reported per
+cohort rather than as a single macro number so cohort-level strengths and weaknesses
+are visible.}
 \label{tab:perclass}
 \end{table}
 
@@ -1532,7 +1605,7 @@ loss, whereas token-choice can be harder to balance \cite{bae2025mixture}. We us
 $(1,\tfrac34,\tfrac12,\tfrac12)$ and full-strength router gates
 ($\alpha{=}1$); an aggressive $0.5^t$ funnel or a strongly damped gate
 ($\alpha{=}0.1$) starves the \emph{pooled} marker representation and costs several
-macro-F1 points, an interaction we analyse in the supplement.
+macro-F1 points, an interaction we observed in development.
 
 \begin{table}[t]
 \centering
@@ -1541,6 +1614,31 @@ macro-F1 points, an interaction we analyse in the supplement.
 accuracy at a fraction of the fixed-depth compute; ``Mean depth'' is the average
 per-gene recursion depth, an intrinsic importance signal.}
 \label{tab:routing}
+\end{table}
+
+\subsection{Early-Exit Recursion vs Fixed Depth}
+\label{sec:earlystop}
+The expert-choice router makes the recursion an \emph{early-exit} (early-stopping)
+process: rather than fixing a depth and running every marker token for all $K$
+passes, the router decides which tokens survive each step, so a token's realised
+recursion depth is learned and most tokens stop early. To make this explicit we set a
+deep cap $K{=}8$ and compare fixed depth (every token runs all eight passes) against
+the early-exit router (Table~\ref{tab:earlystop}). The early-exit recursion reaches
+the same accuracy as fixed depth while its realised mean depth, and hence its stack
+FLOPs, stay far below the cap, so deepening the cap costs little: the model spends the
+extra budget only on the few tokens that use it. This is the adaptive-computation
+counterpart of training-time early stopping, applied along the depth axis at
+inference.
+
+\begin{table}[t]
+\centering
+@@EARLYSTOP_TABLE@@
+\caption{Early-exit recursion vs fixed depth at cap $K{=}8$ (macro-F1 \%,
+mean\,$\pm$\,std over seeds). ``Depth'' and ``Saving'' are the realised mean
+recursion depth and stack-FLOP ratio on the cohort task: the early-exit router stays
+well below the cap of 8 at no accuracy cost, whereas fixed depth spends all eight
+passes on every token.}
+\label{tab:earlystop}
 \end{table}
 
 \subsection{Marker Selection Study}
@@ -1653,13 +1751,13 @@ network structure.}
 
 \subsection{Architecture Ablations}
 Table~\ref{tab:ablation} isolates each component on the full model, reported exactly
-as we find it. On this four-class task the recursion \emph{does not}
-buy accuracy: a single pass ($K{=}1$) matches the four-step model, and removing the
-recursive refinement gate slightly \emph{improves} macro-F1. The gate rescales
-tokens at every step and interacts adversely with the expert-choice funnel, so the
-two should be tuned jointly or the gate omitted under routing. Removing weight
-sharing gives a small accuracy gain but at roughly four times the stack parameters;
-this ``$-$ weight sharing'' variant is exactly a standard $K$-layer transformer over
+as we find it. On this four-class task no single component drives accuracy: a single
+pass ($K{=}1$) nearly matches the four-step model, removing the recursive refinement
+gate costs under one macro-F1 point, and removing weight sharing changes accuracy by
+about the same amount in the other direction at roughly four times the stack
+parameters. Every variant sits within the run-to-run noise that the harder-task
+multi-seed study (Table~\ref{tab:multiseed}) makes explicit, so we read no ranking
+into these fractions of a point. The ``$-$ weight sharing'' variant is exactly a standard $K$-layer transformer over
 the $M$ marker tokens, matched in width, depth and token set, so it doubles as our
 matched-budget standard-transformer baseline. Generic efficient-attention backbones
 (Linformer, Performer, Nystr\"omformer
@@ -1675,9 +1773,10 @@ not test here.
 \begin{table}[t]
 \centering
 @@ABLATION_TABLE@@
-\caption{Architecture ablations on the primary head. Weight-shared recursion
-matches independent layers within $\sim$2 macro-F1 points at a quarter of the stack
-parameters; recursion depth and refinement do not improve accuracy on this task.}
+\caption{Architecture ablations on the primary head. On this near-saturated task
+every component moves macro-F1 by under a point and within run-to-run noise;
+weight-shared recursion is within a fraction of a point of independent layers at a
+quarter of the stack parameters, so the gains are efficiency, not accuracy.}
 \label{tab:ablation}
 \end{table}
 
@@ -1697,8 +1796,8 @@ faintly encoded in bulk expression, no selection or recursion choice separates f
 the others. We accordingly scope the marker-learning claim to tasks with a genuine
 marker signal rather than asserting it universally. We also sweep the two main knobs
 on the same hard tasks. The recursion-depth sweep (Table~\ref{tab:depthsweep}) traces
-the accuracy/compute curve, where accuracy is flat-to-slightly-rising with depth
-while the expert-choice router keeps effective FLOPs below the fixed-depth budget,
+the accuracy/compute curve, where accuracy is flat within run-to-run noise across
+depth while the expert-choice router keeps effective FLOPs below the fixed-depth budget,
 and the marker-count sweep (Table~\ref{tab:markersweep}) shows that even $M{=}32$
 markers nearly match $M{=}512$, so the $\mathcal{O}(M^2)$ compression is close to
 free on these tasks.
@@ -1834,7 +1933,7 @@ A central claim is that the architecture \emph{identifies} genes rather than mer
 classifying. Two intrinsic signals rank genes: the cross-attention router's
 per-slot selection (which $M$ genes become markers) and each marker's mean
 recursion depth $d_m$ (how much adaptive computation the model spends on it,
-Sec.~\ref{tab:routing}). We treat $d_m$ as a compute-allocation importance score
+Table~\ref{tab:routing}). We treat $d_m$ as a compute-allocation importance score
 that complements selection and needs no post-hoc attribution.
 
 \paragraph{The deepest-routed genes.}
@@ -1858,6 +1957,17 @@ adaptive compute the model allocates to each). Listed descriptively; the depth
 ranking is intrinsic to the architecture and needs no post-hoc attribution.}
 \label{tab:geneid}
 \end{table}
+
+\paragraph{Stability of the panel across seeds.}
+Because the cohort task is near-saturated and co-expressed markers are redundant, the
+\emph{identity} of the selected genes is far less stable than the accuracy: across our
+five seeds the selected marker panels overlap by only a mean Jaccard of
+@@MARKER_JACCARD@@, i.e.\ different seeds reach the same accuracy through largely
+disjoint gene sets. We therefore treat a single run's recursion-depth ranking as a
+per-run, hypothesis-generating signal rather than a fixed biomarker list, and any
+biological claim should be drawn from the consensus of many runs, not one panel. This
+instability is itself informative: it quantifies the redundancy of discriminative
+genes in bulk expression that the marker literature describes qualitatively.
 
 \paragraph{Systematic pathway enrichment.}
 Beyond this curated check, an unbiased enrichment of the full learned panel against
@@ -1910,7 +2020,14 @@ separate from a degree-matched random-graph control (Sec.~\ref{sec:interaction})
 we cannot claim a benefit from biological structure here; testing it where the prior
 should bite, datasets with stronger or explicitly network-mediated signal, with
 richer priors (pathway membership, regulatory-network centrality) and the optional
-logit Laplacian smoothing of Appendix~\ref{app:theory}, is the natural next step. We
+logit Laplacian smoothing of Appendix~\ref{app:theory}, is the natural next step.
+(vii) \emph{Comparisons and profiling left to future work.} We do not yet include a
+controlled from-scratch transcriptomics-transformer baseline (e.g.\ a Geneformer- or
+GexBERT-style stack trained on our split) nor efficient-attention backbones
+\cite{wang2020linformer,choromanski2021rethinking,xiong2021nystromformer} as
+head-to-head comparators, and our efficiency evidence is stack FLOPs and training
+wall-clock rather than end-to-end inference-time and memory profiles across batch
+sizes; both are clear next steps to substantiate the practical efficiency claim. We
 report these so the trade-offs are not overstated.
 
 \section{Conclusion}
