@@ -1,0 +1,48 @@
+SMART — Selective Marker-guided Adaptive Recursive Transformer
+for Transcriptomic Classification
+
+Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+
+Authors:
+  Koushik Howlader   — Iowa State University
+  Tirtho Roy         — Iowa State University
+  Md Tauhidul Islam  — Stanford University
+  Wei Le             — Iowa State University
+
+================================================================================
+PROPRIETARY SOFTWARE LICENSE — ALL RIGHTS RESERVED
+================================================================================
+
+1. OWNERSHIP. This software, including all source code, scripts, configuration,
+   models, results, generated documents, and accompanying materials (the
+   "Software"), is the exclusive property of the authors listed above ("the
+   Authors") and is protected by copyright and other intellectual-property laws.
+
+2. NO LICENSE GRANTED. No license, right, or permission of any kind is granted to
+   any person or entity to access, use, copy, reproduce, modify, merge, publish,
+   distribute, sublicense, sell, or create derivative works from the Software, in
+   whole or in part, except by the express prior WRITTEN permission of the
+   Authors.
+
+3. PROHIBITED USE. Any access to, use of, reproduction, modification, or
+   distribution of the Software that is not expressly authorized in writing by
+   the Authors is UNAUTHORIZED and STRICTLY PROHIBITED.
+
+4. CONSEQUENCES OF UNAUTHORIZED USE. Any person or entity who uses, copies,
+   modifies, distributes, or otherwise exploits the Software in an unauthorized
+   manner shall be liable for such conduct and WILL BE PROSECUTED to the fullest
+   extent permitted by applicable law. This includes, without limitation, civil
+   liability for actual and statutory damages, injunctive relief, costs, and
+   attorneys' fees, and may include criminal penalties. Violators WILL BE
+   PUNISHED.
+
+5. NO WARRANTY. The Software is provided "AS IS", without warranty of any kind,
+   express or implied. The Authors shall not be liable for any claim, damages, or
+   other liability arising from or in connection with the Software.
+
+6. PERMISSIONS AND CONTACT. To request written permission to use the Software,
+   contact the Authors at weile@iastate.edu.
+
+By accessing or using the Software you acknowledge that you have read, understood,
+and agree to be bound by the terms of this License. If you do not agree, you must
+not access or use the Software.
