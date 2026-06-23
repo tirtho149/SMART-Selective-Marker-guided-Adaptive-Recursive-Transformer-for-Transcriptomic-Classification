@@ -1,0 +1,46 @@
+This is BibTeX, Version 0.99e (TeX Live 2026)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: genomicrecursiveformer.aux
+The style file: aaai.bst
+Database file #1: refs.bib
+You've used 45 entries,
+            2568 wiz_defined-function locations,
+            785 strings with 13983 characters,
+and the built_in function-call counts, 19765 in all, are:
+= -- 1970
+> -- 1276
+< -- 0
++ -- 468
+- -- 458
+* -- 1715
+:= -- 3450
+add.period$ -- 225
+call.type$ -- 45
+change.case$ -- 403
+chr.to.int$ -- 45
+cite$ -- 45
+duplicate$ -- 635
+empty$ -- 1107
+format.name$ -- 526
+if$ -- 3832
+int.to.chr$ -- 1
+int.to.str$ -- 0
+missing$ -- 45
+newline$ -- 273
+num.names$ -- 135
+pop$ -- 353
+preamble$ -- 1
+purify$ -- 448
+quote$ -- 0
+skip$ -- 478
+stack$ -- 0
+substring$ -- 610
+swap$ -- 90
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 360
+warning$ -- 0
+while$ -- 116
+width$ -- 49
+write$ -- 606

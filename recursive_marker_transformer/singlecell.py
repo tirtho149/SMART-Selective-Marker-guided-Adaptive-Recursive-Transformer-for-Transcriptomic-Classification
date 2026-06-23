@@ -1,0 +1,193 @@
+"""Run SMART on the converted single-cell datasets (genomap capsule 6967747).
+
+Each dataset lives in ``data/singlecell/<name>/`` as produced by
+``tools/convert_capsule_to_csv.py`` (expression.csv.gz + labels.csv + optional
+split.csv). This module trains the headline SMART configuration (cross-attention
+marker router + expert-choice Mixture-of-Recursions) on every dataset and writes
+one results JSON per dataset, which ``make_paper.py`` renders into the single-cell
+generalisation table.
+
+Fully reproducible: fixed seed, deterministic split (the dataset's own split.csv
+when present, otherwise a seeded stratified split), no network.
+
+Usage:
+    python -m recursive_marker_transformer.singlecell                 # all datasets
+    python -m recursive_marker_transformer.singlecell --datasets pancreas --epochs 6
+"""
+from __future__ import annotations
+
+import argparse
+import json
+from dataclasses import replace
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import torch
+from sklearn.metrics import accuracy_score, classification_report, f1_score
+from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, TensorDataset
+
+from .config import RMTConfig
+from .losses import RMTLoss
+from .model import RecursiveMarkerTransformer
+from .train import _class_weights, evaluate, resolve_device
+
+HEAD = "cell_type"
+_DTYPES = {HEAD: "multiclass"}
+
+
+def _load_dataset(d: Path):
+    """Return (X float32 [N,F], y int64 [N] 0-based, split str[N] | None)."""
+    X = pd.read_csv(d / "expression.csv.gz", index_col="cell_id").values.astype(np.float32)
+    y_raw = pd.read_csv(d / "labels.csv", index_col="cell_id")["label"].values.astype(np.int64)
+    uniq = np.unique(y_raw)
+    remap = {v: i for i, v in enumerate(uniq)}             # contiguous 0..K-1
+    y = np.array([remap[v] for v in y_raw], dtype=np.int64)
+    split = None
+    if (d / "split.csv").exists():
+        split = pd.read_csv(d / "split.csv", index_col="cell_id")["split"].values.astype(str)
+    return X, y, split
+
+
+def _make_splits(y, split, seed):
+    idx = np.arange(len(y))
+    if split is not None and (split == "train").any() and (split == "test").any():
+        tr, te = idx[split == "train"], idx[split == "test"]
+    else:
+        tr, te = train_test_split(idx, test_size=0.2, random_state=seed, stratify=y)
+    # carve a validation slice out of train (stratified)
+    tr, va = train_test_split(tr, test_size=0.15, random_state=seed, stratify=y[tr])
+    return tr, va, te
+
+
+class _DictLoader:
+    """Wrap a DataLoader so it yields (x, {HEAD: y}) like the TCGA loaders."""
+    def __init__(self, X, y, idx, bs, shuffle):
+        ds = TensorDataset(torch.from_numpy(X[idx]), torch.from_numpy(y[idx]))
+        self.dl = DataLoader(ds, batch_size=bs, shuffle=shuffle)
+
+    def __iter__(self):
+        for xb, yb in self.dl:
+            yield xb, {HEAD: yb}
+
+    def __len__(self):
+        return len(self.dl)
+
+
+def run_dataset(name: str, data_root: Path, base: RMTConfig, out_dir: Path) -> dict:
+    torch.manual_seed(base.seed)
+    np.random.seed(base.seed)
+    device = resolve_device(base.device)
+
+    X, y, split = _load_dataset(data_root / name)
+    F, K = X.shape[1], int(y.max() + 1)
+    tr, va, te = _make_splits(y, split, base.seed)
+
+    # z-score features on the train split only.
+    mu = X[tr].mean(0, keepdims=True)
+    sd = X[tr].std(0, keepdims=True) + 1e-6
+    X = (X - mu) / sd
+
+    cfg = replace(base, heads=(HEAD,), n_markers=min(base.n_markers, F))
+    print(f"\n########## {name}: N={len(y)} F={F} K={K} "
+          f"(train {len(tr)}, val {len(va)}, test {len(te)}) device={device} ##########")
+
+    dl_tr = _DictLoader(X, y, tr, cfg.batch_size, True)
+    dl_va = _DictLoader(X, y, va, cfg.batch_size, False)
+    dl_te = _DictLoader(X, y, te, cfg.batch_size, False)
+
+    model = RecursiveMarkerTransformer(cfg, F, {HEAD: K}, _DTYPES).to(device)
+    model.set_gene_variance(torch.from_numpy(X[tr].var(0).astype(np.float32)))
+    cw = _class_weights(torch.from_numpy(y[tr]), K).to(device)
+    criterion = RMTLoss(cfg, _DTYPES, {HEAD: cw})
+    opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=cfg.epochs)
+
+    best_f1, best_state, bad = -1.0, None, 0
+    for ep in range(cfg.epochs):
+        model.train()
+        model.set_anneal(ep / max(cfg.epochs - 1, 1))
+        for xb, yb in dl_tr:
+            xb = xb.to(device)
+            yb = {h: v.to(device) for h, v in yb.items()}
+            out = model(xb)
+            loss = criterion(out, yb)["total"]
+            opt.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            opt.step()
+        sched.step()
+        yt, yp = evaluate(model, dl_va, device, _DTYPES)[HEAD]
+        vf1 = f1_score(yt, yp, average="macro")
+        print(f"  epoch {ep+1:2d}/{cfg.epochs}  val_macroF1={vf1:.4f}")
+        if vf1 > best_f1:
+            best_f1, bad = vf1, 0
+            best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+        else:
+            bad += 1
+            if bad >= cfg.patience:
+                print(f"  early stop @ epoch {ep+1}")
+                break
+    if best_state is not None:
+        model.load_state_dict(best_state)
+
+    yt, yp = evaluate(model, dl_te, device, _DTYPES)[HEAD]
+    res = {
+        "dataset": name,
+        "n_samples": int(len(y)), "n_features": int(F), "n_classes": int(K),
+        "n_train": int(len(tr)), "n_test": int(len(te)),
+        "transformer_params": int(model.transformer_param_count()),
+        "total_params": int(model.total_param_count()),
+        "config": cfg.as_dict(),
+        "heads": {HEAD: {
+            "accuracy": float(accuracy_score(yt, yp)),
+            "macro_f1": float(f1_score(yt, yp, average="macro")),
+            "weighted_f1": float(f1_score(yt, yp, average="weighted")),
+            "per_class": classification_report(yt, yp, zero_division=0, output_dict=True),
+        }},
+    }
+    out_dir.mkdir(parents=True, exist_ok=True)
+    with open(out_dir / f"{name}.json", "w") as f:
+        json.dump(res, f, indent=1, default=float)
+    h = res["heads"][HEAD]
+    print(f"  [TEST] acc={h['accuracy']*100:.1f} macroF1={h['macro_f1']*100:.1f} "
+          f"weightedF1={h['weighted_f1']*100:.1f}")
+    return res
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--data", type=Path, default=Path("data/singlecell"))
+    ap.add_argument("--out", type=Path, default=Path("results_singlecell"))
+    ap.add_argument("--datasets", nargs="*",
+                    default=["tabula_muris", "common_class", "prototype", "pancreas"])
+    ap.add_argument("--epochs", type=int, default=10)
+    ap.add_argument("--d_model", type=int, default=96)
+    ap.add_argument("--n_markers", type=int, default=128)
+    ap.add_argument("--batch_size", type=int, default=512)
+    ap.add_argument("--lr", type=float, default=3e-4)
+    ap.add_argument("--patience", type=int, default=5)
+    ap.add_argument("--device", type=str, default="auto")
+    args = ap.parse_args()
+
+    base = RMTConfig(
+        heads=(HEAD,), n_hvg=None, batch_size=args.batch_size,
+        d_model=args.d_model, d_ff=2 * args.d_model, n_markers=args.n_markers,
+        marker_mode="router", recursion_mode="expert", recursion_depth=4,
+        epochs=args.epochs, patience=args.patience, lr=args.lr, device=args.device,
+    )
+    summary = []
+    for name in args.datasets:
+        if not (args.data / name).exists():
+            print(f"[skip] {name}: not found under {args.data}")
+            continue
+        r = run_dataset(name, args.data, base, args.out)
+        summary.append((name, r["heads"][HEAD]["accuracy"], r["heads"][HEAD]["macro_f1"]))
+    print("\n==== SMART single-cell summary ====")
+    for n, a, f in summary:
+        print(f"  {n:14s} acc={a*100:5.1f}  macroF1={f*100:5.1f}")
+
+
+if __name__ == "__main__":
+    main()

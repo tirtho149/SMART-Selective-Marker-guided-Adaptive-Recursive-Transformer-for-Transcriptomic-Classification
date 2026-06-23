@@ -1,0 +1,8 @@
+# SMART — runtime dependencies (versions from the working CPU env).
+# On the GPU machine install the CUDA build of torch for your CUDA version
+# (see https://pytorch.org/get-started/locally/), then the rest pinned below.
+torch==2.2.2          # use the +cuXXX CUDA wheel on the GPU box
+numpy==1.26.4
+scipy==1.17.1
+scikit-learn==1.9.0
+pandas==3.0.3

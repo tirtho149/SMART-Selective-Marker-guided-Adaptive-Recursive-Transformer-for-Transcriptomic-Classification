@@ -1,0 +1,30 @@
+# ---- large data (regenerated via genomic_dataloader / tools/convert_capsule_to_csv.py) ----
+data/
+*.csv.gz
+*_genes.csv
+
+# ---- large binary assets ----
+*.mat
+*.npy
+2507.10524v1.pdf
+
+# ---- third-party genomap clone (external package; has its own large .mat + .git) ----
+genomap/
+
+# ---- python / env ----
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# ---- backups, logs, slurm output, OS cruft ----
+_cpu_backup/
+logs/
+*.out
+.DS_Store
+
+# keep: source, scripts (*.sbatch/*.sh), paper/ (incl. compiled PDF), results*/ JSON+CSV,
+# markers_top.csv, requirements.txt, *.md, paper_review/
+
+# ---- stray training residue ----
+catboost_info/
