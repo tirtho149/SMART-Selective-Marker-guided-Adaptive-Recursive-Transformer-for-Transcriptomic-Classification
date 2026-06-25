@@ -250,7 +250,7 @@ provide the broader context for our task.
 \draw[flow] (emb) -- (router);
 \draw[flow] (router) -- (mtok);
 
-\node[stage, below=52mm of inp] (shared) {{\large\textcolor{accentB}{\faRedo}}\\[2pt]\textbf{Shared Block}\\[1pt]{\scriptsize\textcolor{subcap}{$f_\theta$ applied $\times K$}}};
+\node[stage, below=24mm of inp] (shared) {{\large\textcolor{accentB}{\faRedo}}\\[2pt]\textbf{Shared Block}\\[1pt]{\scriptsize\textcolor{subcap}{$f_\theta$ applied $\times K$}}};
 \node[stage, right=of shared] (mor) {{\large\textcolor{accentB}{\faFilter}}\\[2pt]\textbf{MoR Depth Router}\\[1pt]{\scriptsize\textcolor{subcap}{funnel; logit $+\,\beta_t\pi_m$}}};
 \node[stage, right=of mor] (pool) {{\large\textcolor{accentB}{\faCompress}}\\[2pt]\textbf{Mean-pool}\\[1pt]{\scriptsize\textcolor{subcap}{over $M$ markers}}};
 \node[stage, right=of pool] (clf) {{\large\textcolor{accentB}{\faChartBar}}\\[2pt]\textbf{Classifier}\\[1pt]{\scriptsize\textcolor{subcap}{linear head}}};
@@ -605,6 +605,7 @@ of MoR) is preserved with no systematic loss in this much harder, low-data regim
 \centering
 \setlength{\tabcolsep}{4pt}
 \footnotesize
+\resizebox{\columnwidth}{!}{%
 \begin{tabular}{llccc}
 \toprule
 & & \multicolumn{3}{c}{Mean\,$\pm$\,std (metric per block)} \\
@@ -644,13 +645,13 @@ Unified & \texttt{cancer\_type} & \textbf{97.9\,$\pm$\,0.9} & 96.9\,$\pm$\,0.4 &
  & \texttt{os\_binary}  & 47.5\,$\pm$\,0.2 & 47.9\,$\pm$\,1.6 & \textbf{48.7\,$\pm$\,2.3} \\
  & \texttt{tumor\_stat} & 50.8\,$\pm$\,4.7 & \textbf{51.2\,$\pm$\,4.0} & 50.0\,$\pm$\,2.1 \\
 \midrule
-\multicolumn{5}{l}{\emph{Single-cell genomap --- accuracy \%, 5 seeds (genoNet ref: TM 93, Pancreas 97)}}\\
+\multicolumn{5}{l}{\emph{Single-cell genomap --- accuracy \%, 5 seeds}}\\
 \midrule
 \multirow{2}{*}{Genomap}
  & \texttt{tabula\_muris} (55) & 82.5\,$\pm$\,2.7 & 82.1\,$\pm$\,2.2 & \textbf{84.3\,$\pm$\,1.1} \\
  & \texttt{pancreas} (15)      & 90.1\,$\pm$\,3.0 & \textbf{92.4\,$\pm$\,1.3} & 90.9\,$\pm$\,1.6 \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
 \caption{\textbf{Unified results across domains} (three model variants). \textbf{TCGA bulk
 RNA-seq} (top): \texttt{cancer\_type} unified, the five clinical / outcome targets modeled
 separately within each cohort; macro-F1 \%, mean\,$\pm$\,std over stratified 5-fold CV
