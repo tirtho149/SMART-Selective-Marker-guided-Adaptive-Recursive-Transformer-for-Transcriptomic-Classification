@@ -269,10 +269,11 @@ clustering/visualization, not classification, so they are excluded here.
 \begin{table}[h]
 \centering
 \caption{\textbf{Single-cell recognition vs.\ the genomap paper.} Test accuracy of
-our three model variants under the genomap paper's protocol, with the genomap paper's
-own reported genoNet accuracy for reference. On pancreas integration our Independent
-variant matches the paper's headline 93\%. Best per row (among our variants) in
-\textbf{bold}.}
+our three model variants under the genomap paper's protocol, with genomap's own reported
+genoNet accuracy for reference (Tabula Muris 93\%, Suppl.\ Fig.~S4; Segerstolpe pancreas
+97\%, Fig.~7c). genoNet's 2D-image CNN is the stronger classifier; our general transformer
+transfers unchanged from bulk to single-cell and lands within striking distance at far fewer
+parameters. Best per row (among our variants) in \textbf{bold}.}
 \label{tab:singlecell}
 \setlength{\tabcolsep}{6pt}
 \footnotesize
@@ -283,8 +284,8 @@ variant matches the paper's headline 93\%. Best per row (among our variants) in
 \textbf{Task} & \textbf{Dataset (cells / cls)} &
 \textbf{Independent} & \textbf{Shared} & \textbf{MoR} & \textbf{(paper)} \\
 \midrule
-Cell recognition  & Tabula Muris (54{,}865 / 55) & \best{0.830} & 0.829 & 0.826 & Suppl.\ S4 \\
-Data integration  & Pancreas (14{,}767 / 15)     & \best{0.935} & 0.920 & 0.904 & 0.93 \\
+Cell recognition  & Tabula Muris (54{,}865 / 55) & \best{0.830} & 0.829 & 0.826 & 0.93 \\
+Data integration  & Pancreas (14{,}767 / 15)     & \best{0.935} & 0.920 & 0.904 & 0.97 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -292,10 +293,10 @@ Data integration  & Pancreas (14{,}767 / 15)     & \best{0.935} & 0.920 & 0.904 
 \vspace{0.3em}
 \noindent\footnotesize
 \textit{Notes.} Accuracy on the paper's held-out test set (single split, seed 42).
-The genomap paper reports 93\% on the pancreas integration (6\% / 21\% above Cell-ID /
-SingleR; Segerstolpe subset 97\%); its Tabula Muris accuracy is given only in
-Supplementary Fig.~S4. Our recursive model reaches the paper's pancreas accuracy at
-$\sim$4$\times$ fewer recurrent parameters (shared / MoR) than the Independent stack
-(see Table~\ref{tab:main}). Source: \texttt{results\_singlecell\_paper/*/}.
+genomap's genoNet reaches 93\% on Tabula Muris (Suppl.\ Fig.~S4; 6\% / 21\% above Cell-ID /
+SingleR) and 97\% on the Segerstolpe pancreas subset (Fig.~7c). genoNet, a CNN purpose-built
+for the 2D genomap image, is stronger; our value is that the \emph{same} 0.7M-parameter
+recursive transformer used for the TCGA cohorts (Table~\ref{tab:main}) transfers to single-cell
+unchanged. Source: \texttt{results\_singlecell\_paper/*/}.
 
 \end{document}

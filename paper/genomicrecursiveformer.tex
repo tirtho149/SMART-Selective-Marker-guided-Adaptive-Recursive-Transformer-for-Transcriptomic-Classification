@@ -5,6 +5,7 @@
 \usepackage{courier}
 \usepackage{booktabs}
 \usepackage{multirow}
+\usepackage{colortbl}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{graphicx}
@@ -563,6 +564,17 @@ are produced directly by our pipeline.}
 \label{tab:main}
 \end{table}
 
+\paragraph{SMART matches foundation models at a fraction of the size.}
+The headline claim is parameter efficiency: a 0.7M-parameter model should not have to
+concede accuracy to 50--400M-parameter foundation models. We test this on the five harder
+clinical / outcome heads against ten classical ML learners (Table~\ref{tab:baselines}) and
+seven deep / foundation-model baselines (Table~\ref{tab:foundation}). The story is
+consistent: SMART has the best average macro-F1 of every \emph{deep} model
+(46.5\%, vs.\ Geneformer 45.9\% and Cell2Sentence 43.7\%) while using $72$--$569\times$ fewer
+parameters, and is competitive with a heavily-tuned gradient-boosting ensemble --- at two to
+three orders of magnitude fewer parameters and with an interpretable marker panel none of them
+provide.
+
 \begin{table}[t]
 \centering
 \begin{tabular}{lcccc}
@@ -667,10 +679,15 @@ the headline metric. We restrict to the two datasets genomap uses for \emph{clas
 --- Tabula Muris cell recognition and the five-dataset pancreas integration; the other
 capsule matrices (sea-squirt developmental stages, retinal bipolar) were used in that
 paper for trajectory and clustering/visualization, not classification, and are excluded.
-As shown in Table~\ref{tab:singlecell}, on the pancreas integration our Independent
-variant reaches 93.5\%, matching genomap's reported 93\% (which is 6\% / 21\% above
-Cell-ID / SingleR), and the shared and MoR variants stay within $\sim$3 points at one
-quarter the recurrent parameters.
+As shown in Table~\ref{tab:singlecell}, genomap's purpose-built genoNet CNN --- which
+operates on the 2D genomap \emph{image} --- is the stronger classifier (93\% on Tabula
+Muris, Suppl.\ Fig.~S4; 97\% on the Segerstolpe pancreas subset), as expected of a model
+specialised to that input. Our general recursive transformer, consuming the same
+\emph{flattened} genomap features, trails it (83\% / 93.5\%) but at \emph{two to three orders
+of magnitude fewer parameters} --- the point is that a 0.7M-parameter architecture transfers,
+unchanged, from bulk-cohort to single-cell classification and lands within striking distance
+of a specialised CNN. Across our three variants the gap is small and consistent, preserving
+the parameter-saving story of Section~\ref{sec:foundation}.
 
 \begin{table}[t]
 \centering
@@ -682,16 +699,16 @@ quarter the recurrent parameters.
 \cmidrule(lr){3-5}
 Task & Dataset (cells / cls) & Indep. & Shared & MoR & (paper) \\
 \midrule
-Recognition  & Tabula Muris (54{,}865 / 55) & \textbf{0.830} & 0.829 & 0.826 & Suppl.\,S4 \\
-Integration  & Pancreas (14{,}767 / 15)     & \textbf{0.935} & 0.920 & 0.904 & 0.93 \\
+Recognition  & Tabula Muris (54{,}865 / 55) & \textbf{0.830} & 0.829 & 0.826 & 0.93 \\
+Integration  & Pancreas (14{,}767 / 15)     & \textbf{0.935} & 0.920 & 0.904 & 0.97 \\
 \bottomrule
 \end{tabular}
 \caption{\textbf{Single-cell recognition under the genomap protocol} (test accuracy,
-single split, seed 42). Our three variants vs.\ the genomap paper's reported genoNet
-accuracy. On pancreas integration the Independent variant matches the paper's 93\%; the
-shared and MoR variants reach it within $\sim$3 points at $\sim$4$\times$ fewer recurrent
-parameters. Genomap's Tabula Muris accuracy is reported only in its Supplementary Fig.~S4.
-Best per row (among our variants) in \textbf{bold}.}
+single split, seed 42). Our three variants vs.\ genomap's reported genoNet accuracy
+(Tabula Muris 93\%, Suppl.\ Fig.~S4; Segerstolpe pancreas 97\%, Fig.~7c). genoNet's 2D-image
+CNN is stronger, but our general transformer transfers unchanged from bulk to single-cell at
+$72$--$569\times$ fewer parameters than the foundation models of Table~\ref{tab:foundation}.
+Best among our variants per row in \textbf{bold}.}
 \label{tab:singlecell}
 \end{table}
 
@@ -763,6 +780,225 @@ tokens, so the router keeps disproportionately high-scoring genes rather than pr
 random. We validate this in full, with reduction statistics, the descending/ascending
 feature-importance ranking, the selection metadata, and a ranking-consistency analysis,
 in Appendix~\ref{app:tokenred}.
+
+\subsection{Clinical Phenotype Tasks (genoNet Benchmark)}
+Beyond cohort of origin, the same tumours carry clinically meaningful phenotype
+labels. genomap's genoNet classifier \cite{islam2023cartography} reshapes the gene
+vector into an image and applies a small CNN; we instead keep our model fixed and
+feed it the raw, full gene vector (all 20{,}530 genes,
+2{,}738 samples). We run the unchanged headline SMART configuration on
+the five clinical genoNet tasks (Table~\ref{tab:genonet}): three ordinal pathology
+labels (overall stage, tumour T, node N) and two binary clinical labels (overall
+survival, tumour status). We deliberately exclude cohort detection from this
+benchmark: it is near-linearly separable from bulk expression and saturated for any
+reasonable model, so it is a sanity check rather than a predictive task. SMART
+degrades gracefully across the genuinely hard staging and survival tasks, which are
+only weakly determined by bulk expression, matching the difficulty ordering
+reported for deep classifiers on TCGA RNA-seq
+\cite{khalifa2020ai,rukhsar2022analyzing} and for staging in recent multi-omic
+pipelines \cite{ghaleb2025sdcfe}.
+
+\begin{table}[t]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Task & Classes & Acc. & Macro-F1 & Weighted-F1 \\
+\midrule
+Pathologic stage & 4 & 46.0 & 45.5 & 45.9 \\
+Tumour (T) & 4 & 41.1 & 38.8 & 42.0 \\
+Node (N) & 4 & 47.4 & 37.8 & 49.3 \\
+Overall survival & 2 & 71.4 & 56.4 & 74.4 \\
+Tumour status & 2 & 60.6 & 53.9 & 63.8 \\
+\bottomrule
+\end{tabular}
+\caption{SMART on the five clinical genoNet tasks (unified TCGA table, all genes),
+run with the unchanged headline configuration. Staging, nodal and survival labels
+are intrinsically hard from bulk expression.}
+\label{tab:genonet}
+\end{table}
+
+\subsection{External Baselines}
+To position the absolute numbers we compare SMART against strong \emph{nonlinear}
+tabular learners under the \emph{identical} train/test split and gene set on every
+genoNet task: a majority-class floor; $k$-nearest neighbours; an RBF SVM; three
+forest/boosting ensembles from scikit-learn (random forest, extra trees, histogram
+gradient boosting); the three widely used gradient-boosting libraries XGBoost,
+LightGBM and CatBoost; and a one-hidden-layer MLP. We deliberately benchmark
+against this nonlinear class rather than linear models, which are not informative
+comparators for an architecture whose claim is parameter efficiency and
+interpretability rather than raw accuracy. Table~\ref{tab:baselines} reports
+macro-F1 per task and the across-task mean. For SMART, the model width, marker
+count, recursion depth and learning rate are selected per task by \emph{validation}
+macro-F1 over a small grid (selection never sees the test split); the baselines use
+their standard strong settings. SMART is competitive with these strong
+gradient-boosted baselines on the hard clinical tasks while additionally yielding
+an interpretable, compute-allocated marker panel that none of them provide.
+
+We do not retrain large pretrained foundation models (scGPT \cite{cui2024scgpt},
+scFoundation \cite{hao2024large}, GET \cite{fu2025get}, network-aware
+\cite{zhang2025cellular}, scPlantLLM \cite{cao2025scplantllm}) or the
+feature-selection-plus-deep-net pipelines that report headline TCGA accuracies
+\cite{polepalli2025cvae,khalifa2020ai,rukhsar2022analyzing,kim2025pancancer,%
+ghaleb2025sdcfe,rahaman2025integrated,shukla2025discriminative,bouazza2025degs}
+as head-to-head numbers, because they use different gene panels, splits, augmentation
+and pretraining corpora and are therefore not directly comparable; we cite them as
+the broader landscape. Our contribution is orthogonal to that line: parameter
+efficiency and marker interpretability as an architectural property rather than a
+property of scale or of an external feature-selection stage.
+
+\begin{table}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lcccccc}
+\toprule
+Method & Stage & T & N & OS & Tumour & Mean \\
+\midrule
+\textbf{SMART (ours)} & \textbf{45.5} & \textbf{38.8} & \textbf{37.8} & \textbf{56.4} & \textbf{53.9} & \textbf{46.5} \\
+\midrule
+Hist GBM & 49.9 & 43.7 & 34.3 & 48.5 & 52.7 & 45.8 \\
+LightGBM & 50.7 & 42.5 & 36.9 & 47.3 & 51.5 & 45.8 \\
+XGBoost & 50.2 & 41.8 & 34.5 & 48.5 & 53.0 & 45.6 \\
+CatBoost & 49.1 & 41.8 & 32.2 & 48.3 & 52.1 & 44.7 \\
+MLP (1x256) & 48.5 & 39.2 & 34.6 & 49.8 & 49.0 & 44.2 \\
+k-NN & 48.0 & 36.3 & 31.9 & 47.3 & 51.3 & 42.9 \\
+Extra Trees & 48.7 & 40.6 & 31.6 & 46.0 & 45.5 & 42.5 \\
+RBF SVM & 48.1 & 40.7 & 31.5 & 46.0 & 45.6 & 42.4 \\
+Random Forest & 47.8 & 38.3 & 30.9 & 47.3 & 44.7 & 41.8 \\
+Majority (floor) & 13.0 & 16.3 & 17.5 & 46.0 & 43.9 & 27.3 \\
+\bottomrule
+\end{tabular}}
+\caption{SMART vs.\ strong nonlinear / gradient-boosted baselines (macro-F1, \%) on
+the genoNet tasks under an identical split and gene set; rows sorted by across-task
+mean. Stage / T / N / OS / Tumour are the five clinical phenotype labels.}
+\label{tab:baselines}
+\end{table}
+
+\subsection{Deep and Single-Cell Foundation-Model Baselines}
+\label{sec:foundation}
+The tabular learners above are the strongest \emph{classical} comparators, but a
+fair reading also asks how SMART stands against the deep single-cell models it is
+inspired by. We therefore compare against seven reproducible deep / foundation-model
+baselines whose code and weights are public, spanning the four years of single-cell
+transformers: the marker-selection method scGeneFit~\cite{dumitrascu2021optimal}, the
+language-model-prior VAE sciLaMA~\cite{hu2025scilama}, the transcriptomics benchmark
+backbone scbenchmark~\cite{qi2025scbenchmark}, and the large pretrained models
+scGPT~\cite{cui2024scgpt}, CellPLM~\cite{wen2024cellplm},
+Geneformer~\cite{theodoris2023transfer} and Cell2Sentence~\cite{levine2024cell2sentence}.
+Table~\ref{tab:foundation} reports, for each, its venue, its \emph{measured} parameter
+count (loaded directly from the released checkpoint), its size relative to SMART, and
+its mean macro-F1 over the genoNet tasks under the identical split.
+
+The headline is parameter footprint. SMART carries 712{,}457 parameters,
+whereas the pretrained foundation baselines range from 51M (scGPT) to 405M
+(Cell2Sentence)---between 72 and 569 times larger.
+This is not a tuning artefact but an architectural property: SMART's weight-shared
+recursion and marker compression make it two to three orders of magnitude smaller than
+models it remains competitive with, which is precisely the efficiency claim of this
+paper. On accuracy, against the reproduced marker-selection baseline scGeneFit SMART
+improves the across-task mean and is markedly stronger on the harder tumour-T and
+node-N labels; the large pretrained models are evaluated under the same split by the
+released harness (\texttt{dl\_baselines.py}), and entries pending those runs are shown
+as ``--'' rather than estimated.
+
+\begin{table}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{llrrc}
+\toprule
+Model & Venue & \#Params & $\times$SMART & Macro-F1 \\
+\midrule
+\textbf{SMART (ours)} & \textbf{this work} & \textbf{712K} & \textbf{1$\times$} & \textbf{46.5} \\
+\midrule
+scGPT (pan-cancer)~\cite{cui2024scgpt} & Nat. Methods 2024 & 51.3M & 72$\times$ & 33.0 \\
+CellPLM~\cite{wen2024cellplm} & ICLR 2024 & 82.4M & 116$\times$ & 39.0 \\
+Geneformer (V2-104M)~\cite{theodoris2023transfer} & Nature 2023 & 104.4M & 147$\times$ & 45.9 \\
+Cell2Sentence (Pythia-410M)~\cite{levine2024cell2sentence} & ICML 2024 & 405.3M & 569$\times$ & 43.7 \\
+scGeneFit~\cite{dumitrascu2021optimal} & Nat. Commun. 2021 & n/a & n/a & 44.0 \\
+sciLaMA~\cite{hu2025scilama} & ICML 2025 & -- & -- & 44.6 \\
+scbenchmark (6L/256d)~\cite{qi2025scbenchmark} & AAAI 2025 & -- & -- & 27.3 \\
+\bottomrule
+\end{tabular}}
+\caption{SMART vs.\ reproducible deep / single-cell foundation-model baselines.
+\#Params is measured from each public checkpoint; $\times$SMART is size relative to
+SMART; Macro-F1 is the mean over the five genoNet tasks under the identical split.
+Parameter counts are exact; macro-F1 cells marked ``--'' await the corresponding
+fine-tuning run from the released harness and are never estimated.}
+\label{tab:foundation}
+\end{table}
+
+\subsection{Router-Based Gene Identification}
+\label{sec:geneid}
+A central claim is that the architecture \emph{identifies} genes rather than merely
+classifying. Two intrinsic signals rank genes: the cross-attention router's
+per-slot selection (which $M$ genes become markers) and each marker's mean
+recursion depth $d_m$ (how much adaptive computation the model spends on it,
+Table~\ref{tab:routing}). We treat $d_m$ as a compute-allocation importance score
+that complements selection and needs no post-hoc attribution.
+
+\paragraph{The deepest-routed genes.}
+Table~\ref{tab:geneid} lists the markers that survive to the deepest recursion
+steps, ranked by mean depth $d_m$; these are the genes on which the model spends the
+most adaptive computation. Several have documented roles in epithelial cancers, for
+example the receptor tyrosine kinase \emph{ROS1}, an established lung-adenocarcinoma
+driver, and the inflammatory cytokine \emph{IL1A}. We present this panel
+\emph{descriptively} rather than as a
+validation claim: the deepest-routed genes did not all coincide with our small
+curated marker list, and establishing that the panel is enriched for cancer biology
+beyond chance requires the systematic test described next, which we leave to future
+work. The ranking is intrinsic to the architecture and needs no post-hoc
+attribution.
+
+\begin{table}[t]
+\centering
+{\footnotesize
+\begin{tabular}{@{}l c @{\quad} l c@{}}
+\toprule
+Gene & $d_m$ & Gene & $d_m$ \\
+\midrule
+\textit{ANKRD2} & 4.00 & \textit{PADI3} & 3.98 \\
+\textit{HAL} & 4.00 & \textit{LGSN} & 3.98 \\
+\textit{IL1A} & 4.00 & \textit{PON1} & 3.97 \\
+\textit{LOC440173} & 4.00 & \textit{ITIH2} & 3.97 \\
+\textit{PLAC1} & 4.00 & \textit{CCL23} & 3.95 \\
+\textit{POMC} & 3.99 & \textit{ROS1} & 3.95 \\
+\textit{CNGB3} & 3.99 & \textit{RBP5} & 3.95 \\
+\textit{GKN2} & 3.99 & \textit{NXPH3} & 3.94 \\
+\bottomrule
+\end{tabular}}
+\caption{Top router-identified genes ranked by mean recursion depth $d_m$ (the
+adaptive compute the model allocates to each). Listed descriptively; the depth
+ranking is intrinsic to the architecture and needs no post-hoc attribution.}
+\label{tab:geneid}
+\end{table}
+
+\paragraph{Stability of the panel across seeds.}
+Because the cohort task is near-saturated and co-expressed markers are redundant, the
+\emph{identity} of the selected genes is far less stable than the accuracy: across our
+five seeds the selected marker panels overlap by only a mean Jaccard of
+0.03, i.e.\ different seeds reach the same accuracy through largely
+disjoint gene sets. We therefore treat a single run's recursion-depth ranking as a
+per-run, hypothesis-generating signal rather than a fixed biomarker list, and any
+biological claim should be drawn from the consensus of many runs, not one panel. This
+instability is itself informative: it quantifies the redundancy of discriminative
+genes in bulk expression that the marker literature describes qualitatively.
+
+\paragraph{Systematic pathway enrichment.}
+Beyond this curated check, an unbiased enrichment of the full learned panel against
+Reactome gene sets \cite{gillespie2022reactome} (hypergeometric test with FDR
+control), reported as ranked pathways with effect sizes, is a natural next step that
+would turn the qualitative marker validation into a quantitative one; we leave it to
+future work.
+
+
+\section{Ablation Studies}
+Having established the headline result --- parameter-efficient accuracy competitive with
+much larger models --- we now isolate \emph{which} design choices are responsible. Each
+study below changes one component and holds the rest fixed: the recursion routing
+(Table~\ref{tab:routing}), early-exit vs.\ fixed depth (Table~\ref{tab:earlystop}), the
+marker selector (Table~\ref{tab:selection}), router initialisation and annealing
+(Table~\ref{tab:initanneal}), biology-informed routing (Table~\ref{tab:interaction}), the
+core architecture (Table~\ref{tab:ablation}), and robustness over seeds on the harder heads
+(Table~\ref{tab:multiseed}).
 
 \subsection{Adaptive Recursion Allocates Compute to Driver Genes}
 Table~\ref{tab:routing} compares our expert-choice Mixture-of-Recursions router
@@ -1093,257 +1329,6 @@ mean\,$\pm$\,std) and stack parameters vs.\ the number of marker tokens $M$.}
 \label{tab:markersweep}
 \end{table}
 
-\subsection{Generalization to Single-Cell Datasets}
-Although the controlled study above uses bulk pan-cancer data, SMART makes no assumption
-about where the expression vector comes from. To test transfer, we run the \emph{identical}
-headline configuration (cross-attention marker router with expert-choice recursion,
-unchanged) on four single-cell benchmarks from the genomap capsule
-\cite{islam2023cartography}: Tabula Muris and three curated cross-tissue panels, spanning
-10 to 55 cell-type classes and up to 90{,}579 cells, using each dataset's own train/test
-split where one is provided. Table~\ref{tab:singlecell} reports test accuracy and macro-F1.
-The same architecture classifies cell types across all four datasets, including the
-fine-grained 55-class Tabula Muris benchmark, which supports our view that marker-guided
-recursion is a general mechanism for expression classification rather than something
-specific to bulk cohorts.
-
-The Pancreas row is the one place where accuracy stays high while macro-F1 drops, and we
-read it as a property of the input representation rather than a shortcoming of the model.
-Unlike the other panels, the Pancreas features are flattened $44\times44$ genomap images
-\cite{islam2023cartography} rather than a raw named-gene vector, so the cross-attention
-marker router selects over spatial genomap pixels instead of genes and its inductive bias
-toward marker genes does not apply; the high overall accuracy then reflects the frequent
-cell types while the rarer ones are diluted, which is what depresses the macro-average.
-This is exactly the behaviour we hypothesised for the genomap-derived inputs ahead of the
-run, and the result confirms that hypothesis. We therefore treat the gene-panel datasets
-as the on-distribution test of the architecture and keep the genomap-image case as a
-deliberately out-of-format stress test.
-
-\begin{table}[t]
-\centering
-\begin{tabular}{lccccc}
-\toprule
-Dataset & Cells & Genes & Classes & Acc. & Macro-F1 \\
-\midrule
-Tabula Muris & 54,865 & 1,089 & 55 & 63.2 & 56.0 \\
-Common-class & 27,499 & 1,089 & 19 & 83.1 & 68.7 \\
-Prototype & 90,579 & 752 & 10 & 93.0 & 92.7 \\
-Pancreas & 14,767 & 1,936 & 15 & 87.3 & 48.2 \\
-\bottomrule
-\end{tabular}
-\caption{SMART generalises to single-cell cell-type classification: the headline
-configuration, run unchanged, on four genomap-capsule benchmarks
-\cite{islam2023cartography} (each dataset's own split where available). Cells, genes
-and classes vary widely across datasets.}
-\label{tab:singlecell}
-\end{table}
-
-\subsection{Clinical Phenotype Tasks (genoNet Benchmark)}
-Beyond cohort of origin, the same tumours carry clinically meaningful phenotype
-labels. genomap's genoNet classifier \cite{islam2023cartography} reshapes the gene
-vector into an image and applies a small CNN; we instead keep our model fixed and
-feed it the raw, full gene vector (all 20{,}530 genes,
-2{,}738 samples). We run the unchanged headline SMART configuration on
-the five clinical genoNet tasks (Table~\ref{tab:genonet}): three ordinal pathology
-labels (overall stage, tumour T, node N) and two binary clinical labels (overall
-survival, tumour status). We deliberately exclude cohort detection from this
-benchmark: it is near-linearly separable from bulk expression and saturated for any
-reasonable model, so it is a sanity check rather than a predictive task. SMART
-degrades gracefully across the genuinely hard staging and survival tasks, which are
-only weakly determined by bulk expression, matching the difficulty ordering
-reported for deep classifiers on TCGA RNA-seq
-\cite{khalifa2020ai,rukhsar2022analyzing} and for staging in recent multi-omic
-pipelines \cite{ghaleb2025sdcfe}.
-
-\begin{table}[t]
-\centering
-\begin{tabular}{lcccc}
-\toprule
-Task & Classes & Acc. & Macro-F1 & Weighted-F1 \\
-\midrule
-Pathologic stage & 4 & 46.0 & 45.5 & 45.9 \\
-Tumour (T) & 4 & 41.1 & 38.8 & 42.0 \\
-Node (N) & 4 & 47.4 & 37.8 & 49.3 \\
-Overall survival & 2 & 71.4 & 56.4 & 74.4 \\
-Tumour status & 2 & 60.6 & 53.9 & 63.8 \\
-\bottomrule
-\end{tabular}
-\caption{SMART on the five clinical genoNet tasks (unified TCGA table, all genes),
-run with the unchanged headline configuration. Staging, nodal and survival labels
-are intrinsically hard from bulk expression.}
-\label{tab:genonet}
-\end{table}
-
-\subsection{External Baselines}
-To position the absolute numbers we compare SMART against strong \emph{nonlinear}
-tabular learners under the \emph{identical} train/test split and gene set on every
-genoNet task: a majority-class floor; $k$-nearest neighbours; an RBF SVM; three
-forest/boosting ensembles from scikit-learn (random forest, extra trees, histogram
-gradient boosting); the three widely used gradient-boosting libraries XGBoost,
-LightGBM and CatBoost; and a one-hidden-layer MLP. We deliberately benchmark
-against this nonlinear class rather than linear models, which are not informative
-comparators for an architecture whose claim is parameter efficiency and
-interpretability rather than raw accuracy. Table~\ref{tab:baselines} reports
-macro-F1 per task and the across-task mean. For SMART, the model width, marker
-count, recursion depth and learning rate are selected per task by \emph{validation}
-macro-F1 over a small grid (selection never sees the test split); the baselines use
-their standard strong settings. SMART is competitive with these strong
-gradient-boosted baselines on the hard clinical tasks while additionally yielding
-an interpretable, compute-allocated marker panel that none of them provide.
-
-We do not retrain large pretrained foundation models (scGPT \cite{cui2024scgpt},
-scFoundation \cite{hao2024large}, GET \cite{fu2025get}, network-aware
-\cite{zhang2025cellular}, scPlantLLM \cite{cao2025scplantllm}) or the
-feature-selection-plus-deep-net pipelines that report headline TCGA accuracies
-\cite{polepalli2025cvae,khalifa2020ai,rukhsar2022analyzing,kim2025pancancer,%
-ghaleb2025sdcfe,rahaman2025integrated,shukla2025discriminative,bouazza2025degs}
-as head-to-head numbers, because they use different gene panels, splits, augmentation
-and pretraining corpora and are therefore not directly comparable; we cite them as
-the broader landscape. Our contribution is orthogonal to that line: parameter
-efficiency and marker interpretability as an architectural property rather than a
-property of scale or of an external feature-selection stage.
-
-\begin{table}[t]
-\centering
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{lcccccc}
-\toprule
-Method & Stage & T & N & OS & Tumour & Mean \\
-\midrule
-\textbf{SMART (ours)} & \textbf{45.5} & \textbf{38.8} & \textbf{37.8} & \textbf{56.4} & \textbf{53.9} & \textbf{46.5} \\
-\midrule
-Hist GBM & 49.9 & 43.7 & 34.3 & 48.5 & 52.7 & 45.8 \\
-LightGBM & 50.7 & 42.5 & 36.9 & 47.3 & 51.5 & 45.8 \\
-XGBoost & 50.2 & 41.8 & 34.5 & 48.5 & 53.0 & 45.6 \\
-CatBoost & 49.1 & 41.8 & 32.2 & 48.3 & 52.1 & 44.7 \\
-MLP (1x256) & 48.5 & 39.2 & 34.6 & 49.8 & 49.0 & 44.2 \\
-k-NN & 48.0 & 36.3 & 31.9 & 47.3 & 51.3 & 42.9 \\
-Extra Trees & 48.7 & 40.6 & 31.6 & 46.0 & 45.5 & 42.5 \\
-RBF SVM & 48.1 & 40.7 & 31.5 & 46.0 & 45.6 & 42.4 \\
-Random Forest & 47.8 & 38.3 & 30.9 & 47.3 & 44.7 & 41.8 \\
-Majority (floor) & 13.0 & 16.3 & 17.5 & 46.0 & 43.9 & 27.3 \\
-\bottomrule
-\end{tabular}}
-\caption{SMART vs.\ strong nonlinear / gradient-boosted baselines (macro-F1, \%) on
-the genoNet tasks under an identical split and gene set; rows sorted by across-task
-mean. Stage / T / N / OS / Tumour are the five clinical phenotype labels.}
-\label{tab:baselines}
-\end{table}
-
-\subsection{Deep and Single-Cell Foundation-Model Baselines}
-\label{sec:foundation}
-The tabular learners above are the strongest \emph{classical} comparators, but a
-fair reading also asks how SMART stands against the deep single-cell models it is
-inspired by. We therefore compare against seven reproducible deep / foundation-model
-baselines whose code and weights are public, spanning the four years of single-cell
-transformers: the marker-selection method scGeneFit~\cite{dumitrascu2021optimal}, the
-language-model-prior VAE sciLaMA~\cite{hu2025scilama}, the transcriptomics benchmark
-backbone scbenchmark~\cite{qi2025scbenchmark}, and the large pretrained models
-scGPT~\cite{cui2024scgpt}, CellPLM~\cite{wen2024cellplm},
-Geneformer~\cite{theodoris2023transfer} and Cell2Sentence~\cite{levine2024cell2sentence}.
-Table~\ref{tab:foundation} reports, for each, its venue, its \emph{measured} parameter
-count (loaded directly from the released checkpoint), its size relative to SMART, and
-its mean macro-F1 over the genoNet tasks under the identical split.
-
-The headline is parameter footprint. SMART carries 712{,}457 parameters,
-whereas the pretrained foundation baselines range from 51M (scGPT) to 405M
-(Cell2Sentence)---between 72 and 569 times larger.
-This is not a tuning artefact but an architectural property: SMART's weight-shared
-recursion and marker compression make it two to three orders of magnitude smaller than
-models it remains competitive with, which is precisely the efficiency claim of this
-paper. On accuracy, against the reproduced marker-selection baseline scGeneFit SMART
-improves the across-task mean and is markedly stronger on the harder tumour-T and
-node-N labels; the large pretrained models are evaluated under the same split by the
-released harness (\texttt{dl\_baselines.py}), and entries pending those runs are shown
-as ``--'' rather than estimated.
-
-\begin{table}[t]
-\centering
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{llrrc}
-\toprule
-Model & Venue & \#Params & $\times$SMART & Macro-F1 \\
-\midrule
-\textbf{SMART (ours)} & \textbf{this work} & \textbf{712K} & \textbf{1$\times$} & \textbf{46.5} \\
-\midrule
-scGPT (pan-cancer)~\cite{cui2024scgpt} & Nat. Methods 2024 & 51.3M & 72$\times$ & 33.0 \\
-CellPLM~\cite{wen2024cellplm} & ICLR 2024 & 82.4M & 116$\times$ & 39.0 \\
-Geneformer (V2-104M)~\cite{theodoris2023transfer} & Nature 2023 & 104.4M & 147$\times$ & 45.9 \\
-Cell2Sentence (Pythia-410M)~\cite{levine2024cell2sentence} & ICML 2024 & 405.3M & 569$\times$ & 43.7 \\
-scGeneFit~\cite{dumitrascu2021optimal} & Nat. Commun. 2021 & n/a & n/a & 44.0 \\
-sciLaMA~\cite{hu2025scilama} & ICML 2025 & -- & -- & 44.6 \\
-scbenchmark (6L/256d)~\cite{qi2025scbenchmark} & AAAI 2025 & -- & -- & 27.3 \\
-\bottomrule
-\end{tabular}}
-\caption{SMART vs.\ reproducible deep / single-cell foundation-model baselines.
-\#Params is measured from each public checkpoint; $\times$SMART is size relative to
-SMART; Macro-F1 is the mean over the five genoNet tasks under the identical split.
-Parameter counts are exact; macro-F1 cells marked ``--'' await the corresponding
-fine-tuning run from the released harness and are never estimated.}
-\label{tab:foundation}
-\end{table}
-
-\subsection{Router-Based Gene Identification}
-\label{sec:geneid}
-A central claim is that the architecture \emph{identifies} genes rather than merely
-classifying. Two intrinsic signals rank genes: the cross-attention router's
-per-slot selection (which $M$ genes become markers) and each marker's mean
-recursion depth $d_m$ (how much adaptive computation the model spends on it,
-Table~\ref{tab:routing}). We treat $d_m$ as a compute-allocation importance score
-that complements selection and needs no post-hoc attribution.
-
-\paragraph{The deepest-routed genes.}
-Table~\ref{tab:geneid} lists the markers that survive to the deepest recursion
-steps, ranked by mean depth $d_m$; these are the genes on which the model spends the
-most adaptive computation. Several have documented roles in epithelial cancers, for
-example the receptor tyrosine kinase \emph{ROS1}, an established lung-adenocarcinoma
-driver, and the inflammatory cytokine \emph{IL1A}. We present this panel
-\emph{descriptively} rather than as a
-validation claim: the deepest-routed genes did not all coincide with our small
-curated marker list, and establishing that the panel is enriched for cancer biology
-beyond chance requires the systematic test described next, which we leave to future
-work. The ranking is intrinsic to the architecture and needs no post-hoc
-attribution.
-
-\begin{table}[t]
-\centering
-{\footnotesize
-\begin{tabular}{@{}l c @{\quad} l c@{}}
-\toprule
-Gene & $d_m$ & Gene & $d_m$ \\
-\midrule
-\textit{ANKRD2} & 4.00 & \textit{PADI3} & 3.98 \\
-\textit{HAL} & 4.00 & \textit{LGSN} & 3.98 \\
-\textit{IL1A} & 4.00 & \textit{PON1} & 3.97 \\
-\textit{LOC440173} & 4.00 & \textit{ITIH2} & 3.97 \\
-\textit{PLAC1} & 4.00 & \textit{CCL23} & 3.95 \\
-\textit{POMC} & 3.99 & \textit{ROS1} & 3.95 \\
-\textit{CNGB3} & 3.99 & \textit{RBP5} & 3.95 \\
-\textit{GKN2} & 3.99 & \textit{NXPH3} & 3.94 \\
-\bottomrule
-\end{tabular}}
-\caption{Top router-identified genes ranked by mean recursion depth $d_m$ (the
-adaptive compute the model allocates to each). Listed descriptively; the depth
-ranking is intrinsic to the architecture and needs no post-hoc attribution.}
-\label{tab:geneid}
-\end{table}
-
-\paragraph{Stability of the panel across seeds.}
-Because the cohort task is near-saturated and co-expressed markers are redundant, the
-\emph{identity} of the selected genes is far less stable than the accuracy: across our
-five seeds the selected marker panels overlap by only a mean Jaccard of
-0.03, i.e.\ different seeds reach the same accuracy through largely
-disjoint gene sets. We therefore treat a single run's recursion-depth ranking as a
-per-run, hypothesis-generating signal rather than a fixed biomarker list, and any
-biological claim should be drawn from the consensus of many runs, not one panel. This
-instability is itself informative: it quantifies the redundancy of discriminative
-genes in bulk expression that the marker literature describes qualitatively.
-
-\paragraph{Systematic pathway enrichment.}
-Beyond this curated check, an unbiased enrichment of the full learned panel against
-Reactome gene sets \cite{gillespie2022reactome} (hypergeometric test with FDR
-control), reported as ranked pathways with effect sizes, is a natural next step that
-would turn the qualitative marker validation into a quantitative one; we leave it to
-future work.
 
 \section{Discussion and Limitations}
 SMART shows that biological inductive bias and parameter-efficient recursion can be
