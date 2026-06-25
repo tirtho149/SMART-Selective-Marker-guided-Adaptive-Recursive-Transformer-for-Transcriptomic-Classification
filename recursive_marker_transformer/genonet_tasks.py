@@ -108,8 +108,15 @@ def run_task(task: str, X: np.ndarray, labels: pd.DataFrame,
     G, K = X.shape[1], int(y.max() + 1)
 
     idx = np.arange(len(y))
-    tr, te = train_test_split(idx, test_size=0.2, random_state=base.seed, stratify=y)
-    tr, va = train_test_split(tr, test_size=0.15, random_state=base.seed, stratify=y[tr])
+
+    def _split(ids, lab, frac):
+        # stratify when every class has >=2 members in this subset, else fall back
+        _, cnt = np.unique(lab, return_counts=True)
+        strat = lab if cnt.min() >= 2 else None
+        return train_test_split(ids, test_size=frac, random_state=base.seed, stratify=strat)
+
+    tr, te = _split(idx, y, 0.2)
+    tr, va = _split(tr, y[tr], 0.15)
 
     # z-score on the train split only.
     Xs = X.copy()
@@ -233,10 +240,20 @@ def main():
     ap.add_argument("--share_weights", dest="share_weights", action="store_true", default=True)
     ap.add_argument("--no_share_weights", dest="share_weights", action="store_false",
                     help="untie the recursion blocks (Independent stack)")
+    ap.add_argument("--cohort", type=str, default=None,
+                    help="restrict to one cancer cohort (cancer_name), e.g. breast/lung/thyroid/head_neck")
     args = ap.parse_args()
 
     print(f"[genonet] loading {args.csv} ...", flush=True)
     X, labels, gene_cols = _load_unified(args.csv)
+    if args.cohort is not None:
+        mask = (labels["cancer_name"].astype(str) == args.cohort).values
+        if mask.sum() == 0:
+            raise SystemExit(f"[genonet] cohort '{args.cohort}' not found; "
+                             f"available: {sorted(labels['cancer_name'].unique())}")
+        X = X[mask]
+        labels = labels.loc[mask].reset_index(drop=True)
+        print(f"[genonet] cohort={args.cohort}  N={mask.sum()}", flush=True)
     print(f"[genonet] X={X.shape}  genes={len(gene_cols)}  tasks={args.tasks}", flush=True)
 
     base = RMTConfig(
