@@ -683,32 +683,34 @@ As shown in Table~\ref{tab:singlecell}, genomap's purpose-built genoNet CNN --- 
 operates on the 2D genomap \emph{image} --- is the stronger classifier (93\% on Tabula
 Muris, Suppl.\ Fig.~S4; 97\% on the Segerstolpe pancreas subset), as expected of a model
 specialised to that input. Our general recursive transformer, consuming the same
-\emph{flattened} genomap features, trails it (83\% / 93.5\%) but at \emph{two to three orders
-of magnitude fewer parameters} --- the point is that a 0.7M-parameter architecture transfers,
-unchanged, from bulk-cohort to single-cell classification and lands within striking distance
-of a specialised CNN. Across our three variants the gap is small and consistent, preserving
-the parameter-saving story of Section~\ref{sec:foundation}.
+\emph{flattened} genomap features, trails it (best variant 84.3\% on Tabula Muris,
+92.4\% on pancreas) but at \emph{two to three orders of magnitude fewer parameters} --- the
+point is that a 0.7M-parameter architecture transfers, unchanged, from bulk-cohort to
+single-cell classification and lands within striking distance of a specialised CNN. Over five
+seeds the three variants are within a point or two of each other (MoR best on Tabula Muris,
+shared best on pancreas), preserving the parameter-saving story of
+Section~\ref{sec:foundation}.
 
 \begin{table}[t]
 \centering
-\setlength{\tabcolsep}{5pt}
+\setlength{\tabcolsep}{4pt}
 \footnotesize
 \begin{tabular}{llcccc}
 \toprule
-& & \multicolumn{3}{c}{Our model (accuracy)} & genomap \\
+& & \multicolumn{3}{c}{Our model (accuracy \%, mean\,$\pm$\,std)} & genomap \\
 \cmidrule(lr){3-5}
 Task & Dataset (cells / cls) & Indep. & Shared & MoR & (paper) \\
 \midrule
-Recognition  & Tabula Muris (54{,}865 / 55) & \textbf{0.830} & 0.829 & 0.826 & 0.93 \\
-Integration  & Pancreas (14{,}767 / 15)     & \textbf{0.935} & 0.920 & 0.904 & 0.97 \\
+Recognition  & Tabula Muris (54{,}865 / 55) & 82.5\,{\footnotesize$\pm$2.7} & 82.1\,{\footnotesize$\pm$2.2} & \textbf{84.3\,{\footnotesize$\pm$1.1}} & 93 \\
+Integration  & Pancreas (14{,}767 / 15)     & 90.1\,{\footnotesize$\pm$3.0} & \textbf{92.4\,{\footnotesize$\pm$1.3}} & 90.9\,{\footnotesize$\pm$1.6} & 97 \\
 \bottomrule
 \end{tabular}
-\caption{\textbf{Single-cell recognition under the genomap protocol} (test accuracy,
-single split, seed 42). Our three variants vs.\ genomap's reported genoNet accuracy
-(Tabula Muris 93\%, Suppl.\ Fig.~S4; Segerstolpe pancreas 97\%, Fig.~7c). genoNet's 2D-image
-CNN is stronger, but our general transformer transfers unchanged from bulk to single-cell at
-$72$--$569\times$ fewer parameters than the foundation models of Table~\ref{tab:foundation}.
-Best among our variants per row in \textbf{bold}.}
+\caption{\textbf{Single-cell recognition under the genomap protocol} (test accuracy \%,
+mean\,$\pm$\,std over 5 seeds, paper's fixed test split). Our three variants vs.\ genomap's
+reported genoNet accuracy (Tabula Muris 93\%, Suppl.\ Fig.~S4; Segerstolpe pancreas 97\%,
+Fig.~7c). genoNet's 2D-image CNN is stronger, but our general transformer transfers unchanged
+from bulk to single-cell at $72$--$569\times$ fewer parameters than the foundation models of
+Table~\ref{tab:foundation}. Best among our variants per row in \textbf{bold}.}
 \label{tab:singlecell}
 \end{table}
 
