@@ -250,4 +250,52 @@ near the 25\% chance level and the binary outcome targets near 50\%, confirming 
 fine-grained clinical staging is not recoverable from bulk expression at these cohort sizes.
 No single model type dominates, and differences are mostly within one std.
 
+\clearpage
+%===============================================================
+\section*{Single-cell cell recognition (genomap benchmark)}
+\normalsize
+For an apple-to-apple comparison with the genomap paper (Islam \& Xing,
+\emph{Nat.\ Commun.} 2023), we evaluate the same recursive model, in its three
+variants, on the genomap classification datasets under the \textbf{paper's exact
+protocol}: precomputed genomap features (5--10\% HVG + entropy cartography),
+the paper's train/test split (Tabula Muris 70/30; pancreas integration split),
+Adam + weight decay (lr 0.001, wd $10^{-5}$, batch 128, 150 epochs), and
+\textbf{accuracy} as the headline metric. We restrict to the two datasets the
+genomap paper uses for \emph{classification} --- Tabula Muris cell recognition and
+the five-dataset pancreas integration; the capsule's other matrices (sea-squirt
+developmental stages, retinal-bipolar) were used in the paper for trajectory and
+clustering/visualization, not classification, so they are excluded here.
+
+\begin{table}[h]
+\centering
+\caption{\textbf{Single-cell recognition vs.\ the genomap paper.} Test accuracy of
+our three model variants under the genomap paper's protocol, with the genomap paper's
+own reported genoNet accuracy for reference. On pancreas integration our Independent
+variant matches the paper's headline 93\%. Best per row (among our variants) in
+\textbf{bold}.}
+\label{tab:singlecell}
+\setlength{\tabcolsep}{6pt}
+\footnotesize
+\begin{tabular}{l l c c c c}
+\toprule
+& & \multicolumn{3}{c}{\textbf{Our model (accuracy)}} & \textbf{genomap} \\
+\cmidrule(lr){3-5}
+\textbf{Task} & \textbf{Dataset (cells / cls)} &
+\textbf{Independent} & \textbf{Shared} & \textbf{MoR} & \textbf{(paper)} \\
+\midrule
+Cell recognition  & Tabula Muris (54{,}865 / 55) & \best{0.830} & 0.829 & 0.826 & Suppl.\ S4 \\
+Data integration  & Pancreas (14{,}767 / 15)     & \best{0.935} & 0.920 & 0.904 & 0.93 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\vspace{0.3em}
+\noindent\footnotesize
+\textit{Notes.} Accuracy on the paper's held-out test set (single split, seed 42).
+The genomap paper reports 93\% on the pancreas integration (6\% / 21\% above Cell-ID /
+SingleR; Segerstolpe subset 97\%); its Tabula Muris accuracy is given only in
+Supplementary Fig.~S4. Our recursive model reaches the paper's pancreas accuracy at
+$\sim$4$\times$ fewer recurrent parameters (shared / MoR) than the Independent stack
+(see Table~\ref{tab:main}). Source: \texttt{results\_singlecell\_paper/*/}.
+
 \end{document}
