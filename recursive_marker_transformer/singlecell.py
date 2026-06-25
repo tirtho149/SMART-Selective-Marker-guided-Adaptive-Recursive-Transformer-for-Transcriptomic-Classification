@@ -93,30 +93,19 @@ class _DictLoader:
         return len(self.dl)
 
 
-def run_dataset(name: str, data_root: Path, base: RMTConfig, out_dir: Path) -> dict:
-    torch.manual_seed(base.seed)
-    np.random.seed(base.seed)
-    device = resolve_device(base.device)
+def _fit_eval(Xs_full, y, tr, va, te, cfg, F, K, device):
+    """Train on `tr` (z-scored on its own stats), early-stop on `va`, eval on `te`.
+    Returns (y_true, y_pred, model). Shared by the single-split and CV paths."""
+    mu = Xs_full[tr].mean(0, keepdims=True)
+    sd = Xs_full[tr].std(0, keepdims=True) + 1e-6
+    Xs = (Xs_full - mu) / sd
 
-    X, y, split = _load_dataset(data_root / name)
-    F, K = X.shape[1], int(y.max() + 1)
-    tr, va, te = _make_splits(y, split, base.seed)
-
-    # z-score features on the train split only.
-    mu = X[tr].mean(0, keepdims=True)
-    sd = X[tr].std(0, keepdims=True) + 1e-6
-    X = (X - mu) / sd
-
-    cfg = replace(base, heads=(HEAD,), n_markers=min(base.n_markers, F))
-    print(f"\n########## {name}: N={len(y)} F={F} K={K} "
-          f"(train {len(tr)}, val {len(va)}, test {len(te)}) device={device} ##########")
-
-    dl_tr = _DictLoader(X, y, tr, cfg.batch_size, True)
-    dl_va = _DictLoader(X, y, va, cfg.batch_size, False)
-    dl_te = _DictLoader(X, y, te, cfg.batch_size, False)
+    dl_tr = _DictLoader(Xs, y, tr, cfg.batch_size, True)
+    dl_va = _DictLoader(Xs, y, va, cfg.batch_size, False)
+    dl_te = _DictLoader(Xs, y, te, cfg.batch_size, False)
 
     model = RecursiveMarkerTransformer(cfg, F, {HEAD: K}, _DTYPES).to(device)
-    model.set_gene_variance(torch.from_numpy(X[tr].var(0).astype(np.float32)))
+    model.set_gene_variance(torch.from_numpy(Xs[tr].var(0).astype(np.float32)))
     cw = _class_weights(torch.from_numpy(y[tr]), K).to(device)
     criterion = RMTLoss(cfg, _DTYPES, {HEAD: cw})
     opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
@@ -138,19 +127,90 @@ def run_dataset(name: str, data_root: Path, base: RMTConfig, out_dir: Path) -> d
         sched.step()
         yt, yp = evaluate(model, dl_va, device, _DTYPES)[HEAD]
         vf1 = f1_score(yt, yp, average="macro")
-        print(f"  epoch {ep+1:2d}/{cfg.epochs}  val_macroF1={vf1:.4f}")
         if vf1 > best_f1:
             best_f1, bad = vf1, 0
             best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
         else:
             bad += 1
             if bad >= cfg.patience:
-                print(f"  early stop @ epoch {ep+1}")
                 break
     if best_state is not None:
         model.load_state_dict(best_state)
 
     yt, yp = evaluate(model, dl_te, device, _DTYPES)[HEAD]
+    return yt, yp, model
+
+
+def run_dataset_cv(name: str, data_root: Path, base: RMTConfig, out_dir: Path,
+                   folds: int = 5) -> dict:
+    """Stratified k-fold CV on a single-cell dataset; macro-F1 / accuracy reported
+    as mean +/- std over folds (identical protocol to the TCGA cohort CV)."""
+    from sklearn.model_selection import StratifiedKFold
+    torch.manual_seed(base.seed)
+    np.random.seed(base.seed)
+    device = resolve_device(base.device)
+
+    X, y, _ = _load_dataset(data_root / name)
+    F, K = X.shape[1], int(y.max() + 1)
+    cfg = replace(base, heads=(HEAD,), n_markers=min(base.n_markers, F))
+    Xf = X.astype(np.float32, copy=False)
+
+    skf = StratifiedKFold(n_splits=folds, shuffle=True, random_state=base.seed)
+    print(f"\n########## CV {name}: N={len(y)} F={F} K={K} folds={folds} device={device} "
+          f"##########", flush=True)
+
+    fold_metrics, model = [], None
+    for fi, (tr_all, te) in enumerate(skf.split(np.zeros(len(y)), y)):
+        _, cnt = np.unique(y[tr_all], return_counts=True)
+        strat = y[tr_all] if cnt.min() >= 2 else None
+        tr, va = train_test_split(tr_all, test_size=0.15,
+                                  random_state=base.seed + fi, stratify=strat)
+        yt, yp, model = _fit_eval(Xf, y, tr, va, te, cfg, F, K, device)
+        m = {"fold": fi, "n_test": int(len(te)),
+             "accuracy": float(accuracy_score(yt, yp)),
+             "macro_f1": float(f1_score(yt, yp, average="macro")),
+             "weighted_f1": float(f1_score(yt, yp, average="weighted"))}
+        fold_metrics.append(m)
+        print(f"  fold {fi+1}/{folds}: acc={m['accuracy']:.4f} "
+              f"macroF1={m['macro_f1']:.4f} (test {len(te)})", flush=True)
+
+    def _ms(key):
+        v = np.array([m[key] for m in fold_metrics], dtype=float)
+        return {"mean": float(v.mean()), "std": float(v.std(ddof=0))}
+
+    res = {
+        "dataset": name, "n_samples": int(len(y)), "n_features": int(F),
+        "n_classes": int(K), "cv_folds": folds,
+        "transformer_params": int(model.transformer_param_count()),
+        "total_params": int(model.total_param_count()),
+        "config": cfg.as_dict(),
+        "fold_metrics": fold_metrics,
+        "accuracy": _ms("accuracy"),
+        "macro_f1": _ms("macro_f1"),
+        "weighted_f1": _ms("weighted_f1"),
+    }
+    out_dir.mkdir(parents=True, exist_ok=True)
+    with open(out_dir / f"{name}.json", "w") as f:
+        json.dump(res, f, indent=1, default=float)
+    print(f"  [CV] {name}: acc={res['accuracy']['mean']:.4f}+/-{res['accuracy']['std']:.4f} "
+          f"macroF1={res['macro_f1']['mean']:.4f}+/-{res['macro_f1']['std']:.4f}", flush=True)
+    return res
+
+
+def run_dataset(name: str, data_root: Path, base: RMTConfig, out_dir: Path) -> dict:
+    torch.manual_seed(base.seed)
+    np.random.seed(base.seed)
+    device = resolve_device(base.device)
+
+    X, y, split = _load_dataset(data_root / name)
+    F, K = X.shape[1], int(y.max() + 1)
+    tr, va, te = _make_splits(y, split, base.seed)
+
+    cfg = replace(base, heads=(HEAD,), n_markers=min(base.n_markers, F))
+    print(f"\n########## {name}: N={len(y)} F={F} K={K} "
+          f"(train {len(tr)}, val {len(va)}, test {len(te)}) device={device} ##########")
+
+    yt, yp, model = _fit_eval(X.astype(np.float32, copy=False), y, tr, va, te, cfg, F, K, device)
     res = {
         "dataset": name,
         "n_samples": int(len(y)), "n_features": int(F), "n_classes": int(K),
@@ -187,24 +247,43 @@ def main():
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--patience", type=int, default=5)
     ap.add_argument("--device", type=str, default="auto")
+    ap.add_argument("--recursion_mode", type=str, default="expert",
+                    choices=["fixed", "expert", "token"],
+                    help="expert=shared early-exit (default), token=MoR token routing")
+    ap.add_argument("--share_weights", dest="share_weights", action="store_true", default=True)
+    ap.add_argument("--no_share_weights", dest="share_weights", action="store_false",
+                    help="untie the recursion blocks (Independent stack)")
+    ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--cv_folds", type=int, default=0,
+                    help="if >0, stratified k-fold CV reporting mean+/-std")
     args = ap.parse_args()
 
     base = RMTConfig(
         heads=(HEAD,), n_hvg=None, batch_size=args.batch_size,
         d_model=args.d_model, d_ff=2 * args.d_model, n_markers=args.n_markers,
-        marker_mode="router", recursion_mode="expert", recursion_depth=4,
+        marker_mode="router", recursion_mode=args.recursion_mode, recursion_depth=4,
+        share_weights=args.share_weights, seed=args.seed,
         epochs=args.epochs, patience=args.patience, lr=args.lr, device=args.device,
     )
+    print(f"[singlecell] variant: recursion_mode={args.recursion_mode} "
+          f"share_weights={args.share_weights} cv_folds={args.cv_folds}", flush=True)
     summary = []
     for name in args.datasets:
         if not (args.data / name).exists():
             print(f"[skip] {name}: not found under {args.data}")
             continue
-        r = run_dataset(name, args.data, base, args.out)
-        summary.append((name, r["heads"][HEAD]["accuracy"], r["heads"][HEAD]["macro_f1"]))
-    print("\n==== SMART single-cell summary ====")
-    for n, a, f in summary:
-        print(f"  {n:14s} acc={a*100:5.1f}  macroF1={f*100:5.1f}")
+        if args.cv_folds > 0:
+            r = run_dataset_cv(name, args.data, base, args.out, folds=args.cv_folds)
+            summary.append((name, r["accuracy"]["mean"], r["accuracy"]["std"],
+                            r["macro_f1"]["mean"], r["macro_f1"]["std"]))
+        else:
+            r = run_dataset(name, args.data, base, args.out)
+            h = r["heads"][HEAD]
+            summary.append((name, h["accuracy"], 0.0, h["macro_f1"], 0.0))
+    tag = f"{args.cv_folds}-fold CV (mean+/-std)" if args.cv_folds > 0 else "single split"
+    print(f"\n==== SMART single-cell summary [{tag}] ====")
+    for n, a, asd, f, fsd in summary:
+        print(f"  {n:14s} acc={a*100:5.1f}+/-{asd*100:3.1f}  macroF1={f*100:5.1f}+/-{fsd*100:3.1f}")
 
 
 if __name__ == "__main__":
