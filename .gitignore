@@ -44,3 +44,10 @@ lit_pipeline/pdfs/
 lit_pipeline/.pytest_cache/
 # per-task scratch work dirs from the deep-baseline runs (h5ad/arrow/trainer state)
 results_dl_baselines/_*_work/
+
+# LaTeX build artifacts
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.log
+paper/*.out
