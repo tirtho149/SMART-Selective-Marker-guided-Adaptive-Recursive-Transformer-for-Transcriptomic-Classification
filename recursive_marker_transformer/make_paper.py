@@ -673,12 +673,18 @@ move a label-free network prior \emph{into} the routing decision. Standard tooli
 % biology-informed router: genomap gene-gene interaction graph -> centrality prior.
 % Label-free prior built from expression alone, so it has NO incoming arrow; its
 % centrality prior pi is consumed by the MoR Depth Router (annealed into the logit).
-\node[stage, right=of mtok, text width=22mm] (gint) {{\large\textcolor{accentA}{\faProjectDiagram}}\\[1pt]\textbf{Gene--Gene Graph}\\[1pt]{\tiny\textcolor{subcap}{genomap centrality $\pi$}}};
+\node[stage, right=of mtok, text width=22mm, draw=accentA, line width=1.4pt, fill=panelA] (gint) {{\large\textcolor{accentA}{\faProjectDiagram}}\\[1pt]\textbf{Gene--Gene Graph}\\[1pt]{\tiny\textcolor{subcap}{genomap co-expr.\\ centrality $\pi$ (label-free)}}};
+\node[ptab=accentA, anchor=south east, font=\tiny\bfseries] at ([yshift=0.5mm]gint.north east) {biological prior};
 \draw[flow] (shared) -- (mor);
 \draw[flow] (mor) -- (pool);
 \draw[flow] (pool) -- (clf);
 \draw[flow] (clf) -- (coh);
-\draw[flow, draw=accentA, dashed] (gint.south) -- ++(0,-6mm) -| (mor.north);
+% biology-informed routing (CENTERPIECE): the label-free centrality prior pi is the
+% only biological signal injected into the recursion decision; emphasised dashed path.
+\draw[-{Stealth[length=3mm]}, draw=accentA, dashed, line width=1.3pt]
+  (gint.south) -- ++(0,-7mm) -| (mor.north);
+\node[font=\scriptsize\bfseries, text=accentA, fill=white, inner sep=1.2pt]
+  at ([yshift=-7mm]gint.south -| mor.north) {$+\,\beta_t\,\pi_m$ into depth logit};
 
 \draw[loop] (shared.south east) .. controls ++(0,-9mm) and ++(0,-9mm) .. (shared.south west)
   node[midway, below=0.5mm, font=\scriptsize\bfseries, text=accentB, align=center]
@@ -796,24 +802,33 @@ pass (\emph{recursive marker refinement}).
 
 \begin{scope}[shift={(56mm,-8mm)}]
   \node[hd, anchor=south west] at (-2mm,12.5mm) {Mixture-of-Recursions with biology-primed depth $d_m$};
-  \draw[rec] (1*13mm,9.6mm) -- (4*13mm,9.6mm)
+  \node[font=\tiny, text=subcap, anchor=south west] at (-2mm,10.4mm)
+     {keep top $\lceil c_t M\rceil$ by $\tilde r_m{=}r_m{+}\beta_t\pi_m$ (data $+$ prior)};
+  \draw[rec] (1*13mm,8.2mm) -- (4*13mm,8.2mm)
      node[midway, above, font=\scriptsize, text=accentB] {$f_\theta$ reused each step};
   \foreach \t/\c in {1/1.0, 2/0.75, 3/0.5, 4/0.5}{
-     \node[hd] at (\t*13mm,7mm) {$t{=}\t$};
-     \node[font=\tiny, text=subcap] at (\t*13mm,4.3mm) {keep $\c\,M$};
+     \node[hd] at (\t*13mm,6mm) {$t{=}\t$};
+     \node[font=\tiny, text=subcap] at (\t*13mm,3.6mm) {keep $\c\,M$};
   }
-  \foreach \g/\d/\r in {Cd3e/4/0, Epcam/4/1, Pecam1/3/2, Krt19/2/3, Gapdh/1/4, Actb/1/5}{
+  % genomap centrality prior pi (label-free): a bar per gene, longer = more central
+  % hub -> primed to recurse deeper. Visually correlates high pi with deep d_m.
+  \node[hd, anchor=west, text=accentA] at (78mm,6mm) {prior $\pi$};
+  \draw[boxedge!55, line width=0.4pt, dashed] (84mm,2.5mm) -- (84mm,-6*7mm+2mm);
+  \foreach \g/\d/\r/\pp in {Cd3e/4/0/1.6, Epcam/4/1/1.4, Pecam1/3/2/0.7, Krt19/2/3/0.2, Gapdh/1/4/-0.6, Actb/1/5/-0.8}{
      \node[anchor=east, font=\scriptsize\ttfamily] at (8mm,-\r*7mm) {\g};
      \foreach \t in {1,...,4}{
         \ifnum\t>\d \node[off] at (\t*13mm,-\r*7mm) {}; \else \node[on] at (\t*13mm,-\r*7mm) {}; \fi
      }
      \node[anchor=west, font=\scriptsize] at (4*13mm+7mm,-\r*7mm) {$d_m{=}\d$};
+     \draw[accentA, line width=2.6pt] (84mm,-\r*7mm) -- ++(\pp*5mm,0);
   }
-  \node[hd, anchor=west] at (4*13mm+7mm,7mm) {depth};
+  \node[hd, anchor=west] at (4*13mm+7mm,6mm) {depth};
   \node[on] (lg1) at (1*13mm,-6*7mm-1mm) {};
   \node[anchor=west, font=\tiny] at ([xshift=1mm]lg1.east) {recurses};
   \node[off] (lg2) at (3*13mm,-6*7mm-1mm) {};
   \node[anchor=west, font=\tiny] at ([xshift=1mm]lg2.east) {frozen / exited};
+  \draw[accentA, line width=2.6pt] (80mm,-6*7mm-1mm) -- ++(5mm,0);
+  \node[anchor=west, font=\tiny] at (86mm,-6*7mm-1mm) {centrality prior $\pi$};
 \end{scope}
 \end{tikzpicture}%
 }
@@ -824,9 +839,11 @@ expert-choice router keeps a shrinking top fraction of markers per step (capacit
 funnel $1,\tfrac34,\tfrac12,\tfrac12$); a marker not kept is frozen, so its
 \emph{recursion depth} $d_m$ is the deepest step it survived. The keep decision adds a
 label-free genomap co-expression-centrality prior $\beta_t\pi_m$ to each logit
-(Eq.~\ref{eq:biorouter}), so lineage and hub genes (\texttt{Cd3e}, \texttt{Epcam})
-recur deepest while settled house-keeping genes (\texttt{Gapdh}, \texttt{Actb}) exit
-at $d_m{=}1$.}
+(Eq.~\ref{eq:biorouter}); the \textcolor{accentA}{green bars} show that prior $\pi$
+(longer $=$ more central a co-expression hub), so lineage and hub genes
+(\texttt{Cd3e}, \texttt{Epcam}) are primed to recur deepest while settled
+house-keeping genes (\texttt{Gapdh}, \texttt{Actb}) exit at $d_m{=}1$. The bar
+heights are illustrative of the centrality ordering, not fitted values.}
 \label{fig:mor}
 \end{figure*}
 
