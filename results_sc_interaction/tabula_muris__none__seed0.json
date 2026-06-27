@@ -1,0 +1,18 @@
+{
+ "dataset": "tabula_muris",
+ "mode": "none",
+ "seed": 0,
+ "n_samples": 54865,
+ "n_features": 1089,
+ "n_classes": 55,
+ "n_train": 32645,
+ "n_test": 16458,
+ "transformer_params": 75168,
+ "total_params": 221775,
+ "accuracy": 0.7905577834487787,
+ "macro_f1": 0.6878556209913358,
+ "weighted_f1": 0.7884573246347109,
+ "beta": 1.0,
+ "knn": 16,
+ "anneal": true
+}

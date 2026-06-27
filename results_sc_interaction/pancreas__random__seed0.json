@@ -1,0 +1,18 @@
+{
+ "dataset": "pancreas",
+ "mode": "random",
+ "seed": 0,
+ "n_samples": 14767,
+ "n_features": 1936,
+ "n_classes": 15,
+ "n_train": 10744,
+ "n_test": 2127,
+ "transformer_params": 75168,
+ "total_params": 295327,
+ "accuracy": 0.8965679360601787,
+ "macro_f1": 0.5463478934425768,
+ "weighted_f1": 0.8963821348150193,
+ "beta": 1.0,
+ "knn": 16,
+ "anneal": true
+}

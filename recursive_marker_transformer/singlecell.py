@@ -111,6 +111,19 @@ def _fit_eval(Xs_full, y, tr, va, te, cfg, F, K, device):
 
     model = RecursiveMarkerTransformer(cfg, F, {HEAD: K}, _DTYPES).to(device)
     model.set_gene_variance(torch.from_numpy(Xs[tr].var(0).astype(np.float32)))
+    # Biology-informed router: build the genomap gene-gene-interaction centrality
+    # prior on the train split (expression only, label-free -> leakage-safe) and
+    # install it on the depth router. coexpr = genomap correlation graph; random =
+    # degree-matched control; none = original SMART router.
+    if getattr(cfg, "gene_interaction", None) not in (None, "none"):
+        from .interaction import build_interaction
+        inter = build_interaction(Xs[tr].astype(np.float32, copy=False), F,
+                                  mode=cfg.gene_interaction, knn=cfg.interaction_knn,
+                                  seed=cfg.seed)
+        model.set_gene_interaction(inter.centrality)
+        print(f"  [bio-router] gene_interaction={cfg.gene_interaction} "
+              f"beta0={cfg.router_prior_beta} anneal={cfg.router_prior_anneal} "
+              f"knn={cfg.interaction_knn} prior installed", flush=True)
     cw = _class_weights(torch.from_numpy(y[tr]), K).to(device)
     criterion = RMTLoss(cfg, _DTYPES, {HEAD: cw})
     opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
@@ -256,6 +269,11 @@ def main():
     ap.add_argument("--recursion_mode", type=str, default="expert",
                     choices=["fixed", "expert", "token"],
                     help="expert=shared early-exit (default), token=MoR token routing")
+    ap.add_argument("--recursion_depth", type=int, default=4,
+                    help="K recursion steps (1 = no recursion, single pass)")
+    ap.add_argument("--marker_mode", type=str, default="router",
+                    choices=["router", "concrete", "random", "variance"],
+                    help="router=cross-attention selector (default); random/variance=baselines")
     ap.add_argument("--share_weights", dest="share_weights", action="store_true", default=True)
     ap.add_argument("--no_share_weights", dest="share_weights", action="store_false",
                     help="untie the recursion blocks (Independent stack)")
@@ -267,7 +285,8 @@ def main():
     base = RMTConfig(
         heads=(HEAD,), n_hvg=None, batch_size=args.batch_size,
         d_model=args.d_model, d_ff=2 * args.d_model, n_markers=args.n_markers,
-        marker_mode="router", recursion_mode=args.recursion_mode, recursion_depth=4,
+        marker_mode=args.marker_mode, recursion_mode=args.recursion_mode,
+        recursion_depth=args.recursion_depth,
         share_weights=args.share_weights, seed=args.seed,
         epochs=args.epochs, patience=args.patience, lr=args.lr,
         weight_decay=args.weight_decay, device=args.device,
