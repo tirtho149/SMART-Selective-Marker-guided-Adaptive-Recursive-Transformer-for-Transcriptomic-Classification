@@ -1,0 +1,4 @@
+filename	file_type	species_scientific_name	genome_assembly_name	genome_assembly_accession	genome_annotation_name	is_raw_counts	library_preparation_protocol	units	biosample_input_type	modality
+RawData1.csv	Expression Matrix	Mus musculus								
+Metadata.txt	Metadata									
+Cluster.txt	Cluster									

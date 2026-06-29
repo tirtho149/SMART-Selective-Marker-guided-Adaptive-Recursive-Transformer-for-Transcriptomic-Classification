@@ -1,0 +1,20 @@
+{
+  "0": "B_CD27neg",
+  "1": "B_CD27pos",
+  "2": "Blood_vessel",
+  "3": "Dendritic_Cells",
+  "4": "Epi_basal",
+  "5": "Epi_dividing",
+  "6": "Epi_stratified",
+  "7": "Epi_suprabasal",
+  "8": "Epi_upper",
+  "9": "Glands_duct",
+  "10": "Glands_mucous",
+  "11": "Lymph_vessel",
+  "12": "Mast_cell",
+  "13": "Mono_macro",
+  "14": "NK_T_CD8_Cytotoxic",
+  "15": "Stroma",
+  "16": "T_CD4",
+  "17": "T_CD8"
+}
