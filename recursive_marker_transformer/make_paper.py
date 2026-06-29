@@ -279,6 +279,60 @@ def param_table() -> str:
     return "\n".join(lines)
 
 
+# --- efficiency ladder: vanilla -> shared -> fixed MoR -> adaptive MoR -------
+def _phi(a: int, d: int = 96, dff: int = 192) -> float:
+    """Per-pass stack FLOPs on ``a`` tokens: self-attention + feed-forward."""
+    return 4 * a * a * d + 4 * a * d * dff
+
+
+def _flops_ratios():
+    """Nominal stack-FLOPs of each recursion regime, relative to fixed depth $K$.
+    Fixed = K full passes on M tokens. Expert-choice = the capacity funnel
+    (1, 3/4, 1/2, 1/2). Token-choice = balanced top-1 over depths {1..K} (the
+    state the load-balancing loss targets)."""
+    M, K = 128, 4
+    fixed = K * _phi(M)
+    expert = sum(_phi(a) for a in (128, 96, 64, 64))       # funnel 1, .75, .5, .5
+    token = sum(_phi(a) for a in (128, 96, 64, 32))        # balanced 1,.75,.5,.25
+    return {"fixed": 1.0, "expert": expert / fixed, "token": token / fixed,
+            "independent": 1.0}
+
+
+# the four rungs of the ladder: (label, arch-variant key, params x, flops-key)
+_LADDER = [
+    ("Vanilla transformer (independent layers)", "independent", 4.0, "independent"),
+    ("Shared recursion, fixed depth (fixed MoR)", "fixed",       1.0, "fixed"),
+    ("Adaptive MoR, token-choice",               "token",        1.0, "token"),
+    ("Adaptive MoR, expert-choice (\\textbf{ours})", "shared",   1.0, "expert"),
+]
+
+
+def ladder_table() -> str:
+    """The efficiency ladder: parameters drop (vanilla->shared), then compute drops
+    (fixed->adaptive), with cell-type accuracy preserved throughout."""
+    fl = _flops_ratios()
+    lines = [
+        "\\begin{tabular}{lcccccc}",
+        "\\toprule",
+        "& \\multicolumn{2}{c}{Cost (design)} & \\multicolumn{2}{c}{Tabula Muris} "
+        "& \\multicolumn{2}{c}{Pancreas} \\\\",
+        "\\cmidrule(lr){2-3}\\cmidrule(lr){4-5}\\cmidrule(lr){6-7}",
+        "Configuration & Params & FLOPs & Acc. & F1 & Acc. & F1 \\\\",
+        "\\midrule",
+    ]
+    for label, key, pratio, fkey in _LADDER:
+        tm = _arch_runs(key, "tabula_muris")
+        pa = _arch_runs(key, "pancreas")
+        cells = [
+            f"{pratio:.1f}$\\times$", f"{fl[fkey]:.2f}$\\times$",
+            _ms_pct([r["accuracy"] for r in tm]), _ms_pct([r["macro_f1"] for r in tm]),
+            _ms_pct([r["accuracy"] for r in pa]), _ms_pct([r["macro_f1"] for r in pa]),
+        ]
+        lines.append(f"{label} & " + " & ".join(cells) + " \\\\")
+    lines += ["\\bottomrule", "\\end{tabular}"]
+    return "\n".join(lines)
+
+
 def dataset_overview_table() -> str:
     lines = [
         "\\begin{tabular}{lrrrl}",
@@ -418,6 +472,9 @@ def _scalars() -> dict:
         "@@NMARKERS@@": "128",
         "@@DEPTH@@": "4",
         "@@EPOCHS@@": "150",
+        "@@FLOPS_EXPERT@@": f"{_flops_ratios()['expert']:.2f}",
+        "@@FLOPS_SAVE@@": f"{1.0/_flops_ratios()['expert']:.1f}",
+        "@@PARAMRATIO@@": "4",
     }
 
 
@@ -427,6 +484,7 @@ def _scalars() -> dict:
 def build_tex() -> str:
     repl = {
         "@@MAIN_SC_TABLE@@": main_sc_table(),
+        "@@LADDER_TABLE@@": ladder_table(),
         "@@BIOROUTER_TABLE@@": biorouter_table(),
         "@@ARCH_TABLE@@": arch_table(),
         "@@SELECTION_TABLE@@": selection_table(),
@@ -448,7 +506,39 @@ def main():
     ap.add_argument("--outdir", type=Path, default=Path("paper"))
     args = ap.parse_args()
     args.outdir.mkdir(parents=True, exist_ok=True)
-    (args.outdir / "genomicrecursiveformer.tex").write_text(build_tex())
+    doc = build_tex()
+    # The paper must present ONLY the new-run tables (the MoR reproduction). Strip every
+    # pre-existing table float from the body; the \input{mor_tables} below supplies the
+    # current tables, all rendered from the fresh result dirs.
+    import re as _re
+    doc = _re.sub(r"\\begin\{table\*?\}.*?\\end\{table\*?\}\s*", "", doc, flags=_re.DOTALL)
+    # Inject the full MoR-table reproduction (all 14 tables + adaptive-depth) as a
+    # \input before \end{document}; regenerate mor_tables.tex from current results.
+    try:
+        from . import mor_tables, mor_figures
+        import sys as _sys
+        _argv = _sys.argv
+        _sys.argv = ["mor"]
+        try:
+            mor_figures.main()                     # writes <repo>/paper/figs/*.png
+            mor_tables.main()                      # writes <repo>/paper/mor_tables.{md,tex}
+        finally:
+            _sys.argv = _argv
+        # copy figures next to the .tex if outdir differs from repo/paper
+        figsrc = mor_tables.ROOT / "paper" / "figs"
+        if figsrc.exists() and figsrc.resolve() != (args.outdir / "figs").resolve():
+            (args.outdir / "figs").mkdir(exist_ok=True)
+            for p in figsrc.glob("*.png"):
+                (args.outdir / "figs" / p.name).write_bytes(p.read_bytes())
+        src = mor_tables.ROOT / "paper" / "mor_tables.tex"
+        if src.exists() and src.resolve() != (args.outdir / "mor_tables.tex").resolve():
+            (args.outdir / "mor_tables.tex").write_text(src.read_text())
+        if "\\input{mor_tables}" not in doc:
+            doc = doc.replace("\\end{document}", "\\clearpage\n\\input{mor_tables}\n\\end{document}")
+        print("[make_paper] injected \\input{mor_tables} (14 MoR tables)")
+    except Exception as e:                          # never block the paper build
+        print(f"[make_paper] WARNING could not inject MoR tables: {e}")
+    (args.outdir / "genomicrecursiveformer.tex").write_text(doc)
     (args.outdir / "refs.bib").write_text(_BIB)
     # ensure the style files are alongside the .tex
     for s in ("aaai.sty", "aaai.bst", "fixbib.sty"):
@@ -940,6 +1030,22 @@ router uses $k{=}16$ co-expression neighbours and an annealed $\beta_0{=}1$. Eve
 number is the mean$\pm$std over @@NSEEDS@@ seeds, and all metrics use the hard arg-max
 marker panel at inference.
 
+\paragraph{Roadmap.}
+Our experiments tell one story, read as an \emph{efficiency ladder} along two axes,
+parameters and compute. We start from a \emph{vanilla} transformer over the marker
+tokens (independent layers): accurate but parameter-heavy. Tying the layers into a
+single \emph{shared} recursive block makes the parameter count independent of depth
+(Sec.~\ref{sec:ladder}, the vanilla$\to$shared rung). That shared block, run at a
+\emph{fixed} depth, still spends the full recursion compute on every marker; making the
+depth \emph{adaptive} with a Mixture-of-Recursions router (first token-choice, then our
+expert-choice) lets most markers exit early and cuts the stack FLOPs (the fixed$\to$%
+adaptive rung), at no measurable accuracy cost. The biology-informed router
+(Sec.~\ref{sec:interaction}) then sits on top of the adaptive rung, shaping
+\emph{where} that saved compute is spent. The remaining subsections drill into each
+rung: the ladder summary (Sec.~\ref{sec:ladder}), the headline biological prior
+(Sec.~\ref{sec:interaction}), the full architecture and marker-selection ablations, and
+the exact parameter accounting.
+
 \subsection{Main Results}
 Table~\ref{tab:mainsc} reports SMART (with the biology-informed co-expression router)
 on both datasets. On the fine-grained @@TM_CLASSES@@-class Tabula Muris benchmark SMART
@@ -976,6 +1082,41 @@ values are cited for context, not re-run under our split.}
 \label{tab:basesc}
 \end{table}
 
+\subsection{The Efficiency Ladder: Vanilla $\to$ Shared $\to$ Fixed $\to$ Adaptive MoR}
+\label{sec:ladder}
+Table~\ref{tab:ladder} is the spine of the paper: it puts the four architectural rungs
+side by side with their \emph{design} cost (transformer-stack parameters and nominal
+stack FLOPs, both exact and training-free) and their \emph{measured} cell-type accuracy
+(mean$\pm$std over @@NSEEDS@@ seeds). Reading top to bottom traces the two-axis story.
+\emph{(1) Parameters (vanilla $\to$ shared).} The vanilla transformer uses $K$
+independent layers, so its stack carries @@PARAMRATIO@@$\times$ the parameters of the
+weight-shared recursion; sharing one block across the recursion makes the parameter
+count independent of depth at the same accuracy, the first and largest drop on the
+ladder. \emph{(2) Compute (fixed $\to$ adaptive).} The shared block at a \emph{fixed}
+depth still runs every marker for all $K$ passes (FLOPs $1.00\times$). Making the depth
+\emph{adaptive} with the Mixture-of-Recursions router, token-choice and then our
+expert-choice funnel, lets most markers exit early, cutting the nominal stack FLOPs to
+@@FLOPS_EXPERT@@$\times$ (a @@FLOPS_SAVE@@$\times$ saving) while accuracy stays within
+run-to-run noise. The net of the ladder is the headline efficiency claim: the
+bottom rung (expert-choice MoR, ours) keeps the accuracy of the vanilla transformer at
+$\tfrac14$ of its stack parameters and roughly $0.6$ of the fixed-depth recursion
+compute. The biology-informed router then operates on this bottom rung, re-allocating
+the saved compute toward co-expression hub genes (Sec.~\ref{sec:interaction}).
+
+\begin{table}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+@@LADDER_TABLE@@}
+\caption{\textbf{The efficiency ladder.} Each rung changes one thing relative to the
+one above. \emph{Params} is the transformer-stack parameter count relative to the
+shared model and \emph{FLOPs} is the nominal per-cell stack-FLOPs relative to fixed
+depth (both exact design quantities; Appendix~\ref{app:flops}). Accuracy and macro-F1
+(\%, mean$\pm$std over @@NSEEDS@@ seeds) are measured on each dataset. Parameters drop
+on the vanilla$\to$shared rung and compute drops on the fixed$\to$adaptive rung, with
+accuracy preserved throughout.}
+\label{tab:ladder}
+\end{table}
+
 \subsection{Biology-Informed Routing (Headline Experiment)}
 \label{sec:interaction}
 Section~\ref{sec:biorouter} folds a genomap gene-gene-interaction centrality prior into
@@ -1008,15 +1149,17 @@ structure from generic additive bias.}
 \end{table}
 
 \subsection{Architecture Ablations}
-Table~\ref{tab:arch} isolates each architectural choice on both datasets, over
-@@NSEEDS@@ seeds. The headline expert-choice shared-weight model is compared against
-untied (independent) layers, token-choice routing, fixed-depth recursion, a single
-pass ($K{=}1$), and random / variance marker panels. We read these as the empirical
-trade-off the architecture makes: weight-shared recursion stays within run-to-run
-noise of independent layers at a quarter of the stack parameters
-(Sec.~\ref{sec:params}), and adaptive routing buys compute rather than accuracy. The
-``$-$ weight sharing'' variant is exactly a standard $K$-layer transformer over the $M$
-marker tokens, so it doubles as a matched-budget standard-transformer baseline.
+Table~\ref{tab:arch} expands the ladder of Sec.~\ref{sec:ladder} into the full set of
+single-component ablations on both datasets, over @@NSEEDS@@ seeds: the headline
+expert-choice shared-weight model against untied (independent) layers, token-choice
+routing, fixed-depth recursion, a single pass ($K{=}1$), and random / variance marker
+panels. The reading is the one the ladder anticipates: every routing and sharing
+variant sits within run-to-run noise of the others on accuracy, so the architecture's
+benefit is \emph{efficiency} (the parameter and compute drops of
+Table~\ref{tab:ladder}) and the interpretable recursion-depth signal, not an accuracy
+gain from depth itself. The ``$-$ weight sharing'' variant is exactly a standard
+$K$-layer transformer over the $M$ marker tokens, so it doubles as a matched-budget
+standard-transformer baseline (the top rung of the ladder).
 
 \begin{table}[t]
 \centering
@@ -1049,12 +1192,13 @@ cross-attention router vs.\ variance and random panels, at otherwise identical s
 
 \subsection{Parameter Efficiency Is Architectural}
 \label{sec:params}
-Table~\ref{tab:params} contrasts the transformer-stack parameters of our shared
-recursion against an equivalent stack of independent layers, across depth. The saving
-is exact and present \emph{before any training}: at $K{=}$@@DEPTH@@ the shared model
-uses @@RATIO4@@$\times$ fewer stack parameters, and the gap widens linearly with depth.
-The saving is built into the architecture, not recovered by pruning, and it is the same
-mechanism (weight sharing) that makes the recursion-depth signal interpretable.
+This subsection makes the first (vanilla$\to$shared) rung of the ladder exact across
+depth. Table~\ref{tab:params} contrasts the transformer-stack parameters of our shared
+recursion against an equivalent stack of independent layers. The saving is present
+\emph{before any training}: at $K{=}$@@DEPTH@@ the shared model uses @@RATIO4@@$\times$
+fewer stack parameters, and the gap widens linearly with depth. The saving is built into
+the architecture, not recovered by pruning, and it is the same mechanism (weight
+sharing) that makes the recursion-depth signal interpretable.
 
 \begin{table}[t]
 \centering

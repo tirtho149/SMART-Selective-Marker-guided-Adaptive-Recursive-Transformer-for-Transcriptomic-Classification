@@ -37,19 +37,21 @@ import torch.nn as nn
 
 from .config import RMTConfig
 from .embedding import GeneEmbedding
-from .marker import ConcreteSelector, MarkerModule, SlotRouter
+from .marker import ConcreteSelector, MarkerModule, PathwayPooler, SlotRouter
 from .recursion import RecursiveStack
 
 
 class RecursiveMarkerTransformer(nn.Module):
     def __init__(self, cfg: RMTConfig, n_genes: int, head_n_classes: Dict[str, int],
-                 head_dtypes: Dict[str, str]):
+                 head_dtypes: Dict[str, str],
+                 pathway: Optional[torch.Tensor] = None):
         super().__init__()
         self.cfg = cfg
         self.n_genes = n_genes
         self.head_dtypes = head_dtypes
 
-        self.embed = GeneEmbedding(n_genes, cfg.d_model, cfg.dropout)
+        self.embed = GeneEmbedding(n_genes, cfg.d_model, cfg.dropout,
+                                   n_channels=getattr(cfg, "n_channels", 1))
         self.marker = MarkerModule(cfg.d_model, n_genes, cfg.n_markers, cfg.marker_mode)
         # Soft selectors produce M marker tokens directly with all-gene gradient.
         if cfg.marker_mode == "concrete":
@@ -58,6 +60,13 @@ class RecursiveMarkerTransformer(nn.Module):
             self.selector = SlotRouter(n_genes, cfg.n_markers, cfg.d_model)
             if getattr(cfg, "peak_init", True):
                 self._peak_init_router()
+        elif cfg.marker_mode == "pathway":
+            # Reactome gene->pathway membership pooling (M = #pathways, fixed by
+            # biology). M tokens = curated pathways, each pooling its member genes.
+            if pathway is None:
+                raise ValueError("marker_mode='pathway' requires the (N_genes, "
+                                 "M_pathways) membership matrix")
+            self.selector = PathwayPooler(pathway, pool=getattr(cfg, "pathway_pool", "mean"))
         else:
             self.selector = None
         self.stack = RecursiveStack(
@@ -67,6 +76,9 @@ class RecursiveMarkerTransformer(nn.Module):
             recursion_mode=cfg.recursion_mode, router_capacity=cfg.router_capacity,
             router_alpha=cfg.router_alpha, router_temp=cfg.router_temp,
             router_type=cfg.router_type,
+            share_strategy=getattr(cfg, "share_strategy", "cycle"),
+            n_unique_blocks=getattr(cfg, "n_unique_blocks", None),
+            step_cache=getattr(cfg, "step_cache", False),
         )
         # One classifier per head; binary heads use a single logit.
         self.classifiers = nn.ModuleDict({
@@ -85,6 +97,19 @@ class RecursiveMarkerTransformer(nn.Module):
         self.register_buffer("gene_centrality", torch.zeros(n_genes), persistent=False)
         self._use_prior = getattr(cfg, "gene_interaction", None) not in (None, "none")
         self._prior_beta = float(getattr(cfg, "router_prior_beta", 0.0))
+        # Per-token prior for pathway tokens: Reactome pathway-hierarchy centrality
+        # (M,), one entry per pathway token. Used in place of the per-gene
+        # gene_centrality when the tokens ARE pathways (marker_mode='pathway').
+        M_tok = self.selector.n_markers if cfg.marker_mode == "pathway" else 1
+        self.register_buffer("token_prior", torch.zeros(M_tok), persistent=False)
+        self._use_token_prior = False
+        # Pathway-hierarchy attention bias (Reactome pathway->pathway graph): an
+        # additive (M,M) bias on the self-attention logits so a pathway token
+        # attends to its hierarchy neighbours. Zero unless installed.
+        self.register_buffer("pathway_attn", torch.zeros(M_tok, M_tok),
+                             persistent=False)
+        self._use_attn_bias = False
+        self._attn_lambda = float(getattr(cfg, "pathway_attn_lambda", 0.0))
 
     def set_gene_variance(self, variance: torch.Tensor) -> None:
         self.gene_variance.copy_(variance.to(self.gene_variance))
@@ -93,6 +118,24 @@ class RecursiveMarkerTransformer(nn.Module):
         """Install the genomap gene-gene-interaction centrality prior (N,)."""
         self.gene_centrality.copy_(centrality.to(self.gene_centrality))
         self._use_prior = True
+
+    def set_token_prior(self, prior: torch.Tensor) -> None:
+        """Install a per-pathway-token prior (M,) -- e.g. Reactome pathway-graph
+        eigenvector centrality. Added (annealed by beta_t) to the depth-router
+        logits exactly like the gene prior, but indexed by token, not gene."""
+        self.token_prior.copy_(prior.to(self.token_prior))
+        self._use_token_prior = True
+
+    def set_pathway_adjacency(self, adjacency: torch.Tensor) -> None:
+        """Install the Reactome pathway->pathway hierarchy graph (M, M) as an
+        additive attention bias: lambda on hierarchy-adjacent pathway pairs, 0
+        elsewhere (self-attention on the diagonal is left unbiased). Pathway
+        tokens then attend preferentially along the curated Reactome graph."""
+        A = adjacency.to(self.pathway_attn).float()
+        A = torch.maximum(A, A.t())
+        A.fill_diagonal_(0.0)
+        self.pathway_attn.copy_(self._attn_lambda * (A > 0).float())
+        self._use_attn_bias = True
 
     @torch.no_grad()
     def _peak_init_router(self):
@@ -131,8 +174,14 @@ class RecursiveMarkerTransformer(nn.Module):
             # gradients reach every gene (the property hard top-k routing lacks).
             w = self.selector.weights(gene_identity)           # (M, N)
             sel_ident = w @ gene_identity                      # (M, d)
-            sel_value = x @ w.t()                              # (B, M) selected expression
-            cluster = sel_ident.unsqueeze(0) + self.embed.value_proj(sel_value.unsqueeze(-1))
+            if x.dim() == 3:
+                # Multimodal: pool each gene-aligned channel by the same marker
+                # weights, then fuse the C channels at the shared value projection.
+                sel_value = torch.einsum("bnc,mn->bmc", x, w)  # (B, M, C)
+                cluster = sel_ident.unsqueeze(0) + self.embed.value_proj(sel_value)
+            else:
+                sel_value = x @ w.t()                          # (B, M) selected expression
+                cluster = sel_ident.unsqueeze(0) + self.embed.value_proj(sel_value.unsqueeze(-1))
             marker_idx = self.selector.selected_indices(gene_identity)
             scores = w.max(dim=0).values                       # (N,) per-gene max selection weight
             marker_ident = nn.functional.normalize(sel_ident, dim=1)
@@ -154,13 +203,23 @@ class RecursiveMarkerTransformer(nn.Module):
 
         # Biology-informed router: gather the centrality prior for the selected
         # markers and pass it (with the annealed strength beta_t) to the depth
-        # router. marker_idx is the per-slot arg-max gene, so prior is (M,).
-        prior = self.gene_centrality[marker_idx] if self._use_prior else None
-        prior_weight = self._prior_beta if self._use_prior else 0.0
+        # router. For pathway tokens the prior is per-pathway (token_prior);
+        # otherwise it is the per-gene centrality gathered at the selected markers
+        # (marker_idx is the per-slot arg-max gene). Either way prior is (M,).
+        if self._use_token_prior:
+            prior = self.token_prior
+            prior_weight = self._prior_beta
+        elif self._use_prior:
+            prior = self.gene_centrality[marker_idx]
+            prior_weight = self._prior_beta
+        else:
+            prior, prior_weight = None, 0.0
 
         refine_fn = self.marker.refine_gate if self.cfg.recursive_marker_refine else None
+        attn_bias = self.pathway_attn if self._use_attn_bias else None
         h, route_info = self.stack(cluster, refine_fn, prior=prior,
-                                   prior_weight=prior_weight)   # (B, M, d), routing info
+                                   prior_weight=prior_weight,
+                                   attn_bias=attn_bias)         # (B, M, d), routing info
         pooled = h.mean(dim=1)                                  # (B, d)
 
         logits = {head: clf(pooled) for head, clf in self.classifiers.items()}

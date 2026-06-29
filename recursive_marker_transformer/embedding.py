@@ -19,9 +19,13 @@
 """Stage 1: gene embedding.
 
 Each gene becomes a token whose embedding combines a learned gene-identity
-vector (indexed by gene position) with a projection of the scalar expression
-value -- the standard scGPT / Geneformer gene+value scheme. Cost is O(N), so it
-runs over all genes before any compression.
+vector (indexed by gene position) with a projection of the per-gene value
+channels -- the standard scGPT / Geneformer gene+value scheme, generalised to
+``n_channels`` aligned assays. With ``n_channels == 1`` the channel is the scalar
+expression value (the original SMART input); with ``n_channels > 1`` the channels
+are the gene-aligned multimodal measurements (expression, copy-number, mutation),
+fused by a single shared value projection so every modality of a gene lands on
+the same token. Cost is O(N), so it runs over all genes before any compression.
 """
 
 from __future__ import annotations
@@ -31,20 +35,24 @@ import torch.nn as nn
 
 
 class GeneEmbedding(nn.Module):
-    def __init__(self, n_genes: int, d_model: int, dropout: float = 0.1):
+    def __init__(self, n_genes: int, d_model: int, dropout: float = 0.1,
+                 n_channels: int = 1):
         super().__init__()
         self.n_genes = n_genes
         self.d_model = d_model
+        self.n_channels = n_channels
         self.gene_emb = nn.Embedding(n_genes, d_model)
-        self.value_proj = nn.Linear(1, d_model)
+        self.value_proj = nn.Linear(n_channels, d_model)
         self.norm = nn.LayerNorm(d_model)
         self.drop = nn.Dropout(dropout)
         self.register_buffer("gene_ids", torch.arange(n_genes), persistent=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """x: (B, N) scalar expression -> (B, N, d_model) tokens."""
+        """x: (B, N) scalar or (B, N, C) multichannel -> (B, N, d_model) tokens."""
+        if x.dim() == 2:
+            x = x.unsqueeze(-1)                              # (B, N, 1)
         gene = self.gene_emb(self.gene_ids)                  # (N, d)
-        value = self.value_proj(x.unsqueeze(-1))             # (B, N, d)
+        value = self.value_proj(x)                           # (B, N, d)
         tokens = gene.unsqueeze(0) + value                   # broadcast over batch
         return self.drop(self.norm(tokens))
 
