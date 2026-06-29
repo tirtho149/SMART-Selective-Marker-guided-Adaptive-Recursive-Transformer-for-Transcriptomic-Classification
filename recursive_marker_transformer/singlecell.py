@@ -278,6 +278,18 @@ def main():
     ap.add_argument("--no_share_weights", dest="share_weights", action="store_false",
                     help="untie the recursion blocks (Independent stack)")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--share_strategy", type=str, default="cycle",
+                    choices=["cycle", "sequence", "middle_cycle", "middle_sequence"],
+                    help="MoR parameter-sharing scheme over the K recursion steps")
+    ap.add_argument("--n_unique_blocks", type=int, default=None,
+                    help="# distinct blocks; None -> 1 if shared else K")
+    ap.add_argument("--step_cache", action="store_true",
+                    help="reuse step-1 attention K/V across recursions (KV-reuse analogue)")
+    ap.add_argument("--router_type", type=str, default="linear", choices=["linear", "mlp"])
+    ap.add_argument("--router_z_coeff", type=float, default=1e-3)
+    ap.add_argument("--router_balance_coeff", type=float, default=0.1)
+    ap.add_argument("--router_alpha", type=float, default=1.0)
+    ap.add_argument("--router_temp", type=float, default=1.0)
     ap.add_argument("--cv_folds", type=int, default=0,
                     help="if >0, stratified k-fold CV reporting mean+/-std")
     args = ap.parse_args()
@@ -288,6 +300,10 @@ def main():
         marker_mode=args.marker_mode, recursion_mode=args.recursion_mode,
         recursion_depth=args.recursion_depth,
         share_weights=args.share_weights, seed=args.seed,
+        share_strategy=args.share_strategy, n_unique_blocks=args.n_unique_blocks,
+        step_cache=args.step_cache, router_type=args.router_type,
+        router_z_coeff=args.router_z_coeff, router_balance_coeff=args.router_balance_coeff,
+        router_alpha=args.router_alpha, router_temp=args.router_temp,
         epochs=args.epochs, patience=args.patience, lr=args.lr,
         weight_decay=args.weight_decay, device=args.device,
     )

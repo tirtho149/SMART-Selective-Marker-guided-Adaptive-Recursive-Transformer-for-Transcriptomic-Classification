@@ -34,6 +34,9 @@ class RMTConfig:
     heads: Tuple[str, ...] = ("cancer_type",)   # genomic_dataloader phenotype heads
     cohorts: Optional[Tuple[str, ...]] = None    # None = all 4 (keeps cancer_type contiguous)
     n_hvg: Optional[int] = 4000                  # top-variance gene pre-filter; None = all ~20.5k
+    n_channels: int = 1                          # per-gene input channels: 1=expression only,
+                                                 # >1 = multimodal (expr / CNV / mutation), each
+                                                 # gene-aligned; fused at the value projection
     batch_size: int = 64
     val_frac: float = 0.15
     test_frac: float = 0.15
@@ -46,7 +49,14 @@ class RMTConfig:
 
     # ---- marker / compression ------------------------------------------
     n_markers: int = 1000                        # M; clamped to <= n_genes at build time
-    marker_mode: str = "learnable"               # "learnable" | "random" | "variance"
+    marker_mode: str = "learnable"               # "learnable"|"random"|"variance"|
+                                                 # "concrete"|"router"|"pathway".
+                                                 # "pathway" = fixed Reactome gene->
+                                                 # pathway tokens (M set by membership,
+                                                 # n_markers ignored)
+    pathway_pool: str = "mean"                   # pathway-token pooling: "mean"
+                                                 # (dense assays, e.g. CNV/expr) |
+                                                 # "sum" (burden; sparse binary mutation)
     compress_mode: str = "aggregate"             # "aggregate": fold non-markers into clusters;
                                                  # "drop": use ONLY selected marker genes
     recursive_marker_refine: bool = True         # re-score markers after each recursion
@@ -56,6 +66,14 @@ class RMTConfig:
     # ---- recursion -----------------------------------------------------
     recursion_depth: int = 4                     # K
     share_weights: bool = True                   # True: one block x K (RMT); False: K blocks
+    share_strategy: str = "cycle"                # block-tying scheme over the K steps
+                                                 # (MoR Table 1): cycle|sequence|
+                                                 # middle_cycle|middle_sequence
+    n_unique_blocks: Optional[int] = None        # # distinct blocks; None -> 1 if
+                                                 # share_weights else K (independent)
+    step_cache: bool = False                     # reuse step-1 attention K/V across the
+                                                 # K recursions (set-encoder analogue of
+                                                 # MoR recursion-wise KV cache)
     adaptive_depth: bool = False                 # legacy soft-halting analogue (Ablation 5)
     marker_ffn: bool = False                     # dedicated FFN for markers (Ablation 7)
 
@@ -71,14 +89,24 @@ class RMTConfig:
     router_balance_coeff: float = 0.1            # weight of token-choice balancing loss
 
     # ---- biology-informed router (genomap gene-gene interaction prior) -----
-    gene_interaction: str = "none"               # "none" | "coexpr" | "random"
+    gene_interaction: str = "none"               # "none"|"coexpr"|"random"|"reactome"
                                                  # coexpr = genomap correlation graph;
-                                                 # random = degree-matched control
+                                                 # random = degree-matched control;
+                                                 # reactome = curated pathway-hierarchy
+                                                 # centrality (per pathway token)
     interaction_knn: int = 16                    # k nearest co-expression neighbours
     router_prior_beta: float = 1.0               # beta_0: additive centrality-bias
                                                  # strength on the depth-router logits
     router_prior_anneal: bool = True             # decay beta_t -> 0 over training
                                                  # (warm-start prior; data takes over)
+
+    # ---- pathway-hierarchy attention bias (Reactome pathway->pathway graph) ----
+    pathway_attn_bias: bool = False              # bias self-attention so a pathway
+                                                 # token attends to its Reactome
+                                                 # neighbours (needs full-token modes:
+                                                 # recursion_mode in {fixed, token})
+    pathway_attn_lambda: float = 2.0             # additive bias on attention logits
+                                                 # for hierarchy-adjacent pathway pairs
 
     # ---- loss weights --------------------------------------------------
     lambda_marker: float = 0.1

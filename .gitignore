@@ -53,3 +53,7 @@ paper/*.log
 paper/*.out
 s41467-023-36383-6.pdf
 results_cohorts_ms/
+
+# large raw data + copyrighted reference PDFs (not for the repo)
+new data/pancan_raw/
+TableNeeded*

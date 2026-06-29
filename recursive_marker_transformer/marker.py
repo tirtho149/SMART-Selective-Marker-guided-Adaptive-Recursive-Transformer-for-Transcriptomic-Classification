@@ -157,6 +157,52 @@ class SlotRouter(nn.Module):
         return self._logits(gene_identity).argmax(dim=1)
 
 
+class PathwayPooler(nn.Module):
+    """Fixed Reactome gene->pathway membership pooling -> ``M`` *pathway tokens*.
+
+    A drop-in selector (same ``weights`` / ``selected_indices`` interface as
+    ``SlotRouter``), so ``model.py``'s selector branch pools both the gene-identity
+    matrix and the per-channel patient values by pathway membership with no other
+    change. This is P-NET's (Elmarakeby et al. 2021) gene->pathway sparse layer,
+    recast as interpretable tokens that then flow into the recursive MoR stack:
+    each token *is* a curated Reactome pathway, unlike the learned/abstract marker
+    slots.
+
+    ``membership`` is the binary ``(N_genes, M_pathways)`` matrix. The pooling is
+    ``pool="mean"`` (row-normalised, a token is the *mean* of its members --
+    scale-free, right for dense assays like CNV) or ``pool="sum"`` (raw
+    membership, a token is the *sum/burden* of its members -- right for SPARSE
+    binary mutation, where mean-pooling washes the per-pathway signal to a near
+    constant and the model collapses). A learnable per-pathway gate
+    ``sigmoid(g_m)`` lets the model down-weight uninformative pathways -- the
+    'selective' property of SMART, now at pathway granularity. The membership is
+    fixed (biology, not learned); only the gate trains.
+    """
+
+    def __init__(self, membership: torch.Tensor, pool: str = "mean"):
+        super().__init__()
+        P = membership.float()                                  # (N, M)
+        self.n_genes, self.n_markers = P.shape
+        self.pool = pool
+        if pool == "sum":
+            W = P.t().contiguous()                             # (M, N) raw -> burden
+        elif pool == "mean":
+            col = P.sum(dim=0).clamp_min(1.0)                  # members per pathway
+            W = (P / col).t().contiguous()                    # (M, N) rows ~sum to 1
+        else:
+            raise ValueError(f"Unknown pathway pool: {pool!r}")
+        self.register_buffer("Wn", W, persistent=True)
+        self.gate = nn.Parameter(torch.zeros(self.n_markers))  # sigmoid(0)=0.5
+
+    def weights(self, gene_identity: torch.Tensor = None) -> torch.Tensor:
+        """(M, N) pooling weights = per-pathway gate x normalised membership."""
+        return torch.sigmoid(self.gate).unsqueeze(1) * self.Wn
+
+    def selected_indices(self, gene_identity: torch.Tensor = None) -> torch.Tensor:
+        """Each token's identity is its pathway index (tokens ARE pathways)."""
+        return torch.arange(self.n_markers, device=self.Wn.device)
+
+
 class MarkerModule(nn.Module):
     def __init__(self, d_model: int, n_genes: int, n_markers: int, mode: str = "learnable"):
         super().__init__()
