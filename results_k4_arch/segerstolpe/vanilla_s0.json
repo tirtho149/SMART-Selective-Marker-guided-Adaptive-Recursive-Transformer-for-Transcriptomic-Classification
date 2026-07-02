@@ -1,0 +1,16 @@
+{
+ "dataset": "segerstolpe",
+ "arch": "vanilla",
+ "K": 4,
+ "seed": 0,
+ "test_macro_f1": 9.306094363146626,
+ "test_accuracy": 14.599686028257459,
+ "transformer_params": 299136,
+ "total_params": 518325,
+ "n_markers": 128,
+ "d_model": 96,
+ "d_ff": 192,
+ "flops_nominal": 62914560.0,
+ "flops_effective": 62914560.0,
+ "compute_saving": 0.0
+}

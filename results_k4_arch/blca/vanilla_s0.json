@@ -1,0 +1,16 @@
+{
+ "dataset": "blca",
+ "arch": "vanilla",
+ "K": 4,
+ "seed": 0,
+ "test_macro_f1": 47.65478424015009,
+ "test_accuracy": 61.72839506172839,
+ "transformer_params": 529920,
+ "total_params": 1871599,
+ "n_markers": 256,
+ "d_model": 128,
+ "d_ff": 256,
+ "flops_nominal": 268435456.0,
+ "flops_effective": 268435456.0,
+ "compute_saving": 0.0
+}

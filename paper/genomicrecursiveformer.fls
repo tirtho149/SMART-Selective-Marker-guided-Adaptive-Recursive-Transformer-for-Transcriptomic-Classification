@@ -177,6 +177,11 @@ INPUT /home/tirtho/.TinyTeX/texmf-dist/tex/latex/fontawesome5/fontawesome5-gener
 INPUT /home/tirtho/.TinyTeX/texmf-dist/tex/latex/fontawesome5/fontawesome5-generic-helper.sty
 INPUT /home/tirtho/.TinyTeX/texmf-dist/tex/latex/fontawesome5/fontawesome5-mapping.def
 INPUT /home/tirtho/.TinyTeX/texmf-dist/tex/latex/fontawesome5/fontawesome5-mapping.def
+INPUT /home/tirtho/.TinyTeX/texmf-dist/tex/latex/colortbl/colortbl.sty
+INPUT /home/tirtho/.TinyTeX/texmf-dist/tex/latex/colortbl/colortbl.sty
+INPUT /home/tirtho/.TinyTeX/texmf-dist/tex/latex/tools/array.sty
+INPUT /home/tirtho/.TinyTeX/texmf-dist/tex/latex/tools/array.sty
+INPUT /home/tirtho/.TinyTeX/texmf-dist/tex/latex/graphics/color.sty
 INPUT /home/tirtho/.TinyTeX/texmf-dist/tex/generic/pgf/libraries/pgflibraryarrows.meta.code.tex
 INPUT /home/tirtho/.TinyTeX/texmf-dist/tex/generic/pgf/libraries/pgflibraryarrows.meta.code.tex
 INPUT /home/tirtho/.TinyTeX/texmf-dist/tex/generic/pgf/libraries/pgflibraryarrows.meta.code.tex

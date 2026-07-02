@@ -1,0 +1,16 @@
+{
+ "dataset": "tabula_muris",
+ "arch": "vanilla",
+ "K": 4,
+ "seed": 1,
+ "test_macro_f1": 79.30596053699651,
+ "test_accuracy": 87.2463239761818,
+ "transformer_params": 299136,
+ "total_params": 445743,
+ "n_markers": 128,
+ "d_model": 96,
+ "d_ff": 192,
+ "flops_nominal": 62914560.0,
+ "flops_effective": 62914560.0,
+ "compute_saving": 0.0
+}

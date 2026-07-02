@@ -1,0 +1,16 @@
+{
+ "dataset": "common_class",
+ "arch": "vanilla",
+ "K": 4,
+ "seed": 0,
+ "test_macro_f1": 70.57935146628905,
+ "test_accuracy": 83.84242424242424,
+ "transformer_params": 299136,
+ "total_params": 438759,
+ "n_markers": 128,
+ "d_model": 96,
+ "d_ff": 192,
+ "flops_nominal": 62914560.0,
+ "flops_effective": 62914560.0,
+ "compute_saving": 0.0
+}
