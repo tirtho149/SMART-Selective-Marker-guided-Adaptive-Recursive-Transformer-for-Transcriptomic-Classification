@@ -1,0 +1,23 @@
+{
+ "dataset": "tcell",
+ "arch": "mor",
+ "K": 4,
+ "seed": 1,
+ "test_macro_f1": 47.084221855186655,
+ "test_accuracy": 64.5564348188255,
+ "transformer_params": 75168,
+ "total_params": 212463,
+ "n_markers": 128,
+ "d_model": 96,
+ "d_ff": 192,
+ "flops_nominal": 62914560.0,
+ "mean_token_depth": 2.75,
+ "active_fraction_per_step": [
+  1.0,
+  0.75,
+  0.5,
+  0.5
+ ],
+ "flops_effective": 38928384.0,
+ "compute_saving": 0.38125
+}

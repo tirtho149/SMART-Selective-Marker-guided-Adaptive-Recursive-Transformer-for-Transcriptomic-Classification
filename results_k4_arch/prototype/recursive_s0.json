@@ -1,0 +1,16 @@
+{
+ "dataset": "prototype",
+ "arch": "recursive",
+ "K": 4,
+ "seed": 0,
+ "test_macro_f1": 94.08417084915348,
+ "test_accuracy": 94.4726576874954,
+ "transformer_params": 74784,
+ "total_params": 180309,
+ "n_markers": 128,
+ "d_model": 96,
+ "d_ff": 192,
+ "flops_nominal": 62914560.0,
+ "flops_effective": 62914560.0,
+ "compute_saving": 0.0
+}

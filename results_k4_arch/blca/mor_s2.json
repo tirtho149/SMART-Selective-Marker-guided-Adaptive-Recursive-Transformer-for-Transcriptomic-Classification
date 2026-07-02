@@ -1,0 +1,23 @@
+{
+ "dataset": "blca",
+ "arch": "mor",
+ "K": 4,
+ "seed": 2,
+ "test_macro_f1": 55.338345864661655,
+ "test_accuracy": 59.25925925925925,
+ "transformer_params": 132992,
+ "total_params": 1474671,
+ "n_markers": 256,
+ "d_model": 128,
+ "d_ff": 256,
+ "flops_nominal": 268435456.0,
+ "mean_token_depth": 2.75,
+ "active_fraction_per_step": [
+  1.0,
+  0.75,
+  0.5,
+  0.5
+ ],
+ "flops_effective": 161480704.0,
+ "compute_saving": 0.3984375
+}

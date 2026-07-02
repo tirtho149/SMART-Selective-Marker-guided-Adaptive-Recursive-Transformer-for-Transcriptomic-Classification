@@ -1,0 +1,16 @@
+{
+ "dataset": "prostate",
+ "arch": "recursive",
+ "K": 4,
+ "seed": 1,
+ "test_macro_f1": 54.26716141001855,
+ "test_accuracy": 66.50246305418719,
+ "transformer_params": 132480,
+ "total_params": 797900,
+ "n_markers": 256,
+ "d_model": 128,
+ "d_ff": 256,
+ "flops_nominal": 268435456.0,
+ "flops_effective": 268435456.0,
+ "compute_saving": 0.0
+}

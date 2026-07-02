@@ -1,0 +1,16 @@
+{
+ "dataset": "tcell",
+ "arch": "vanilla",
+ "K": 4,
+ "seed": 0,
+ "test_macro_f1": 48.63462879733209,
+ "test_accuracy": 66.30570595585172,
+ "transformer_params": 299136,
+ "total_params": 436431,
+ "n_markers": 128,
+ "d_model": 96,
+ "d_ff": 192,
+ "flops_nominal": 62914560.0,
+ "flops_effective": 62914560.0,
+ "compute_saving": 0.0
+}

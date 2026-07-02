@@ -1,0 +1,16 @@
+{
+ "dataset": "pancreas",
+ "arch": "vanilla",
+ "K": 32,
+ "seed": 1,
+ "test_macro_f1": 8.392520532617667,
+ "test_accuracy": 21.250587682181475,
+ "transformer_params": 2393088,
+ "total_params": 2613247,
+ "n_markers": 128,
+ "d_model": 96,
+ "d_ff": 192,
+ "flops_nominal": 503316480.0,
+ "flops_effective": 503316480.0,
+ "compute_saving": 0.0
+}

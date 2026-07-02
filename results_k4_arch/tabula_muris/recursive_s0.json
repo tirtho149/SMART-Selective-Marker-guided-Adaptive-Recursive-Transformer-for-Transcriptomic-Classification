@@ -1,0 +1,16 @@
+{
+ "dataset": "tabula_muris",
+ "arch": "recursive",
+ "K": 4,
+ "seed": 0,
+ "test_macro_f1": 75.78294519833558,
+ "test_accuracy": 84.61538461538461,
+ "transformer_params": 74784,
+ "total_params": 221391,
+ "n_markers": 128,
+ "d_model": 96,
+ "d_ff": 192,
+ "flops_nominal": 62914560.0,
+ "flops_effective": 62914560.0,
+ "compute_saving": 0.0
+}

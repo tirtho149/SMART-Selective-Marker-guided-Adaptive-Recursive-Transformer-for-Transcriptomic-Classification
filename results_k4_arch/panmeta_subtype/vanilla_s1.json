@@ -1,0 +1,16 @@
+{
+ "dataset": "panmeta_subtype",
+ "arch": "vanilla",
+ "K": 4,
+ "seed": 1,
+ "test_macro_f1": 76.63974854124949,
+ "test_accuracy": 81.08265424912689,
+ "transformer_params": 529920,
+ "total_params": 1838250,
+ "n_markers": 256,
+ "d_model": 128,
+ "d_ff": 256,
+ "flops_nominal": 268435456.0,
+ "flops_effective": 268435456.0,
+ "compute_saving": 0.0
+}

@@ -1,0 +1,16 @@
+{
+ "dataset": "lung",
+ "arch": "vanilla",
+ "K": 4,
+ "seed": 1,
+ "test_macro_f1": 71.69880849764954,
+ "test_accuracy": 81.2229627031451,
+ "transformer_params": 299136,
+ "total_params": 439923,
+ "n_markers": 128,
+ "d_model": 96,
+ "d_ff": 192,
+ "flops_nominal": 62914560.0,
+ "flops_effective": 62914560.0,
+ "compute_saving": 0.0
+}

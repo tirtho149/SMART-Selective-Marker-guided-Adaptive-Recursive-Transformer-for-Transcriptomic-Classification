@@ -1,0 +1,16 @@
+{
+ "dataset": "baron",
+ "arch": "vanilla",
+ "K": 4,
+ "seed": 1,
+ "test_macro_f1": 62.88673180423607,
+ "test_accuracy": 81.60248930377286,
+ "transformer_params": 299136,
+ "total_params": 519101,
+ "n_markers": 128,
+ "d_model": 96,
+ "d_ff": 192,
+ "flops_nominal": 62914560.0,
+ "flops_effective": 62914560.0,
+ "compute_saving": 0.0
+}

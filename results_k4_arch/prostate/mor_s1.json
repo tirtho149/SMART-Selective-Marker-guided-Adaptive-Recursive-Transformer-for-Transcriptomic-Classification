@@ -1,0 +1,23 @@
+{
+ "dataset": "prostate",
+ "arch": "mor",
+ "K": 4,
+ "seed": 1,
+ "test_macro_f1": 47.46376811594203,
+ "test_accuracy": 65.51724137931035,
+ "transformer_params": 132992,
+ "total_params": 798412,
+ "n_markers": 256,
+ "d_model": 128,
+ "d_ff": 256,
+ "flops_nominal": 268435456.0,
+ "mean_token_depth": 2.75,
+ "active_fraction_per_step": [
+  1.0,
+  0.75,
+  0.5,
+  0.5
+ ],
+ "flops_effective": 161480704.0,
+ "compute_saving": 0.3984375
+}

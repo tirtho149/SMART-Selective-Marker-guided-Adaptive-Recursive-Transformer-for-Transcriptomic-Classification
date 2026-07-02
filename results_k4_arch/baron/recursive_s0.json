@@ -1,0 +1,16 @@
+{
+ "dataset": "baron",
+ "arch": "recursive",
+ "K": 4,
+ "seed": 0,
+ "test_macro_f1": 64.67497474339542,
+ "test_accuracy": 87.28121353558926,
+ "transformer_params": 74784,
+ "total_params": 294749,
+ "n_markers": 128,
+ "d_model": 96,
+ "d_ff": 192,
+ "flops_nominal": 62914560.0,
+ "flops_effective": 62914560.0,
+ "compute_saving": 0.0
+}
