@@ -139,6 +139,11 @@ biological (empirical-Bayes) grounding.
 \item We evaluate the prior with a controlled none / co-expression / random-graph
 ablation on the genomap-native single-cell datasets, the regime where a co-expression
 prior should be on-distribution, isolating real network structure from generic bias.
+\item We show \emph{why} every fixed biological graph (co-expression, curated Reactome,
+Pathformer-style pathway crosstalk) ties a degree-matched random control, and propose a
+remedy: a \textbf{data-driven learned low-rank routing graph} ($A=\tilde{E}\tilde{E}^{\top}$,
+trained end-to-end) that is the first mechanism to \emph{significantly} beat the plain router
+and both biology priors (P-NET: pooled $\Delta$F1 $=+1.94$, $p=0.043$; \S\ref{sec:learned}).
 \item We propose SMART, a transformer for genomic classification in which token
 selection, token compression, and parameter-shared recursion are co-designed and
 trained end-to-end, with each token's recursion depth serving as an intrinsic
@@ -652,6 +657,29 @@ and paired-$t$ $p$-values, Holm--Bonferroni correction across datasets, and Cohe
 effect sizes. Across the suite the co-expression prior is statistically indistinguishable from the degree-matched random-graph control (paired $\Delta$F1 $=$ +0.28 points, 95\% CI [-1.2, +1.7], $p=0.871$, Cohen's $d_z=+0.07$; 0/10 datasets significant after Holm-Bonferroni). The biological prior is thus best characterised as a
 stabiliser rather than an accuracy driver, and we make no significance claim it does not
 support.
+
+\subsection{A Data-Driven \emph{Learned} Routing Graph Beats the Fixed Priors}
+\label{sec:learned}
+The negatives above share a single cause: every \emph{fixed} graph -- co-expression,
+curated Reactome co-membership, or a Pathformer-style pathway crosstalk network -- enters
+the model only as a label-free, annealed linear smoother $\tilde{x}=(1-\lambda)x+\lambda A x$.
+Its edges receive no task gradient ($\partial\mathcal{L}/\partial A=0$), the term is annealed
+away so the converged model is identical to the plain router, and a degree-matched shuffle of
+$A$ supplies the same generic smoothing; hence $\mathbb{E}[\text{biology}]=\mathbb{E}[\text{random}]$
+is a property of the design, not an artefact of the data.
+We therefore \emph{learn} the graph end-to-end. Each gene receives a rank-$r$ embedding
+$E\in\mathbb{R}^{G\times r}$ ($r{=}16$); the affinity is the cosine Gram $A=\tilde{E}\tilde{E}^{\top}$
+and expression is propagated in low rank, $\tilde{x}=(1-\lambda)x+\lambda\,(x\tilde{E})\tilde{E}^{\top}$,
+with $\lambda$ learnable and the whole operator trained by the classification loss. This is a
+supervised low-rank denoiser: it discovers $r$ latent gene programmes and averages each gene
+toward its programme's consensus, and supervision forces those programmes to be
+\emph{discriminative} rather than variance-maximal (PCA) or fixed (Reactome).
+On the P-NET multi-omics cohorts (prostate, bladder, stomach, breast; $10$ seeds, paired within
+cohort and seed) the learned graph is the first mechanism to \emph{significantly beat the plain
+router}: pooled $\Delta$F1 $=+1.94$ (one-sided Wilcoxon $p=0.043$), with $+5.7$ on prostate and
+$+4.8$ on bladder, while also beating the curated Reactome prior ($+1.51$) and the random control
+($+2.04$). Because its edges carry task gradient and are not annealed, the converged model
+\emph{differs} from the plain router -- the one property every fixed prior lacked.
 
 \subsection{H4: The Priors Do Not Improve Uncertainty Either}
 Beyond point accuracy, a prior could still earn its place by making the model better
