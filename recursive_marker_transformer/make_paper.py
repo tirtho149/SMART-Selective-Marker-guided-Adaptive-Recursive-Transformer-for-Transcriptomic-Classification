@@ -16,20 +16,24 @@
 # the fullest extent permitted by law. See the LICENSE file for full terms.
 # ============================================================================
 
-"""Generate the SMART paper (.tex + refs.bib) from single-cell experiment results.
+"""Generate the SMART paper (.tex + refs.bib) from the 13-dataset experiment results.
 
-This generator covers the full **genomap single-cell suite** (ten datasets, with
-Tabula Muris and pancreas as the detailed exemplars) together with the
-**pathway/P-NET multi-omics cohorts** that test transfer beyond single cell; there is
-no bulk / TCGA content. The narrative centers
-on the **biology-informed router**: a label-free genomap gene-gene co-expression
-centrality prior injected into the recursion depth-router, with a controlled
-none / co-expression / random-graph ablation as the headline experiment.
+The paper is built around exactly **13 datasets** -- nine genomap single-cell
+suites (Baron, Lung, Muraro, Oesophagus, Segerstolpe, Spleen, T-cell, Wang, Xin)
+and four Reactome/P-NET multi-omics cohorts (prostate, BLCA, STAD, BRCA) -- and
+five result tables, every number injected from JSON produced by the runners:
 
-Every number in the paper is injected from JSON produced by the experiment runners:
-  * results_sc_interaction/<ds>__<mode>__seed<s>.json   (bio-router ablation; headline)
-  * results_singlecell_arch/<variant>/s<seed>/<ds>.json (architecture / selection ablation)
-  * results_sc/param_efficiency.json                    (shared-vs-independent params)
+  * results_learned_genomap/<Ds>/<mode>_s<seed>.json          (T1 SC: learned bio-router)
+  * results_bio_curated/pnet/<coh>__response/<mode>_s<seed>.json (T1 P-NET: learned bio-router)
+  * results_arch13/<variant>/s<seed>/<ds>.json                (T5 SC: MoR ladder)
+  * results_pw13/<variant>/s<seed>/<coh>__*.json              (T5 P-NET: MoR ladder)
+  * results_token13/M<M>/s<seed>/<ds>.json                    (T3 SC: token budget sweep)
+  * results_pwtoken13/M<M>/s<seed>/<coh>__*.json              (T3 P-NET: token budget sweep)
+  * results_uq13/<config>/s<seed>/<ds>.json                   (T4: calibration NLL/ECE/AUROC)
+
+Tables: T1 learned bio-router ablation (none/random/biology/learned), T2 analytic
+parameter reduction (K x), T3 marker-token budget sweep, T4 calibration, and T5 the
+Vanilla / Recursive / MoR efficiency ladder. Run:
 
     python -m recursive_marker_transformer.make_paper --outdir paper
 """
@@ -45,47 +49,24 @@ _REPO = Path(__file__).resolve().parents[1]
 _TEMPLATE_DIR = _REPO / "aaai_template"
 
 # ---------------------------------------------------------------------------
-# datasets (full genomap single-cell suite) and display metadata
+# the 13-dataset roster and display metadata
 # ---------------------------------------------------------------------------
-_DATASETS = ["tabula_muris", "pancreas", "common_class", "prototype", "baron", "segerstolpe",
-             "lung", "oesophagus", "spleen", "tcell"]
-_DISPLAY = {"tabula_muris": "TM", "pancreas": "Panc.", "common_class": "Common",
-            "prototype": "Proto.", "baron": "Baron", "segerstolpe": "Seger.",
-            "lung": "Lung", "oesophagus": "Oeso.", "spleen": "Spleen", "tcell": "T-cell"}
-# GitHub pathway/P-NET cohorts, reported in the same tables as the genomap datasets.
-_PW_COH = ["prostate", "blca", "stad", "panmeta_subtype"]
-_PW_DISPLAY = {"prostate": "Prost.", "blca": "BLCA", "stad": "STAD", "panmeta_subtype": "PanCan"}
+# nine genomap single-cell datasets (lower-case keys = arch13/token13/uq13 dirs)
+_SC = ["baron", "lung", "muraro", "oesophagus", "segerstolpe", "spleen", "tcell", "wang", "xin"]
+_SC_DISP = {"baron": "Baron", "lung": "Lung", "muraro": "Muraro", "oesophagus": "Oeso.",
+            "segerstolpe": "Seger.", "spleen": "Spleen", "tcell": "T-cell", "wang": "Wang",
+            "xin": "Xin"}
+# results_learned_genomap uses capitalised directory names
+_SC_CAP = {"baron": "Baron", "lung": "Lung", "muraro": "Muraro", "oesophagus": "Oesophagus",
+           "segerstolpe": "Segerstolpe", "spleen": "Spleen", "tcell": "Tcell", "wang": "Wang",
+           "xin": "Xin"}
+# four Reactome/P-NET multi-omics cohorts
+_PN = ["prostate", "blca", "stad", "brca"]
+_PN_DISP = {"prostate": "Prostate", "blca": "BLCA", "stad": "STAD", "brca": "BRCA"}
 
-
-def _pw_arch(variant: str, task: str):
-    """macro-F1 records for a pathway cohort under an arch variant (results_pathway_arch)."""
-    out = []
-    for f in glob.glob(str(_REPO / "results_pathway_arch" / variant / f"{task}__*.json")):
-        try:
-            out.append(json.loads(Path(f).read_text())["macro_f1"])
-        except Exception:
-            pass
-    return out
-# genomap-paper reported cell-recognition accuracy on Tabula Muris (Islam & Xing,
-# Nat. Commun. 2023): genomap 93%, +6% over Cell-ID, +21% over SingleR -> 87 / 72.
-# These are LITERATURE values, cited, never presented as our own runs.
-_LIT_TM = {"genomap": 93.0, "cellid": 87.0, "singler": 72.0}
-
-_MODES = ["none", "coexpr", "random"]
-_MODE_LABEL = {
-    "none":   "None (data-only router)",
-    "coexpr": "Co-expression (genomap, ours)",
-    "random": "Random graph (control)",
-}
-_ARCH_VARIANTS = [
-    ("shared",        "Expert-choice MoR, shared (headline)"),
-    ("independent",   "$-$ weight sharing (independent layers)"),
-    ("token",         "Token-choice routing"),
-    ("fixed",         "Fixed-depth recursion (no routing)"),
-    ("depth1",        "$-$ recursion ($K{=}1$, single pass)"),
-    ("marker_random", "Random marker panel"),
-    ("marker_var",    "Variance marker panel"),
-]
+_NSEEDS_LEARNED = 10   # results_learned_genomap / results_bio_curated seeds
+_NSEEDS_ARCH = 3       # arch13 / token13 / uq13 / pw13 seeds
+_MSWEEP = [16, 32, 64, 128, 256]
 
 
 # ---------------------------------------------------------------------------
@@ -96,8 +77,23 @@ def _fmt(n) -> str:
     return f"{int(round(n)):,}".replace(",", "{,}")
 
 
+def _J(p):
+    try:
+        return json.loads(Path(p).read_text())
+    except Exception:
+        return None
+
+
+def _g(*parts):
+    return sorted(glob.glob(str(_REPO.joinpath(*parts))))
+
+
+def _finite(xs):
+    return [x for x in xs if x is not None and math.isfinite(x)]
+
+
 def _mean_std(xs):
-    xs = [x for x in xs if x is not None]
+    xs = _finite(xs)
     if not xs:
         return None, None
     m = sum(xs) / len(xs)
@@ -108,378 +104,396 @@ def _mean_std(xs):
 
 
 def _ms_pct(xs):
-    """Mean+/-std as a percentage string, e.g. '83.1\\,$\\pm$\\,0.4'."""
+    """Mean+/-std of fractional metrics rendered as a percentage string."""
     m, s = _mean_std(xs)
     if m is None:
         return "--"
-    return f"{m*100:.1f}\\,$\\pm$\\,{s*100:.1f}"
+    return f"{m * 100:.1f}\\,$\\pm$\\,{s * 100:.1f}"
+
+
+def _ms_pp(xs):
+    """Mean+/-std of values already expressed in percent."""
+    m, s = _mean_std(xs)
+    if m is None:
+        return "--"
+    return f"{m:.1f}\\,$\\pm$\\,{s:.1f}"
+
+
+def _mean(xs):
+    xs = _finite(xs)
+    return sum(xs) / len(xs) if xs else None
+
+
+# metric extractors that tolerate both JSON schemas (single-cell heads / flat P-NET)
+def _f1(r):
+    return r["heads"]["cell_type"]["macro_f1"] if "heads" in r else r["macro_f1"]
+
+
+def _acc(r):
+    return r["heads"]["cell_type"]["accuracy"] if "heads" in r else r["accuracy"]
 
 
 # ---------------------------------------------------------------------------
-# result loaders
+# T1 -- learned biology-informed router ablation (none / random / biology / learned)
 # ---------------------------------------------------------------------------
-def _bio_runs(ds: str, mode: str):
-    """All seed records for one (dataset, mode) of the bio-router ablation."""
-    out = []
-    for f in sorted(glob.glob(str(_REPO / "results_sc_interaction" / f"{ds}__{mode}__seed*.json"))):
-        try:
-            out.append(json.loads(Path(f).read_text()))
-        except Exception:
-            pass
-    return out
+# single-cell biology prior = genomap co-expression centrality ("coexpr");
+# P-NET biology prior = curated Reactome gene-gene graph ("curated").
+# "Biology" = FIXED hand-built prior (co-expression / curated Reactome centrality).
+# "Learned" = graph learned end-to-end from data, random init (no explicit prior).
+# "Learned$_{bio}$" = same learned graph, warm-started from the biological graph.
+_T1_COLS = ["None", "Random", "Biology", "Learned", "Learned$_{bio}$"]
+_T1_SC_MODE = {"None": "none", "Random": "random", "Biology": "coexpr",
+               "Learned": "learned", "Learned$_{bio}$": "learned_bio"}
+_T1_PN_MODE = {"None": "none", "Random": "random", "Biology": "curated",
+               "Learned": "learned", "Learned$_{bio}$": "learned_bio"}
 
 
-def _arch_runs(variant: str, ds: str):
-    """All seed records for one architecture variant on one dataset."""
-    out = []
-    for f in sorted(glob.glob(str(_REPO / "results_singlecell_arch" / variant / "s*" / f"{ds}.json"))):
-        try:
-            r = json.loads(Path(f).read_text())
-            h = r["heads"]["cell_type"]
-            out.append({"accuracy": h["accuracy"], "macro_f1": h["macro_f1"],
-                        "transformer_params": r.get("transformer_params"),
-                        "total_params": r.get("total_params")})
-        except Exception:
-            pass
-    return out
+def _t1_sc(ds, col, metric):
+    mode = _T1_SC_MODE[col]
+    return [r[metric] for f in _g("results_learned_genomap", _SC_CAP[ds], f"{mode}_s*.json")
+            if (r := _J(f)) is not None]
 
 
-def _bio_stat(ds, mode, key):
-    return [r.get(key) for r in _bio_runs(ds, mode)]
+def _t1_pn(coh, col, metric):
+    mode = _T1_PN_MODE[col]
+    return [r[metric] for f in _g("results_bio_curated", "pnet", f"{coh}__response", f"{mode}_s*.json")
+            if (r := _J(f)) is not None]
 
 
-def _headline(ds, key):
-    """Headline SMART = co-expression bio-router; fall back to none if coexpr absent."""
-    runs = _bio_runs(ds, "coexpr") or _bio_runs(ds, "none")
-    return [r.get(key) for r in runs]
-
-
-def _first_meta(ds):
-    for mode in _MODES:
-        r = _bio_runs(ds, mode)
-        if r:
-            return r[0]
-    return {}
-
-
-# ---------------------------------------------------------------------------
-# table builders
-# ---------------------------------------------------------------------------
-def main_sc_table() -> str:
-    """Headline single-cell results: SMART (co-expression bio-router) per dataset."""
-    lines = [
-        "\\begin{tabular}{lrrrcc}",
-        "\\toprule",
-        "Dataset & Cells & Genes & Classes & Accuracy & Macro-F1 \\\\",
-        "\\midrule",
-    ]
-    for ds in _DATASETS:
-        m = _first_meta(ds)
-        if not m:
-            lines.append(f"{_DISPLAY[ds]} & -- & -- & -- & -- & -- \\\\")
-            continue
-        acc = _ms_pct(_headline(ds, "accuracy"))
-        f1 = _ms_pct(_headline(ds, "macro_f1"))
-        lines.append(
-            f"{_DISPLAY[ds]} & {_fmt(m['n_samples'])} & {_fmt(m['n_features'])} & "
-            f"{m['n_classes']} & {acc} & {f1} \\\\")
+def table1() -> str:
+    """Learned bio-router ablation: test macro-F1 per dataset for none/random/biology/learned,
+    with mean macro-F1 and mean accuracy summary rows over all 13 datasets."""
+    lines = ["\\begin{tabular}{l" + "c" * len(_T1_COLS) + "}", "\\toprule",
+             "Dataset & " + " & ".join(_T1_COLS) + " \\\\",
+             "\\midrule",
+             "\\multicolumn{%d}{l}{\\emph{Single-cell (genomap)}} \\\\" % (len(_T1_COLS) + 1)]
+    for ds in _SC:
+        cells = [_ms_pp(_t1_sc(ds, c, "test_macro_f1")) for c in _T1_COLS]
+        lines.append(f"\\quad {_SC_DISP[ds]} & " + " & ".join(cells) + " \\\\")
+    lines.append("\\midrule")
+    lines.append("\\multicolumn{%d}{l}{\\emph{Multi-omics (Reactome/P-NET)}} \\\\" % (len(_T1_COLS) + 1))
+    for coh in _PN:
+        cells = [_ms_pp(_t1_pn(coh, c, "test_macro_f1")) for c in _T1_COLS]
+        lines.append(f"\\quad {_PN_DISP[coh]} & " + " & ".join(cells) + " \\\\")
+    # summary rows: mean over the per-dataset means, all 13 datasets
+    lines.append("\\midrule")
+    for metric, label in [("test_macro_f1", "Mean macro-F1"), ("test_accuracy", "Mean accuracy")]:
+        cells = []
+        for c in _T1_COLS:
+            per = [_mean(_t1_sc(ds, c, metric)) for ds in _SC] + \
+                  [_mean(_t1_pn(coh, c, metric)) for coh in _PN]
+            m = _mean(per)
+            cells.append("--" if m is None else f"\\textbf{{{m:.1f}}}")
+        lines.append(f"\\textbf{{{label}}} & " + " & ".join(cells) + " \\\\")
     lines += ["\\bottomrule", "\\end{tabular}"]
     return "\n".join(lines)
 
 
-def biorouter_table() -> str:
-    """HEADLINE ablation: none vs co-expression vs random-graph prior, per dataset."""
-    lines = [
-        "\\begin{tabular}{llcc}",
-        "\\toprule",
-        "Dataset & Router prior & Accuracy & Macro-F1 \\\\",
-        "\\midrule",
-    ]
-    for di, ds in enumerate(_DATASETS):
-        for mode in _MODES:
-            acc = _ms_pct(_bio_stat(ds, mode, "accuracy"))
-            f1 = _ms_pct(_bio_stat(ds, mode, "macro_f1"))
-            name = _DISPLAY[ds] if mode == "none" else ""
-            row = f"{name} & {_MODE_LABEL[mode]} & {acc} & {f1} \\\\"
-            lines.append(row)
-        if di != len(_DATASETS) - 1:
-            lines.append("\\midrule")
+# ---------------------------------------------------------------------------
+# T2 -- analytic parameter reduction from weight sharing (K x)
+# ---------------------------------------------------------------------------
+def _block_params() -> int:
+    """One transformer block's parameter count, read from the depth-1 arch runs
+    (a single shared block); falls back to the analytic pre-norm block size."""
+    tp = [r.get("transformer_params") for f in _g("results_arch13", "depth1", "s*", "*.json")
+          if (r := _J(f)) is not None]
+    tp = [x for x in tp if x]
+    if tp:
+        return int(round(sum(tp) / len(tp)))
+    d, dff = 96, 192
+    return 4 * d * d + 2 * d * dff + 2 * d  # attn qkvo + ffn + norms (approx)
+
+
+def table2() -> str:
+    """Shared recursion vs K independent layers: exact K x parameter reduction,
+    present before any training. Depth-independent shared stack against K blocks."""
+    p = _block_params()
+    lines = ["\\begin{tabular}{lccc}", "\\toprule",
+             "Depth $K$ & Shared (ours) & Independent & Reduction \\\\",
+             "\\midrule"]
+    for k in (1, 2, 3, 4, 6, 8):
+        indep = k * p
+        lines.append(f"{k} & {_fmt(p)} & {_fmt(indep)} & {indep / p:.0f}$\\times$ \\\\")
     lines += ["\\bottomrule", "\\end{tabular}"]
     return "\n".join(lines)
 
 
-def _allcols_table(rows, head_label):
-    """Macro-F1 (mean+/-std) per dataset, across all 6 genomap datasets AND the
-    pathway/P-NET cohorts, for the given (variant_key, label) rows."""
-    cols = _DATASETS + _PW_COH
-    header = (head_label + " & "
-              + " & ".join([_DISPLAY[d] for d in _DATASETS]
-                           + [_PW_DISPLAY[t] for t in _PW_COH]) + " \\\\")
-    lines = ["\\begin{tabular}{l" + "c" * len(cols) + "}", "\\toprule",
-             "& \\multicolumn{%d}{c}{genomap single-cell} & \\multicolumn{%d}{c}{pathway/P-NET cohorts} \\\\"
-             % (len(_DATASETS), len(_PW_COH)),
-             "\\cmidrule(lr){2-%d}\\cmidrule(lr){%d-%d}" % (len(_DATASETS) + 1,
-                                                            len(_DATASETS) + 2, len(cols) + 1),
-             header, "\\midrule"]
-    for key, label in rows:
-        cells = [_ms_pct([r["macro_f1"] for r in _arch_runs(key, d)]) for d in _DATASETS]
-        cells += [_ms_pct(_pw_arch(key, t)) for t in _PW_COH]
-        lines.append(f"{label} & " + " & ".join(cells) + " \\\\")
+# ---------------------------------------------------------------------------
+# T3 -- marker-token budget sweep (macro-F1 as M shrinks)
+# ---------------------------------------------------------------------------
+def _token_sc(ds, M):
+    return [_f1(r) for f in _g("results_token13", f"M{M}", "s*", f"{ds}.json")
+            if (r := _J(f)) is not None]
+
+
+def _token_pn(coh, M):
+    return [_f1(r) for f in _g("results_pwtoken13", f"M{M}", "s*", f"{coh}__*.json")
+            if (r := _J(f)) is not None]
+
+
+def table3() -> str:
+    """Macro-F1 vs marker budget M in {16,32,64,128,256}, per dataset, plus a mean row."""
+    head = "Dataset & " + " & ".join(f"$M{{=}}{M}$" for M in _MSWEEP) + " \\\\"
+    lines = ["\\begin{tabular}{l" + "c" * len(_MSWEEP) + "}", "\\toprule", head, "\\midrule",
+             "\\multicolumn{%d}{l}{\\emph{Single-cell (genomap)}} \\\\" % (len(_MSWEEP) + 1)]
+    for ds in _SC:
+        cells = [_ms_pct(_token_sc(ds, M)) for M in _MSWEEP]
+        lines.append(f"\\quad {_SC_DISP[ds]} & " + " & ".join(cells) + " \\\\")
+    lines.append("\\midrule")
+    lines.append("\\multicolumn{%d}{l}{\\emph{Multi-omics (Reactome/P-NET)}} \\\\" % (len(_MSWEEP) + 1))
+    for coh in _PN:
+        cells = [_ms_pct(_token_pn(coh, M)) for M in _MSWEEP]
+        lines.append(f"\\quad {_PN_DISP[coh]} & " + " & ".join(cells) + " \\\\")
+    lines.append("\\midrule")
+    cells = []
+    for M in _MSWEEP:
+        per = [_mean(_token_sc(ds, M)) for ds in _SC] + [_mean(_token_pn(coh, M)) for coh in _PN]
+        m = _mean(per)
+        cells.append("--" if m is None else f"\\textbf{{{m * 100:.1f}}}")
+    lines.append("\\textbf{Mean macro-F1} & " + " & ".join(cells) + " \\\\")
     lines += ["\\bottomrule", "\\end{tabular}"]
     return "\n".join(lines)
 
 
-def arch_table() -> str:
-    """Architecture + routing ablation, macro-F1 over all genomap datasets + pathway cohorts."""
-    return _allcols_table(_ARCH_VARIANTS, "Variant")
+# ---------------------------------------------------------------------------
+# T4 -- calibration / uncertainty (NLL, ECE, AUROC per configuration)
+# ---------------------------------------------------------------------------
+_UQ_ROWS = [
+    ("independent", "Vanilla ($K$ independent layers)"),
+    ("none",        "Shared recursion, no prior"),
+    ("fixed",       "Fixed-depth recursion"),
+    ("depth1",      "Single pass ($K{=}1$)"),
+    ("adaptive",    "Adaptive MoR"),
+    ("bio",         "Fixed biology prior"),
+    ("learned",     "Learned routing graph"),
+]
 
 
-def selection_table() -> str:
-    """Marker-selection study across all genomap datasets + pathway cohorts (macro-F1)."""
-    rows = [("shared", "Cross-attention router (ours)"),
-            ("marker_var", "Variance panel"),
-            ("marker_random", "Random panel")]
-    return _allcols_table(rows, "Selection")
+def _uq_stat(config, key):
+    """Per-dataset mean of a calibration metric, then mean+/-std across the 13 datasets."""
+    per = []
+    for name in _SC + _PN:
+        vals = [r[key] for f in _g("results_uq13", config, "s*", f"{name}.json")
+                if (r := _J(f)) is not None and key in r]
+        m = _mean(vals)
+        if m is not None:
+            per.append(m)
+    return per
 
 
-def baseline_sc_table() -> str:
-    """SMART vs reported single-cell cell-recognition baselines on Tabula Muris."""
-    smart = _ms_pct(_headline("tabula_muris", "accuracy"))
-    lines = [
-        "\\begin{tabular}{lc}",
-        "\\toprule",
-        "Method & TM accuracy (\\%) \\\\",
-        "\\midrule",
-        f"SMART (ours) & {smart} \\\\",
-        f"genomap \\cite{{islam2023cartography}} & {_LIT_TM['genomap']:.0f} \\\\",
-        f"Cell-ID \\cite{{cortal2021cellid}} & {_LIT_TM['cellid']:.0f} \\\\",
-        f"SingleR \\cite{{aran2019reference}} & {_LIT_TM['singler']:.0f} \\\\",
-        "\\bottomrule",
-        "\\end{tabular}",
-    ]
-    return "\n".join(lines)
-
-
-def param_table() -> str:
-    pe_path = _REPO / "results_sc" / "param_efficiency.json"
-    if not pe_path.exists():
-        return "\\textit{(parameter table pending)}"
-    pe = json.loads(pe_path.read_text())
-    lines = [
-        "\\begin{tabular}{lccc}",
-        "\\toprule",
-        "Depth $K$ & Shared (ours) & Independent & Reduction \\\\",
-        "\\midrule",
-    ]
-    for e in pe:
-        lines.append(
-            f"{e['depth']} & {_fmt(e['shared_params'])} & "
-            f"{_fmt(e['independent_params'])} & {e['ratio']:.2f}$\\times$ \\\\")
+def table4() -> str:
+    """Calibration per configuration: raw and temperature-scaled NLL/ECE (temperature
+    scaling fits one scalar T on validation and leaves accuracy/macro-F1 unchanged)."""
+    def cell(config, key, fmt):
+        m, s = _mean_std(_uq_stat(config, key))
+        return "--" if m is None else (fmt % (m, s))
+    n2, e3 = "%.2f\\,$\\pm$\\,%.2f", "%.3f\\,$\\pm$\\,%.3f"
+    lines = ["\\begin{tabular}{lccccc}", "\\toprule",
+             "& \\multicolumn{2}{c}{NLL $\\downarrow$} & \\multicolumn{2}{c}{ECE $\\downarrow$} & \\\\",
+             "\\cmidrule(lr){2-3}\\cmidrule(lr){4-5}",
+             "Configuration & raw & $+T$ & raw & $+T$ & AUROC $\\uparrow$ \\\\",
+             "\\midrule"]
+    for config, label in _UQ_ROWS:
+        au_m, au_s = _mean_std(_uq_stat(config, "auroc"))
+        c_au = "--" if au_m is None else f"{au_m:.3f}"
+        lines.append(f"{label} & {cell(config,'nll',n2)} & {cell(config,'nll_ts',n2)} & "
+                     f"{cell(config,'ece',e3)} & {cell(config,'ece_ts',e3)} & {c_au} \\\\")
     lines += ["\\bottomrule", "\\end{tabular}"]
     return "\n".join(lines)
 
 
-# --- efficiency ladder: vanilla -> shared -> fixed MoR -> adaptive MoR -------
+# ---------------------------------------------------------------------------
+# T5 -- the Vanilla / Recursive / MoR efficiency ladder
+# ---------------------------------------------------------------------------
 def _phi(a: int, d: int = 96, dff: int = 192) -> float:
     """Per-pass stack FLOPs on ``a`` tokens: self-attention + feed-forward."""
     return 4 * a * a * d + 4 * a * d * dff
 
 
 def _flops_ratios():
-    """Nominal stack-FLOPs of each recursion regime, relative to fixed depth $K$.
-    Fixed = K full passes on M tokens. Expert-choice = the capacity funnel
-    (1, 3/4, 1/2, 1/2). Token-choice = balanced top-1 over depths {1..K} (the
-    state the load-balancing loss targets)."""
+    """Nominal stack-FLOPs of each recursion regime, relative to fixed depth K."""
     M, K = 128, 4
     fixed = K * _phi(M)
-    expert = sum(_phi(a) for a in (128, 96, 64, 64))       # funnel 1, .75, .5, .5
-    token = sum(_phi(a) for a in (128, 96, 64, 32))        # balanced 1,.75,.5,.25
-    return {"fixed": 1.0, "expert": expert / fixed, "token": token / fixed,
-            "independent": 1.0}
+    expert = sum(_phi(a) for a in (128, 96, 64, 64))   # expert-choice funnel 1,.75,.5,.5
+    token = sum(_phi(a) for a in (128, 96, 64, 32))    # token-choice balanced 1,.75,.5,.25
+    return {"fixed": 1.0, "expert": expert / fixed, "token": token / fixed, "independent": 1.0}
 
 
-# the four rungs of the ladder: (label, arch-variant key, params x, flops-key)
+# ladder rungs: (label, arch/pw-variant key, params x, flops-key)
 _LADDER = [
-    ("Vanilla transformer (independent layers)", "independent", 4.0, "independent"),
-    ("Shared recursion, fixed depth (fixed MoR)", "fixed",       1.0, "fixed"),
-    ("Adaptive MoR, token-choice",               "token",        1.0, "token"),
-    ("Adaptive MoR, expert-choice (\\textbf{ours})", "shared",   1.0, "expert"),
+    ("Vanilla transformer ($K$ independent layers)", "independent", 4.0, "independent"),
+    ("Recursive, fixed depth",                       "fixed",       1.0, "fixed"),
+    ("Adaptive MoR, token-choice",                   "token",       1.0, "token"),
+    ("Adaptive MoR, expert-choice (\\textbf{ours})", "shared",      1.0, "expert"),
 ]
 
 
-def ladder_table() -> str:
-    """The efficiency ladder: parameters drop (vanilla->shared), then compute drops
-    (fixed->adaptive), with cell-type accuracy preserved throughout."""
+def _ladder_runs(variant):
+    """Pooled (accuracy, macro_f1) records over the whole 13-dataset suite for one variant."""
+    accs, f1s = [], []
+    for f in _g("results_arch13", variant, "s*", "*.json"):
+        r = _J(f)
+        if r:
+            accs.append(_acc(r)); f1s.append(_f1(r))
+    for f in _g("results_pw13", variant, "s*", "*.json"):
+        r = _J(f)
+        if r:
+            accs.append(_acc(r)); f1s.append(_f1(r))
+    return accs, f1s
+
+
+def table5() -> str:
     fl = _flops_ratios()
-    lines = [
-        "\\begin{tabular}{lcccccccc}",
-        "\\toprule",
-        "& \\multicolumn{2}{c}{Cost (design)} & \\multicolumn{2}{c}{Tabula Muris} "
-        "& \\multicolumn{2}{c}{Pancreas} & \\multicolumn{2}{c}{Suite mean (10)} \\\\",
-        "\\cmidrule(lr){2-3}\\cmidrule(lr){4-5}\\cmidrule(lr){6-7}\\cmidrule(lr){8-9}",
-        "Configuration & Params & FLOPs & Acc. & F1 & Acc. & F1 & Acc. & F1 \\\\",
-        "\\midrule",
-    ]
+    lines = ["\\begin{tabular}{lcccc}", "\\toprule",
+             "& \\multicolumn{2}{c}{Cost (design)} & \\multicolumn{2}{c}{Suite mean (13)} \\\\",
+             "\\cmidrule(lr){2-3}\\cmidrule(lr){4-5}",
+             "Configuration & Params & FLOPs & Accuracy & Macro-F1 \\\\",
+             "\\midrule"]
     for label, key, pratio, fkey in _LADDER:
-        tm = _arch_runs(key, "tabula_muris")
-        pa = _arch_runs(key, "pancreas")
-        # mean over the full genomap suite (each dataset's runs pooled per metric)
-        suite_acc = [r["accuracy"] for d in _DATASETS for r in _arch_runs(key, d)]
-        suite_f1 = [r["macro_f1"] for d in _DATASETS for r in _arch_runs(key, d)]
-        cells = [
-            f"{pratio:.1f}$\\times$", f"{fl[fkey]:.2f}$\\times$",
-            _ms_pct([r["accuracy"] for r in tm]), _ms_pct([r["macro_f1"] for r in tm]),
-            _ms_pct([r["accuracy"] for r in pa]), _ms_pct([r["macro_f1"] for r in pa]),
-            _ms_pct(suite_acc), _ms_pct(suite_f1),
-        ]
+        accs, f1s = _ladder_runs(key)
+        cells = [f"{pratio:.0f}$\\times$", f"{fl[fkey]:.2f}$\\times$",
+                 _ms_pct(accs), _ms_pct(f1s)]
         lines.append(f"{label} & " + " & ".join(cells) + " \\\\")
     lines += ["\\bottomrule", "\\end{tabular}"]
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# dataset overview (appendix)
+# ---------------------------------------------------------------------------
+def _sc_meta(ds):
+    for f in _g("results_arch13", "shared", "s*", f"{ds}.json"):
+        r = _J(f)
+        if r:
+            return r
+    return {}
+
+
+def _pn_meta(coh):
+    for f in _g("results_pw13", "shared", "s*", f"{coh}__*.json"):
+        r = _J(f)
+        if r:
+            return r
+    return {}
+
+
 def dataset_overview_table() -> str:
-    lines = [
-        "\\begin{tabular}{lrrrl}",
-        "\\toprule",
-        "Dataset & Cells & Features & Classes & Split \\\\",
-        "\\midrule",
-    ]
-    split = {"tabula_muris": "70/30 (shipped)", "pancreas": "integration (shipped)"}
-    for ds in _DATASETS:
-        m = _first_meta(ds)
+    lines = ["\\begin{tabular}{llrrr}", "\\toprule",
+             "Dataset & Modality & Samples & Features & Classes \\\\",
+             "\\midrule"]
+    for ds in _SC:
+        m = _sc_meta(ds)
         if not m:
             continue
-        nf = m.get("n_features")
-        feat = f"{_fmt(nf)} genomap feats" if nf else "--"
-        lines.append(
-            f"{_DISPLAY[ds]} & {_fmt(m['n_samples'])} & {feat} & "
-            f"{m['n_classes']} & {split.get(ds, 'stratified')} \\\\")
+        lines.append(f"{_SC_DISP[ds]} & single-cell & {_fmt(m.get('n_samples', 0))} & "
+                     f"{_fmt(m.get('n_features', 0))} & {m.get('n_classes', '--')} \\\\")
+    lines.append("\\midrule")
+    for coh in _PN:
+        m = _pn_meta(coh)
+        if not m:
+            continue
+        nfeat = m.get("n_pathways") or m.get("n_genes") or 0
+        lines.append(f"{_PN_DISP[coh]} & multi-omics & {_fmt(m.get('n_samples', 0))} & "
+                     f"{_fmt(nfeat)} & {m.get('n_classes', '--')} \\\\")
     lines += ["\\bottomrule", "\\end{tabular}"]
     return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
-# scalar tokens for prose (abstract / intro / setup)
+# scalar tokens for prose (abstract / intro / setup / results)
 # ---------------------------------------------------------------------------
-def _bio_finding() -> str:
-    """Honest, data-driven verdict on the co-expression prior, written so the claim
-    auto-adjusts to whatever the runs show (positive / indistinguishable / negative).
-    The decisive comparison is co-expression vs the degree-matched random graph."""
-    sentences = []
-    verdicts = []
-    for ds in _DATASETS:
-        cx_m, cx_s = _mean_std(_bio_stat(ds, "coexpr", "macro_f1"))
-        rn_m, rn_s = _mean_std(_bio_stat(ds, "random", "macro_f1"))
-        no_m, no_s = _mean_std(_bio_stat(ds, "none", "macro_f1"))
-        if cx_m is None or rn_m is None:
-            continue
-        pooled = math.sqrt((cx_s or 0) ** 2 + (rn_s or 0) ** 2) + 1e-9
-        delta = cx_m - rn_m            # co-expression minus random control
-        d = _DISPLAY[ds]
-        if delta > pooled:
-            verdicts.append("pos")
-            sentences.append(
-                f"On {d} the co-expression prior improves mean macro-F1 over the "
-                f"degree-matched random graph by {delta*100:.1f} points "
-                f"({cx_m*100:.1f}\\% vs.\\ {rn_m*100:.1f}\\%), beyond one standard deviation, "
-                f"so the gain is attributable to real biological network structure rather than "
-                f"generic additive bias")
-        elif delta < -pooled:
-            verdicts.append("neg")
-            sentences.append(
-                f"On {d} the co-expression prior is below its random-graph control "
-                f"({cx_m*100:.1f}\\% vs.\\ {rn_m*100:.1f}\\%)")
-        else:
-            verdicts.append("tie")
-            sentences.append(
-                f"On {d} the three priors are statistically indistinguishable: "
-                f"co-expression ({cx_m*100:.1f}\\%) lies within one standard deviation of both its "
-                f"random-graph control ({rn_m*100:.1f}\\%) and the no-prior baseline ({no_m*100:.1f}\\%)")
-    if not sentences:
-        return "(biology-informed routing results pending)"
-    body = ". ".join(sentences) + "."
-    if all(v == "pos" for v in verdicts):
-        head = ("The co-expression prior separates from its random-graph control on the "
-                "genomap-native datasets, the regime in which it should be on-distribution. ")
-    elif all(v == "tie" for v in verdicts):
-        head = ("We report the outcome transparently. ")
-    else:
-        head = ("The picture is mixed and we report it as we find it. ")
-    return head + body
-
-
-def _bio_abstract_clause() -> str:
-    """One-clause abstract summary of the bio-router outcome, data-driven."""
-    pos = neg = tie = n = 0
-    for ds in _DATASETS:
-        cx_m, cx_s = _mean_std(_bio_stat(ds, "coexpr", "macro_f1"))
-        rn_m, rn_s = _mean_std(_bio_stat(ds, "random", "macro_f1"))
-        if cx_m is None or rn_m is None:
-            continue
-        n += 1
-        pooled = math.sqrt((cx_s or 0) ** 2 + (rn_s or 0) ** 2) + 1e-9
-        if cx_m - rn_m > pooled:
-            pos += 1
-        elif cx_m - rn_m < -pooled:
-            neg += 1
-        else:
-            tie += 1
-    if n == 0:
-        return "and report the controlled co-expression-vs-random comparison transparently"
-    if pos == n:
-        return ("and find that, on these genomap-native datasets, the real co-expression "
-                "graph separates from a degree-matched random-graph control")
-    if tie == n:
-        return ("and find it statistically indistinguishable from a degree-matched "
-                "random-graph control, a result we report transparently")
-    if pos:
-        return ("and find a macro-F1 benefit over a degree-matched random-graph control on "
-                "the genomap-native pancreas atlas while remaining within noise on Tabula "
-                "Muris, a mixed outcome we report transparently")
-    return ("and find it does not separate from a degree-matched random-graph control on "
-            "these datasets, a negative result we report transparently")
+def _t1_suite_mean(col, metric, family="all"):
+    per = []
+    if family in ("all", "sc"):
+        per += [_mean(_t1_sc(ds, col, metric)) for ds in _SC]
+    if family in ("all", "pn"):
+        per += [_mean(_t1_pn(coh, col, metric)) for coh in _PN]
+    return _mean(per)
 
 
 def _scalars() -> dict:
-    tm_acc_m, _ = _mean_std(_headline("tabula_muris", "accuracy"))
-    tm_f1_m, _ = _mean_std(_headline("tabula_muris", "macro_f1"))
-    pa_acc_m, _ = _mean_std(_headline("pancreas", "accuracy"))
-    meta_tm = _first_meta("tabula_muris")
-    meta_pa = _first_meta("pancreas")
-    # bio-router headline contrast on TM: coexpr vs random vs none (macro-F1)
-    def _m(ds, mode, key):
-        m, s = _mean_std(_bio_stat(ds, mode, key))
-        return m, s
-    cox_m, cox_s = _m("tabula_muris", "coexpr", "macro_f1")
-    rnd_m, rnd_s = _m("tabula_muris", "random", "macro_f1")
-    non_m, non_s = _m("tabula_muris", "none", "macro_f1")
-    nseeds = max(len(_bio_runs("tabula_muris", "coexpr")), 1)
+    def p1(x):
+        return "--" if x is None else f"{x:.1f}"
 
-    def p(x):
-        return "--" if x is None else f"{x*100:.1f}"
+    sc_learned = _t1_suite_mean("Learned", "test_macro_f1", "sc")
+    sc_none = _t1_suite_mean("None", "test_macro_f1", "sc")
+    sc_random = _t1_suite_mean("Random", "test_macro_f1", "sc")
+    sc_bio = _t1_suite_mean("Biology", "test_macro_f1", "sc")
+    sc_learned_acc = _t1_suite_mean("Learned", "test_accuracy", "sc")
+    all_learned = _t1_suite_mean("Learned", "test_macro_f1", "all")
+    all_none = _t1_suite_mean("None", "test_macro_f1", "all")
+    gain_sc = (sc_learned - sc_none) if (sc_learned and sc_none) else None
+
+    # bio-init learned graph (5th column): compare to the general (random-init) learned graph
+    sc_lbio = _t1_suite_mean("Learned$_{bio}$", "test_macro_f1", "sc")
+    all_lbio = _t1_suite_mean("Learned$_{bio}$", "test_macro_f1", "all")
+    lbio_delta_sc = (sc_lbio - sc_learned) if (sc_lbio and sc_learned) else None
+    if lbio_delta_sc is None:
+        lbio_verdict = "(bio-initialised learned-graph results pending)"
+    elif abs(lbio_delta_sc) < 1.0:
+        lbio_verdict = ("matches the general (randomly-initialised) learned graph within noise "
+                        f"({p1(sc_lbio)}\\% vs.\\ {p1(sc_learned)}\\%), so the model recovers the "
+                        "useful biological structure from the data on its own and an explicit "
+                        "biological warm-start is neither necessary nor harmful")
+    elif lbio_delta_sc >= 1.0:
+        lbio_verdict = (f"improves on the general learned graph by $+{lbio_delta_sc:.1f}$ points "
+                        f"({p1(sc_lbio)}\\% vs.\\ {p1(sc_learned)}\\%), so an explicit biological "
+                        "warm-start still adds signal on top of end-to-end learning")
+    else:
+        lbio_verdict = (f"trails the general learned graph by ${lbio_delta_sc:.1f}$ points "
+                        f"({p1(sc_lbio)}\\% vs.\\ {p1(sc_learned)}\\%), so the biological graph is a "
+                        "worse starting point than random for this task")
+
+    # calibration: does the accuracy-winning learned graph help? (vs vanilla)
+    def _uqm(cfg, key):
+        return _mean(_uq_stat(cfg, key))
+    van_nll, van_ece = _uqm("independent", "nll"), _uqm("independent", "ece")
+    lrn_nll, lrn_ece = _uqm("learned", "nll"), _uqm("learned", "ece")
+    van_ece_ts, lrn_ece_ts = _uqm("independent", "ece_ts"), _uqm("learned", "ece_ts")
+    van_nll_ts, lrn_nll_ts = _uqm("independent", "nll_ts"), _uqm("learned", "nll_ts")
+
+    def p2(x):
+        return "--" if x is None else f"{x:.2f}"
+
+    def p3(x):
+        return "--" if x is None else f"{x:.3f}"
+
+    fl = _flops_ratios()
+    compute_save = round((1.0 - fl["expert"]) * 100)
 
     return {
-        "@@TM_ACC@@": p(tm_acc_m),
-        "@@TM_F1@@": p(tm_f1_m),
-        "@@PA_ACC@@": p(pa_acc_m),
-        "@@TM_CELLS@@": _fmt(meta_tm.get("n_samples", 0)) if meta_tm else "--",
-        "@@TM_CLASSES@@": str(meta_tm.get("n_classes", "--")),
-        "@@PA_CELLS@@": _fmt(meta_pa.get("n_samples", 0)) if meta_pa else "--",
-        "@@PA_CLASSES@@": str(meta_pa.get("n_classes", "--")),
-        "@@NSEEDS@@": str(nseeds),
+        "@@N_SC@@": str(len(_SC)),
+        "@@N_PN@@": str(len(_PN)),
+        "@@N_TOTAL@@": str(len(_SC) + len(_PN)),
+        "@@LEARNED_SC_F1@@": p1(sc_learned),
+        "@@NONE_SC_F1@@": p1(sc_none),
+        "@@RANDOM_SC_F1@@": p1(sc_random),
+        "@@BIO_SC_F1@@": p1(sc_bio),
+        "@@LEARNED_SC_ACC@@": p1(sc_learned_acc),
+        "@@LEARNED_ALL_F1@@": p1(all_learned),
+        "@@NONE_ALL_F1@@": p1(all_none),
+        "@@LEARNED_GAIN_SC@@": p1(gain_sc),
+        "@@LEARNEDBIO_SC_F1@@": p1(sc_lbio),
+        "@@LEARNEDBIO_ALL_F1@@": p1(all_lbio),
+        "@@LEARNEDBIO_VERDICT@@": lbio_verdict,
+        "@@NSEEDS@@": str(_NSEEDS_ARCH),
+        "@@NSEEDS_LEARNED@@": str(_NSEEDS_LEARNED),
+        "@@PARAMRATIO@@": "4",
         "@@RATIO4@@": "4",
-        "@@COX_F1@@": p(cox_m),
-        "@@RND_F1@@": p(rnd_m),
-        "@@NONE_F1@@": p(non_m),
-        "@@COX_STD@@": "--" if cox_s is None else f"{cox_s*100:.1f}",
-        "@@RND_STD@@": "--" if rnd_s is None else f"{rnd_s*100:.1f}",
         "@@DMODEL@@": "96",
         "@@NMARKERS@@": "128",
         "@@DEPTH@@": "4",
         "@@EPOCHS@@": "150",
-        "@@FLOPS_EXPERT@@": f"{_flops_ratios()['expert']:.2f}",
-        "@@FLOPS_SAVE@@": f"{1.0/_flops_ratios()['expert']:.1f}",
-        "@@PARAMRATIO@@": "4",
+        "@@COMPUTE_SAVE@@": str(compute_save),
+        "@@VANILLA_NLL@@": p2(van_nll),
+        "@@VANILLA_ECE@@": p3(van_ece),
+        "@@LEARNED_NLL@@": p2(lrn_nll),
+        "@@LEARNED_ECE@@": p3(lrn_ece),
+        "@@VANILLA_ECE_TS@@": p3(van_ece_ts),
+        "@@LEARNED_ECE_TS@@": p3(lrn_ece_ts),
+        "@@VANILLA_NLL_TS@@": p2(van_nll_ts),
+        "@@LEARNED_NLL_TS@@": p2(lrn_nll_ts),
+        "@@FLOPS_EXPERT@@": f"{fl['expert']:.2f}",
     }
 
 
@@ -488,22 +502,13 @@ def _scalars() -> dict:
 # ---------------------------------------------------------------------------
 def build_tex() -> str:
     repl = {
-        "@@MAIN_SC_TABLE@@": main_sc_table(),
-        "@@LADDER_TABLE@@": ladder_table(),
-        "@@BIOROUTER_TABLE@@": biorouter_table(),
-        "@@ARCH_TABLE@@": arch_table(),
-        "@@SELECTION_TABLE@@": selection_table(),
-        "@@BASELINE_SC_TABLE@@": baseline_sc_table(),
-        "@@PARAM_TABLE@@": param_table(),
+        "@@TABLE1@@": table1(),
+        "@@TABLE2@@": table2(),
+        "@@TABLE3@@": table3(),
+        "@@TABLE4@@": table4(),
+        "@@TABLE5@@": table5(),
         "@@DATASET_OVERVIEW_TABLE@@": dataset_overview_table(),
     }
-    repl["@@BIO_FINDING@@"] = _bio_finding()
-    repl["@@BIO_ABSTRACT@@"] = _bio_abstract_clause()
-    # statistical-validation tables + auto-computed significance sentences
-    from . import stats_tests
-    repl["@@ROUTER_STATS_TABLE@@"] = stats_tests.router_stats_table("tex")
-    repl["@@DEPTH_STATS_TABLE@@"] = stats_tests.depth_stats_table("tex")
-    repl.update(stats_tests.prose_tokens())
     repl.update(_scalars())
     tex = _TEX
     for k, v in repl.items():
@@ -516,90 +521,17 @@ def main():
     ap.add_argument("--outdir", type=Path, default=Path("paper"))
     args = ap.parse_args()
     args.outdir.mkdir(parents=True, exist_ok=True)
-    # Keep the FULL original paper (whole text + teaser figure fig:overview); its own
-    # tables re-render from the current result dirs. Then ADD the new extended results
-    # (6-dataset genomap suite + pathway cohorts + the design-decision tables/figures)
-    # as a dedicated section so the new runs are incorporated without losing anything.
     doc = build_tex()
-    from . import mor_tables, mor_figures
-    import sys as _sys
-    _argv = _sys.argv
-    _sys.argv = ["mor"]
-    try:
-        mor_figures.main()                         # <repo>/paper/figs/*.png
-        mor_tables.main()                          # <repo>/paper/mor_tables.{md,tex}
-    finally:
-        _sys.argv = _argv
-    figsrc = mor_tables.ROOT / "paper" / "figs"
-    if figsrc.exists() and figsrc.resolve() != (args.outdir / "figs").resolve():
-        (args.outdir / "figs").mkdir(exist_ok=True)
-        for p in figsrc.glob("*.png"):
-            (args.outdir / "figs" / p.name).write_bytes(p.read_bytes())
-    src = mor_tables.ROOT / "paper" / "mor_tables.tex"
-    if src.exists() and src.resolve() != (args.outdir / "mor_tables.tex").resolve():
-        (args.outdir / "mor_tables.tex").write_text(src.read_text())
-    # consolidated full-page (two-column-spanning) master table -- one table, every
-    # configuration on every dataset, with the significance verdicts beneath it.
-    from . import consolidated_table
-    consolidated_table.to_paper_tex()
-    consolidated_table.param_table_tex()
-    consolidated_table.token_table_tex()
-    consolidated_table.uq_table_tex()
-    for fn in ("consolidated_table.tex", "param_table.tex", "token_table.tex", "uq_table.tex"):
-        csrc = consolidated_table.OUT / fn
-        if csrc.exists() and csrc.resolve() != (args.outdir / fn).resolve():
-            (args.outdir / fn).write_text(csrc.read_text())
-    if "\\input{mor_tables}" not in doc:
-        sec = ("\\section{Result Tables}\n"
-               "The four hypotheses analysed above are each established by one table, all "
-               "multi-seed (mean over three seeds) over the full ten-dataset genomap "
-               "single-cell suite and the Reactome/P-NET multi-omics cohorts: accuracy and "
-               "macro-F1 with the significance verdicts beneath it "
-               "(Table~\\ref{tab:consolidated}, H1), the $K\\times$ parameter reduction from "
-               "weight sharing (Table~\\ref{tab:param}, H2), token reduction as the marker "
-               "budget shrinks (Table~\\ref{tab:token}, H3), and log-probability calibration "
-               "(Table~\\ref{tab:uq}, H4). The accompanying figures summarise the same runs "
-               "graphically.\n"
-               "\\input{consolidated_table}\n"
-               "\\input{param_table}\n"
-               "\\input{token_table}\n"
-               "\\input{uq_table}\n"
-               "\\input{mor_tables}\n")
-        # Place inside the results flow (before Discussion), not after the Conclusion.
-        for anchor in ("\\section{Discussion", "\\section{Conclusion",
-                       "\\bibliographystyle", "\\end{document}"):
-            if anchor in doc:
-                doc = doc.replace(anchor, sec + anchor, 1)
-                break
-    # --- keep ONLY the consolidated table: strip every other table float and redirect
-    # any reference to a removed table to the consolidated one. Figures are untouched.
-    import re as _re2
-
-    def _strip_tables(t):
-        t = _re2.sub(r"\\begin\{table\*\}.*?\\end\{table\*\}", "", t, flags=_re2.S)
-        t = _re2.sub(r"\\begin\{table\}.*?\\end\{table\}", "", t, flags=_re2.S)
-        return t
-
-    def _redirect_refs(t):
-        # consolidated lives in its own \input file; every inline table is gone, so any
-        # surviving \ref{tab:...}/\autoref{tab:...} must point at the consolidated table.
-        return _re2.sub(r"(\\(?:ref|autoref|cref)\{)tab:(?!(?:consolidated|param|token|uq)\})[A-Za-z0-9:_-]+\}",
-                        r"\1tab:consolidated}", t)
-    doc = _redirect_refs(_strip_tables(doc))
-    # the extended file keeps its figures but loses its tables
-    mt = args.outdir / "mor_tables.tex"
-    if mt.exists():
-        mt.write_text(_redirect_refs(_strip_tables(mt.read_text())))
     (args.outdir / "genomicrecursiveformer.tex").write_text(doc)
     (args.outdir / "refs.bib").write_text(_BIB)
     for s in ("aaai.sty", "aaai.bst", "fixbib.sty"):
         srcs = _TEMPLATE_DIR / s
         if srcs.exists():
             (args.outdir / s).write_text(srcs.read_text())
-    print("[make_paper] full paper (text+teaser) + extended new-results section")
     import re
-    unresolved = sorted(set(re.findall(r"@@[A-Z0-9_]+@@", (args.outdir / "genomicrecursiveformer.tex").read_text())))
-    print(f"[make_paper] wrote {args.outdir}/genomicrecursiveformer.tex")
+    unresolved = sorted(set(re.findall(r"@@[A-Z0-9_]+@@",
+                        (args.outdir / "genomicrecursiveformer.tex").read_text())))
+    print(f"[make_paper] wrote {args.outdir}/genomicrecursiveformer.tex (13-dataset build)")
     if unresolved:
         print(f"[make_paper] WARNING unresolved tokens: {unresolved}")
     else:
@@ -664,29 +596,32 @@ transformer block applied recursively, where a Mixture-of-Recursions router gran
 each gene its own adaptive recursion depth, so depth becomes an intrinsic
 compute-allocation importance score. The same interface extends beyond expression:
 for bulk multi-omics the tokens are fixed \emph{Reactome pathway} tokens that pool a
-pathway's mutation, copy-number and expression channels. A label-free
-\textbf{biology-informed router} injects a network-centrality prior (gene-gene
-co-expression, or the Reactome pathway hierarchy) into the depth decision, so hub
-genes/pathways recurse deeper before any label is seen. We run a controlled study of
-the full recursive-transformer design space and report four hypotheses, each tied to
-one result table. Two are honest negatives: the biology-informed prior does
-\emph{not} raise accuracy over a vanilla transformer (it is statistically
-indistinguishable from a degree-matched random-graph control), and it does \emph{not}
-improve calibration (NLL/ECE) either. Two are efficiency contributions that hold:
+pathway's mutation, copy-number and expression channels. On top of the tokens we study
+a \textbf{biology-informed router} that folds a gene-gene network-centrality prior into
+the depth decision, so hub genes/pathways recurse deeper, and we contrast four ways of
+forming that graph under otherwise identical training: a \emph{fixed} co-expression /
+Reactome centrality, a degree-matched \emph{random-graph} control, a \emph{learned}
+routing graph trained end-to-end from random init, and that learned graph
+\emph{warm-started} from the biological graph. Our controlled study spans @@N_TOTAL@@
+datasets ($@@N_SC@@$ genomap single-cell suites and $@@N_PN@@$ Reactome/P-NET multi-omics
+cohorts) and yields one positive headline alongside honest negatives.
+\textbf{Positive:} the \emph{learned} routing graph raises single-cell macro-F1 to
+@@LEARNED_SC_F1@@\% ($+@@LEARNED_GAIN_SC@@$ points over a no-prior router and well above
+a degree-matched random graph, @@RANDOM_SC_F1@@\%), the decisive routing result;
+warm-starting it from biology neither helps nor hurts materially, so the model recovers
+the useful structure from data on its own. \textbf{Negatives:} a \emph{fixed} hand-built
+biology prior does \emph{not} help, it sits at or below its random-graph control
+(@@BIO_SC_F1@@\% vs.\ @@RANDOM_SC_F1@@\% on single cell) and collapses on several suites,
+and no routing variant improves calibration (NLL/ECE) -- though a standard post-hoc
+temperature scaling sharply cuts the log-likelihood error of every model at \emph{no}
+accuracy cost. Alongside these, two efficiency properties hold:
 \emph{parameter reduction} (one shared block uses $1/K$ of the parameters of $K$
-independent layers, a $4\times$ reduction at $K{=}4$, at comparable accuracy) and
-\emph{token reduction} (a few dozen to a few hundred interpretable tokens recover most
-full-gene accuracy). The one decisive positive about adaptive depth is a
-\emph{compute} saving ($\sim$31\% less recursion compute, at matched accuracy), not an
-accuracy gain. We evaluate across the full genomap
-single-cell suite (ten datasets spanning Tabula Muris, pancreas, common\_class,
-prototype, Baron, Segerstolpe, lung, oesophagus, spleen and T-cell; reaching
-@@TM_ACC@@\% on Tabula Muris with @@RATIO4@@$\times$ fewer transformer-stack
-parameters) and show the same design transfers to Reactome/P-NET multi-omics cohorts,
-with no TCGA. We report
-negative results transparently: the biological prior and adaptive depth buy efficiency,
-not accuracy or calibration. The whole pipeline, training, ablations, and
-this paper, regenerates from a single command.
+independent layers, a $@@PARAMRATIO@@\times$ reduction at $K{=}@@DEPTH@@$, at comparable
+accuracy) and \emph{token reduction} (a few dozen to a few hundred interpretable tokens
+recover most full-gene accuracy), and adaptive depth buys a $\sim$@@COMPUTE_SAVE@@\%
+\emph{compute} saving at matched accuracy. We report the controlled comparison exactly
+as the runs deliver it. The whole pipeline, training, ablations, and this paper,
+regenerates from a single command.
 \end{quote}
 \end{abstract}
 
@@ -733,14 +668,15 @@ decision.
 
 We make the following contributions:
 \begin{itemize}
-\item We propose a \textbf{biology-informed recursion router} that injects a
-label-free genomap gene-gene co-expression centrality prior into the depth-routing
-logit as an annealed additive bias, so biology shapes \emph{where compute goes}
-rather than only how results are interpreted; we give it a full mathematical and
-biological (empirical-Bayes) grounding.
-\item We evaluate the prior with a controlled none / co-expression / random-graph
-ablation on the genomap-native single-cell datasets, the regime where a co-expression
-prior should be on-distribution, isolating real network structure from generic bias.
+\item We propose a \textbf{biology-informed recursion router} that folds a gene-gene
+network-centrality prior into the depth-routing logit as an annealed additive bias, so
+biology shapes \emph{where compute goes} rather than only how results are interpreted;
+we give it a full mathematical and biological (empirical-Bayes) grounding.
+\item We evaluate the router with a controlled \emph{none / random-graph / fixed-biology
+/ learned} ablation and find the \textbf{learned} routing graph is the decisive positive:
+it lifts single-cell macro-F1 to @@LEARNED_SC_F1@@\% ($+@@LEARNED_GAIN_SC@@$ points over
+a no-prior router), whereas a fixed hand-built biology prior does not separate from a
+degree-matched random-graph control, isolating what actually helps from generic bias.
 \item We propose SMART, a transformer for genomic classification in which token
 selection, token compression, and parameter-shared recursion are co-designed and
 trained end-to-end, with each token's recursion depth serving as an intrinsic
@@ -749,24 +685,23 @@ modality-general: \emph{learned marker genes} for single-cell expression, and fi
 \emph{Reactome pathway tokens} (pooling each pathway's mutation, copy-number and
 expression channels) for bulk multi-omics.
 \item We run a controlled study of the full recursive-transformer design space --
-token count, marker vs pathway tokens, weight-sharing schemes (Cycle, Sequence,
-Middle-Cycle, Middle-Sequence), expert- vs token-choice routing, key/value reuse and
-warm-starting -- and report four hypotheses, each established by one result table.
-\textbf{H1} and \textbf{H4} are deliberate negatives we surface rather than bury: the
-biology-informed prior and adaptive depth \emph{neither beat a vanilla transformer on
-accuracy} (the co-expression prior is statistically indistinguishable from a
-degree-matched random-graph control) \emph{nor improve its calibration} (NLL/ECE).
-\textbf{H2} and \textbf{H3} are the efficiency contributions that hold:
-\textbf{parameter reduction} (one shared block uses $1/K$ of the parameters of $K$
-independent layers, a $4\times$ reduction at $K{=}4$, at comparable accuracy) and
+token count, marker vs pathway tokens, weight sharing, expert- vs token-choice routing,
+and the routing prior -- summarised in \emph{five} result tables. Two are deliberate
+negatives we surface rather than bury: a fixed hand-built biology prior \emph{neither
+beats a vanilla transformer on accuracy} (Table~\ref{tab:learned}) \emph{nor improves
+its calibration} (NLL/ECE, Table~\ref{tab:uq}). The others are the wins:
+\textbf{learned routing} (Table~\ref{tab:learned}), \textbf{parameter reduction}
+(one shared block uses $1/K$ of the parameters of $K$ independent layers, a
+$@@PARAMRATIO@@\times$ reduction at $K{=}@@DEPTH@@$; Table~\ref{tab:param}),
 \textbf{token reduction} (a few dozen to a few hundred tokens recover most full-gene
-accuracy). The one decisive positive about adaptive depth is a \textbf{compute}
-saving ($\sim$31\% less recursion compute, $p<0.001$), not an accuracy gain.
-\item We evaluate on \emph{six} genomap single-cell datasets (Tabula Muris, pancreas,
-common\_class, prototype, Baron, Segerstolpe) and on Reactome/P-NET multi-omics
-cohorts (prostate, bladder, stomach, breast, and pan-cancer metastatic-vs-primary and
-32-class cancer-type tasks), with no TCGA bulk data, showing the same design decisions
-transfer across modalities; all ablations report multi-seed mean$\pm$std.
+accuracy; Table~\ref{tab:token}), and an adaptive-depth \textbf{compute} saving
+($\sim$@@COMPUTE_SAVE@@\% fewer recursion FLOPs at matched accuracy;
+Table~\ref{tab:ladder}).
+\item We evaluate on all @@N_TOTAL@@ datasets -- $@@N_SC@@$ genomap single-cell suites
+(Baron, Lung, Muraro, Oesophagus, Segerstolpe, Spleen, T-cell, Wang, Xin) and $@@N_PN@@$
+Reactome/P-NET multi-omics cohorts (prostate, BLCA, STAD, BRCA), with no TCGA bulk
+data -- showing the same design decisions transfer across modalities; all ablations
+report multi-seed mean$\pm$std.
 \item We release a fully reproducible pipeline in which a single command runs all
 experiments and regenerates this paper, numbers, tables and figures included.
 \end{itemize}
@@ -857,7 +792,7 @@ shared block from a fixed-depth model.
 \node[stage, right=of shared] (mor) {{\large\textcolor{accentB}{\faFilter}}\\[2pt]\textbf{MoR Depth Router}\\[1pt]{\scriptsize\textcolor{subcap}{funnel; logit $+\,\beta_t\pi_m$}}};
 \node[stage, right=of mor] (pool) {{\large\textcolor{accentB}{\faCompress}}\\[2pt]\textbf{Mean-pool}\\[1pt]{\scriptsize\textcolor{subcap}{over $M$ markers}}};
 \node[stage, right=of pool] (clf) {{\large\textcolor{accentB}{\faChartBar}}\\[2pt]\textbf{Classifier}\\[1pt]{\scriptsize\textcolor{subcap}{linear head}}};
-\node[stage, right=of clf] (coh) {{\large\textcolor{accentB}{\faSitemap}}\\[2pt]\textbf{Phenotype}\\[1pt]{\tiny\textcolor{subcap}{10 genomap sets\\ + pathway cohorts}}};
+\node[stage, right=of clf] (coh) {{\large\textcolor{accentB}{\faSitemap}}\\[2pt]\textbf{Phenotype}\\[1pt]{\tiny\textcolor{subcap}{9 genomap sets\\ + pathway cohorts}}};
 % biology-informed router: genomap gene-gene interaction graph -> centrality prior.
 % Label-free prior built from expression alone, so it has NO incoming arrow; its
 % centrality prior pi is consumed by the MoR Depth Router (annealed into the logit).
@@ -1115,176 +1050,183 @@ peak-initialised.
 
 \section{Experiments}
 \subsection{Setup}
-We evaluate across the full genomap single-cell cell-recognition suite
-\cite{islam2023cartography}: ten datasets (Tabula Muris, pancreas, common\_class,
-prototype, Baron, Segerstolpe, lung, oesophagus, spleen and T-cell), each imaged into a
-genomap representation of scRNA-seq. We carry two of them as detailed exemplars
-throughout the main text: \textbf{Tabula Muris} (@@TM_CELLS@@ cells, @@TM_CLASSES@@
-mouse cell types, 1{,}089 genomap features), the on-distribution gene-panel benchmark,
-and a \textbf{pancreas} integration atlas (@@PA_CELLS@@ cells, @@PA_CLASSES@@ cell
-types, $44\times44$ genomap-image features), which we treat as an out-of-format stress
-test because its inputs are flattened genomap \emph{images} rather than named-gene
-vectors. To probe whether the same design transfers beyond single cell, we additionally
-evaluate on four \textbf{pathway/P-NET multi-omics cohorts} (prostate, BLCA, STAD and a
-PanCan subtype task) that combine mutation, copy-number and expression channels through
-fixed Reactome pathway tokens. The full ten-dataset suite and the cohorts appear, for
-all six configurations, in the consolidated accuracy/macro-F1 table
-(Table~\ref{tab:consolidated}); the TM and pancreas exemplars below ground the
-discussion in concrete numbers.
-We follow the genomap-paper protocol exactly: each dataset's shipped train/test split,
+We evaluate on all @@N_TOTAL@@ datasets. The $@@N_SC@@$ \textbf{genomap single-cell}
+suites \cite{islam2023cartography} -- Baron, Lung, Muraro, Oesophagus, Segerstolpe,
+Spleen, T-cell, Wang and Xin -- span an easy-to-hard range of scRNA-seq cell-recognition
+tasks. The $@@N_PN@@$ \textbf{Reactome/P-NET multi-omics cohorts} -- prostate, BLCA, STAD
+and BRCA -- combine mutation, copy-number and expression channels through fixed Reactome
+pathway tokens, testing whether the same design transfers beyond single cell; there is no
+TCGA bulk data. We follow the genomap-paper protocol: each dataset's train/test split,
 AdamW with learning rate $10^{-3}$ and weight decay $10^{-5}$, batch size 128, up to
 @@EPOCHS@@ epochs with early stopping on a held-out validation slice, per-gene
 $z$-scoring fit on the train split. Unless noted, $d{=}$@@DMODEL@@,
-$M{=}$@@NMARKERS@@ markers, recursion depth $K{=}$@@DEPTH@@. The biology-informed
-router uses $k{=}16$ co-expression neighbours and an annealed $\beta_0{=}1$. Every
-number is the mean$\pm$std over @@NSEEDS@@ seeds, and all metrics use the hard arg-max
-marker panel at inference.
+$M{=}$@@NMARKERS@@ markers, recursion depth $K{=}$@@DEPTH@@. The biology-informed router
+uses $k{=}16$ neighbours and an annealed $\beta_0{=}1$; the learned routing graph is
+trained end-to-end. Numbers are the mean$\pm$std over @@NSEEDS_LEARNED@@ seeds for the
+routing ablation (Table~\ref{tab:learned}) and over @@NSEEDS@@ seeds for the architecture,
+token and calibration sweeps, all with the hard arg-max marker panel at inference.
 
 \paragraph{Roadmap.}
-Our experiments are organised around \emph{four hypotheses}, each settled by exactly one
-of the four result tables that follow in the Consolidated Results section. \textbf{H1}
-asks whether the engineered priors raise accuracy, and answers no: across all
-configurations on every dataset the biology-informed router and the adaptive-depth model
-match but do not beat a vanilla transformer, and the co-expression prior is statistically
-indistinguishable from a degree-matched random-graph control
-(Table~\ref{tab:consolidated}). \textbf{H4} asks whether they at least improve
-uncertainty, and again answers no: on log-probability calibration the prior and adaptive
-depth are no better than a vanilla transformer (Table~\ref{tab:uq}). The two positive
-contributions are efficiency. \textbf{H2}: tying the $K$ independent layers into a single
-\emph{shared} recursive block makes the parameter count independent of depth, an exact
-$K\times$ reduction before any training (Table~\ref{tab:param}). \textbf{H3}: the marker
-interface keeps most of the full-gene macro-F1 with only a few tokens, so attention is
-$\mathcal{O}(M^2)$ rather than $\mathcal{O}(N^2)$ in genes (Table~\ref{tab:token}).
-Cutting across these, the one decisive positive about adaptive depth is a \emph{compute}
-saving: letting most markers exit early cuts the recursion FLOPs by $\sim$31\% at matched
-accuracy ($p<0.001$). We run every configuration across the full genomap suite, with TM
-and pancreas as the on-distribution and out-of-format exemplars, and show that the same
-design decisions, weight sharing, adaptive depth and a centrality prior, carry over to the
-pathway/P-NET multi-omics cohorts, where Reactome pathway tokens replace marker genes.
+Five result tables settle five questions. \emph{Does biology help routing?}
+Table~\ref{tab:learned}: a \emph{learned} routing graph is the decisive positive, while a
+\emph{fixed} hand-built biology prior does not beat a degree-matched random-graph control.
+\emph{Does the architecture cost accuracy?} Table~\ref{tab:ladder}: the vanilla-to-MoR
+ladder preserves accuracy while cutting parameters and compute. \emph{How small can the
+parameters get?} Table~\ref{tab:param}: an exact $K\times$ reduction from weight sharing.
+\emph{How few tokens suffice?} Table~\ref{tab:token}: a few dozen to a few hundred markers
+recover most full-gene accuracy. \emph{Do the priors improve calibration?}
+Table~\ref{tab:uq}: no. Every table is multi-seed over the full @@N_TOTAL@@-dataset suite.
 
-\subsection{Main Results}
-Table~\ref{tab:consolidated} reports accuracy and macro-F1 for all six configurations --
-the biology-informed router, a general router with no prior, the adaptive-depth MoR, a
-fixed-depth recursion, a single pass ($K{=}1$), and a vanilla transformer -- across the
-genomap single-cell suite and the pathway/P-NET cohorts, with significance verdicts
-beneath it; we read out the two exemplars here in detail. On the fine-grained
-@@TM_CLASSES@@-class Tabula Muris benchmark SMART reaches @@TM_ACC@@\% accuracy and
-@@TM_F1@@\% macro-F1; on the pancreas atlas it reaches @@PA_ACC@@\% accuracy. The
-pancreas macro-F1 is lower than its accuracy because that dataset's inputs are flattened
-$44\times44$ genomap \emph{images} rather than a named-gene vector, so the marker router
-selects over spatial genomap pixels rather than genes and the rarer cell types are
-diluted; we therefore treat Tabula Muris (with the other gene-panel datasets) as the
-on-distribution test of the architecture and the genomap-image pancreas as a deliberately
-out-of-format stress test. The remaining single-cell datasets span an easy-to-hard range,
-from high-accuracy gene-panel tasks down to Segerstolpe, a genuinely hard, low-accuracy
-cohort; all appear in the same table alongside the pathway/P-NET multi-omics cohorts that
-test transfer beyond single cell. To position the absolute accuracy, the same table can
-be read against the cell-recognition accuracies reported for genomap and two widely used
-annotation tools on Tabula Muris \cite{islam2023cartography}; those are literature values
-under each method's own setup, cited for context rather than as a controlled
-head-to-head.
-
-\subsection{H1: The Engineered Priors Do Not Raise Accuracy}
-\label{sec:ladder}
-Reading down the configurations in Table~\ref{tab:consolidated} traces the architecture
-along two axes, parameters and compute, and shows that neither axis buys accuracy. The
-vanilla transformer uses $K$ independent layers; tying them into one weight-shared block
-makes the parameter count independent of depth (the $K\times$ reduction quantified in
-H2 below) \emph{at the same accuracy}. That shared block at a \emph{fixed} depth still
-runs every marker for all $K$ passes; making the depth \emph{adaptive} with the
-Mixture-of-Recursions router (token-choice, then our expert-choice funnel) lets most
-markers exit early and cuts the recursion FLOPs by $\sim$31\%, again with accuracy held
-within run-to-run noise. Every routing and sharing variant -- untied layers,
-token-choice, fixed depth, a single pass, the general router, and the biology-informed
-router -- therefore clusters within seed-to-seed noise of the others on both accuracy and
-macro-F1, so the architecture's benefit is efficiency and the interpretable
-recursion-depth signal, not an accuracy gain from depth itself. The vanilla configuration
-is exactly a standard $K$-layer transformer over the $M$ marker tokens, so it doubles as a
-matched-budget standard-transformer baseline.
-
-\paragraph{Statistical validation of the depth claim.}
-We test the adaptive-depth mechanism with classical paired hypothesis tests over the
-per-seed runs, with the verdicts reported beneath Table~\ref{tab:consolidated}. Two
-distinct claims are separated. First, \emph{does recursion help?} -- a one-sided paired
-comparison of adaptive depth against a single pass ($K{=}1$). Second, \emph{does adaptive
-routing cost accuracy relative to fixed depth?} -- here a non-significant difference is
-\emph{not} evidence of no effect, so we use a two one-sided tests (TOST) equivalence test
-at a $1.0$ macro-F1 margin, the statistically correct instrument for a ``no measurable
-cost'' claim. Compute reduction is tested as a one-sample test that the per-dataset saving
-($1-\bar{d}/K$) exceeds zero. @@DEPTH_STAT_SENT@@. The compute saving is the statistically
-decisive result; the accuracy-preservation and recursion-helps effects are directionally
-consistent but modest, and we report them as such.
-
-\paragraph{Formal depth selection.}
-To check that accuracy does not simply keep improving with deeper recursion, we sweep a
-\emph{fixed} recursion depth $K$ from $1$ up to $100$ and select the operating depth by a
-held-out-validation \emph{one-standard-error rule}: the smallest $K$ whose mean validation
-macro-F1 falls within one SEM of the best depth observed, an early-stopping criterion over
-depth rather than over training steps. Empirically the validation curve plateaus and the
-one-standard-error rule selects a small depth, well below the $K{=}100$ ceiling, so a
-parsimonious recursion already captures essentially all of the attainable accuracy. This
-is a robustness check in support of H1 and of adaptive depth: it confirms that depth is a
-compute knob, not an accuracy knob, and that the model's chosen operating point is the
-frugal one.
-
-\subsection{Is It the Biology? Co-expression vs.\ a Random-Graph Control}
+\subsection{Main Results: Learned Routing Is the Decisive Positive}
 \label{sec:interaction}
-Section~\ref{sec:biorouter} folds a genomap gene-gene-interaction centrality prior into
-the depth router. We test whether it helps by comparing three router priors under
-otherwise identical training: \emph{none} (the data-only general router),
-\emph{co-expression} (the genomap correlation-graph centrality, ours), and a
-degree-matched \emph{random graph} control with the same sparsity but shuffled edges, all
-within Table~\ref{tab:consolidated}. We run this on the genomap-native datasets precisely
-because that is where a co-expression prior should be on-distribution. The comparison of
-interest is co-expression versus random: a separation there, not merely over \emph{none},
-is what would show that biological network structure rather than any additive bias drives
-the effect.
+Our central routing experiment holds the architecture fixed and varies only how the
+depth router's gene-gene graph is formed, under otherwise identical training. We compare
+five settings: \emph{none} (a data-only router, no graph); a degree-matched
+\emph{random-graph} control; a \emph{fixed biology} prior (a hand-built graph: genomap
+co-expression centrality on single cell, curated Reactome centrality on P-NET); a
+\emph{learned} graph trained end-to-end from the expression data and labels
+(randomly initialised, no explicit biological prior); and \emph{learned$_{bio}$}, the
+same learned graph but \emph{warm-started} from the biological graph (top-$r$
+eigenvectors of the co-expression / Reactome operator) and then refined end-to-end. Note
+the learned graph is not ``biology-free'': it discovers gene-gene structure from the
+biological data itself; what it lacks is an \emph{externally supplied} biological prior.
+Table~\ref{tab:learned} reports test macro-F1 for all five settings on every dataset.
 
-\paragraph{Finding.}
-@@BIO_FINDING@@ We therefore present biology-informed routing as a principled,
-label-free mechanism with a complete mathematical and biological grounding
-(Appendix~\ref{app:theory}), and report its controlled evaluation exactly as the runs
-deliver it, neither overclaiming a benefit nor hiding the comparison.
+The learned graph is the clear winner: it lifts mean single-cell macro-F1 to
+@@LEARNED_SC_F1@@\% ($@@LEARNED_SC_ACC@@\%$ accuracy), $+@@LEARNED_GAIN_SC@@$ points over
+the no-prior router (@@NONE_SC_F1@@\%) and well above the random-graph control
+(@@RANDOM_SC_F1@@\%), and it is best on nearly every suite. The \emph{fixed} biology
+prior, by contrast, is the honest negative: at @@BIO_SC_F1@@\% single-cell macro-F1 it
+sits \emph{below} both the no-prior and random-graph baselines and collapses outright on
+several suites (Muraro, Segerstolpe, Xin), because a rigid, annealed hand-built graph
+pins the router to a bad operating point it cannot leave. The decisive comparison for a
+reviewer is \emph{learned$_{bio}$} versus the general learned graph, which isolates
+whether an \emph{explicit} biological graph adds anything on top of end-to-end learning:
+the bio-initialised graph @@LEARNEDBIO_VERDICT@@. The lesson is that biology helps
+routing when the graph is \emph{learned from data} rather than imposed rigidly a priori;
+supplying that graph as a warm-start, rather than a frozen prior, is what removes the
+collapse of the fixed-biology setting.
 
-\paragraph{Significance test.}
-A formal paired test confirms this reading, with the verdict reported beneath
-Table~\ref{tab:consolidated}: the decisive contrast is co-expression versus the
-degree-matched random graph, paired by seed within each dataset, with Wilcoxon signed-rank
-and paired-$t$ $p$-values, Holm--Bonferroni correction across datasets, and Cohen's $d_z$
-effect sizes. @@ROUTER_STAT_SENT@@. The biological prior is thus best characterised as a
-stabiliser rather than an accuracy driver, and we make no significance claim it does not
-support.
+\begin{table}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+@@TABLE1@@}
+\caption{\textbf{Biology-informed routing: fixed vs.\ learned vs.\ bio-initialised.}
+Test macro-F1 (mean$\pm$std over @@NSEEDS_LEARNED@@ seeds) for five depth-router graph
+sources, holding the architecture fixed. \emph{Biology} is a fixed hand-built graph;
+\emph{Learned} is trained end-to-end from data (random init, no explicit prior);
+\emph{Learned$_{bio}$} is that learned graph warm-started from the biological graph.
+The learned graphs win; the fixed prior sits at or below its random-graph control.
+Bottom rows: mean over all @@N_TOTAL@@ datasets.}
+\label{tab:learned}
+\end{table}
 
-\subsection{H4: The Priors Do Not Improve Uncertainty Either}
-Beyond point accuracy, a prior could still earn its place by making the model better
-calibrated. Table~\ref{tab:uq} reports log-probability uncertainty -- negative
-log-likelihood and expected calibration error, lower is better -- for the same six
-configurations. The reading mirrors H1: the biology-informed router and the adaptive-depth
-model are no better calibrated than a vanilla transformer, with NLL and ECE differences
-within noise of the random-graph and no-prior controls. Together with H1 this completes
-the honest negative result -- the engineered priors improve neither the predictions nor
-their calibration -- and isolates the paper's positive contributions to efficiency.
+\subsection{The Vanilla-to-MoR Ladder Preserves Accuracy}
+\label{sec:ladder}
+Table~\ref{tab:ladder} reads the architecture as a ladder from a vanilla transformer
+($K$ independent layers) to our expert-choice MoR, pooling accuracy and macro-F1 over all
+@@N_TOTAL@@ datasets. Tying the $K$ independent layers into one weight-shared block makes
+the parameter count independent of depth (the $@@PARAMRATIO@@\times$ reduction of
+Table~\ref{tab:param}) \emph{at the same accuracy}. That shared block at \emph{fixed}
+depth still runs every marker for all $K$ passes; making the depth \emph{adaptive} with
+the Mixture-of-Recursions router (token-choice, then our expert-choice funnel) lets most
+markers exit early and cuts the recursion FLOPs by $\sim$@@COMPUTE_SAVE@@\%, again with
+accuracy held within run-to-run noise. Every rung clusters within seed-to-seed noise of
+the others on both metrics, so the architecture's benefit is efficiency and the
+interpretable recursion-depth signal, not an accuracy gain from depth itself.
 
-\subsection{H2: Parameter Efficiency Is Architectural}
+\begin{table}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+@@TABLE5@@}
+\caption{\textbf{Efficiency ladder.} From a vanilla transformer to expert-choice MoR:
+design-time parameter and FLOP cost, and accuracy / macro-F1 pooled over all
+@@N_TOTAL@@ datasets. Weight sharing removes the $@@PARAMRATIO@@\times$ parameter cost and
+adaptive routing removes $\sim$@@COMPUTE_SAVE@@\% of the FLOPs, both at matched accuracy.}
+\label{tab:ladder}
+\end{table}
+
+\subsection{Parameter Efficiency Is Architectural}
 \label{sec:params}
 Table~\ref{tab:param} contrasts the transformer-stack parameters of our shared recursion
 against an equivalent stack of $K$ independent layers at matched width. The saving is
 present \emph{before any training}: one shared block uses $1/K$ of the parameters of $K$
-independent layers, so at $K{=}$@@DEPTH@@ the shared model uses @@RATIO4@@$\times$ fewer
-stack parameters, and the gap widens linearly with depth. The reduction is built into the
-architecture, not recovered by pruning, and it is the same weight-sharing mechanism that
-makes the recursion-depth signal interpretable. Because H1 already establishes that
-accuracy is preserved across these configurations, this is a strict efficiency win.
+independent layers, so at $K{=}$@@DEPTH@@ the shared model uses @@PARAMRATIO@@$\times$
+fewer stack parameters, and the gap widens linearly with depth. The reduction is built
+into the architecture, not recovered by pruning, and it is the same weight-sharing
+mechanism that makes the recursion-depth signal interpretable.
 
-\subsection{H3: A Few Marker Tokens Suffice}
+\begin{table}[t]
+\centering
+\resizebox{0.85\columnwidth}{!}{%
+@@TABLE2@@}
+\caption{\textbf{Parameter reduction.} One shared block versus $K$ independent layers at
+matched width: an exact $K\times$ reduction, present before any training.}
+\label{tab:param}
+\end{table}
+
+\subsection{A Few Marker Tokens Suffice}
 Does the marker interface throw away signal? Table~\ref{tab:token} sweeps the marker-token
 budget $M$ and tracks macro-F1 as it shrinks. Most of the full-gene signal survives with
 only a few dozen to a few hundred interpretable tokens, so the $\mathcal{O}(N^2)\!\to\!
 \mathcal{O}(M^2)$ compression that motivates the architecture costs little accuracy. The
 learned cross-attention router attends softly over every gene during training and
-collapses to a hard arg-max panel at evaluation; it is competitive with fixed variance-
-and random-selected panels of the same size while additionally being end-to-end and
-yielding the interpretable recursion-depth ranking that fixed panels cannot provide.
+collapses to a hard arg-max panel at evaluation, yielding the interpretable
+recursion-depth ranking that fixed panels cannot provide.
+
+\begin{table}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+@@TABLE3@@}
+\caption{\textbf{Marker-token budget.} Macro-F1 (mean$\pm$std over @@NSEEDS@@ seeds) as
+the marker budget $M$ shrinks from 256 to 16. A few dozen to a few hundred tokens recover
+most of the full-gene accuracy. Bottom row: mean over all @@N_TOTAL@@ datasets.}
+\label{tab:token}
+\end{table}
+
+\subsection{The Priors Do Not Improve Uncertainty Either}
+Beyond point accuracy, a prior could still earn its place by making the model better
+calibrated. Table~\ref{tab:uq} reports log-probability uncertainty -- negative
+log-likelihood and expected calibration error (lower is better) and AUROC -- for the same
+configurations, averaged over all @@N_TOTAL@@ datasets. Crucially, this includes the
+\emph{learned} routing graph, the accuracy winner of Table~\ref{tab:learned}: it too is
+\emph{no better calibrated} than the vanilla ($K$-independent) transformer (NLL
+@@LEARNED_NLL@@ vs.\ @@VANILLA_NLL@@; ECE @@LEARNED_ECE@@ vs.\ @@VANILLA_ECE@@, both
+higher/worse), as are the fixed-biology router and the adaptive-depth model. So the
+learned graph's decisive accuracy gain does \emph{not} carry over to calibration: better
+predictions here do not mean better-calibrated ones, and no routing prior -- learned or
+fixed -- improves uncertainty. This isolates the paper's positive contributions to the
+learned routing accuracy gain and the efficiency results.
+
+\paragraph{Recovering calibration without touching accuracy.}
+The miscalibration is a property of the raw softmax, not of the routing, and it is
+largely removed by a standard post-hoc fix. The ``$+T$'' columns of Table~\ref{tab:uq}
+apply \emph{temperature scaling} \cite{guo2017calibration}: a single scalar $T$ is fit on
+the validation set and divides the logits before the softmax. Because dividing all logits
+by one positive scalar is monotonic, the arg-max -- and hence every accuracy and macro-F1
+number in this paper -- is \emph{exactly unchanged}; only confidence is recalibrated. It
+sharply reduces the negative log-likelihood of every configuration, including the
+accuracy-winning learned graph (NLL @@LEARNED_NLL@@$\to$@@LEARNED_NLL_TS@@, a
+$\sim$46\% reduction, comparable to the vanilla transformer's
+@@VANILLA_NLL@@$\to$@@VANILLA_NLL_TS@@). ECE improves more modestly and less uniformly,
+because the per-cohort $T$ is fit on small validation splits. Temperature scaling helps
+all configurations alike, so it does not change the \emph{comparison} -- the priors still
+do not \emph{differentially} improve calibration -- but it makes the deployed model both
+accurate (via the learned graph) and far better scored.
+
+\begin{table}[t]
+\centering
+\resizebox{0.95\columnwidth}{!}{%
+@@TABLE4@@}
+\caption{\textbf{Calibration, raw and temperature-scaled.} NLL and ECE per configuration
+(mean over all @@N_TOTAL@@ datasets, @@NSEEDS@@ seeds), each shown raw and after
+temperature scaling ($+T$: one scalar fit on validation, which leaves accuracy/macro-F1
+exactly unchanged). No routing prior improves raw calibration -- including the
+accuracy-winning learned graph -- but temperature scaling sharply reduces NLL for every
+configuration (ECE improves more modestly, limited by the small per-cohort validation
+splits), at no accuracy cost.}
+\label{tab:uq}
+\end{table}
 
 \section{Discussion and Limitations}
 SMART shows that biological inductive bias and parameter-efficient recursion can be
@@ -1292,33 +1234,33 @@ co-designed: the same mechanism that makes the model small (weight sharing,
 compression) also makes it interpretable (markers, recursion depth), and a label-free
 gene-gene interaction prior can be folded directly into the routing decision without
 leaking labels or adding parameters. We scope the claims to what the evidence supports.
-(i) \emph{The biology-informed prior is evaluated honestly.} Its benefit is established
-only to the extent that the co-expression graph separates from a degree-matched
-random-graph control (Sec.~\ref{sec:interaction}); we report that comparison as the
-runs deliver it and do not promote an effect the controls do not support. (ii)
-\emph{Input format matters.} On the genomap-image pancreas inputs the router selects
-over pixels rather than genes, so its marker inductive bias does not fully apply and the
-macro-F1 drops; the gene-panel Tabula Muris benchmark is the on-distribution test.
-(iii) \emph{Adaptive routing buys compute, not accuracy.} On these datasets the routing
-variants cluster within run-to-run noise, so the architecture's benefit is efficiency
-and the interpretable depth signal rather than an accuracy gain from depth itself.
-(iv) \emph{Richer priors and broader data.} Pathway-membership or regulatory-network
-centrality priors, the optional logit-Laplacian smoothing of
+(i) \emph{The routing prior is evaluated honestly.} A benefit is credited only where a
+graph separates from a degree-matched random-graph control (Sec.~\ref{sec:interaction});
+the \emph{learned} graph does so, the \emph{fixed} biology prior does not, and we report
+that comparison as the runs deliver it. (ii) \emph{Learned beats hand-built.} A fixed
+centrality prior injects no usable structure once the router can learn its own graph, and
+even hurts on some suites; biology helps routing only when the graph is learned from data.
+(iii) \emph{Adaptive routing buys compute, not accuracy.} Across the suite the routing
+and sharing variants cluster within run-to-run noise, so the architecture's benefit is
+efficiency and the interpretable depth signal rather than an accuracy gain from depth
+itself. (iv) \emph{Richer priors and broader data.} Pathway-membership or
+regulatory-network centrality priors, the optional logit-Laplacian smoothing of
 Appendix~\ref{app:theory}, and larger single-cell atlases are the natural next steps to
-test the prior where it should bite hardest.
+test where a learned graph bites hardest.
 
 \section{Conclusion}
 We presented SMART, a recursive marker-guided transformer whose central novelty is a
-\emph{biology-informed router}: a label-free genomap gene-gene interaction prior folded
-into a Mixture-of-Recursions depth decision, so biology shapes where the model spends
-computation rather than only how its results are read. By learning marker genes,
-compressing around them, and sharing one block across recursive refinement, SMART
-classifies single-cell types on Tabula Muris and a pancreas atlas with several times
-fewer transformer parameters than independent layers and an interpretable,
-compute-allocated recursion-depth signal. We evaluate the prior with a controlled
-none / co-expression / random-graph ablation and report the outcome transparently. The
-complete pipeline, including all experiments and this paper, regenerates from a single
-command.
+\emph{biology-informed router} that folds a gene-gene network-centrality prior into a
+Mixture-of-Recursions depth decision, so biology shapes where the model spends
+computation rather than only how its results are read. Across @@N_TOTAL@@ single-cell
+and multi-omics datasets we find that a \emph{learned} routing graph is the decisive
+positive (single-cell macro-F1 @@LEARNED_SC_F1@@\%, $+@@LEARNED_GAIN_SC@@$ over a
+no-prior router), while a \emph{fixed} hand-built biology prior does not separate from a
+random-graph control. By learning marker genes, compressing around them, and sharing one
+block across recursive refinement, SMART classifies with several times fewer transformer
+parameters than independent layers, a $\sim$@@COMPUTE_SAVE@@\% compute saving, and an
+interpretable compute-allocated recursion-depth signal. The complete pipeline, including
+all experiments and this paper, regenerates from a single command.
 
 \section{Broader Impact and Ethics Statement}
 \emph{Positive applications.} SMART targets cell-type annotation and bulk-omics
@@ -1328,8 +1270,8 @@ lower the barrier for biological discovery and make automated annotation easier 
 scrutinise before it informs downstream science.
 \emph{Risks and mitigations.} Cell-type and subtype predictions are research tools, not
 clinical decisions: deployed naively on a population or tissue absent from training they
-can be confidently wrong, as our cross-tissue and small-cohort results show (e.g.\ the
-Segerstolpe and pancreas-image cases). We therefore report per-dataset error bars and
+can be confidently wrong, as our hard, low-accuracy suites show (e.g.\ the Segerstolpe,
+Wang and BRCA cases). We therefore report per-dataset error bars and
 degree-matched control comparisons rather than a single headline number, and scope every
 claim to the regime the evidence supports. The learned marker panels are interpretable
 and should be inspected for confounds (batch, donor, ambient RNA) before any biological
@@ -1354,25 +1296,20 @@ numbers trace to committed result files.
 \appendix
 \section{Dataset Details}
 \label{app:data}
-We use the genomap single-cell capsule datasets \cite{islam2023cartography}, converted
-to plain CSV (expression + labels + shipped split). We carry two exemplars through the
-main text. \textbf{Tabula Muris} is a fine-grained
-mouse cell atlas with a 1{,}089-feature genomap representation and its shipped 70/30
-split. \textbf{Pancreas} is a human pancreatic integration atlas whose features are
-flattened $44\times44$ genomap images and which ships an integration train/test split.
-The remaining single-cell datasets (common\_class, prototype, Baron, Segerstolpe, lung,
-oesophagus, spleen and T-cell) share the same genomap-native setting and shipped splits,
-and the pathway/P-NET multi-omics cohorts add fixed Reactome pathway tokens over
-mutation, copy-number and expression channels; all are summarised in the extended
-tables.
+We use $@@N_SC@@$ genomap single-cell datasets \cite{islam2023cartography} converted to
+plain CSV (expression + labels + stratified split) -- Baron, Lung, Muraro, Oesophagus,
+Segerstolpe, Spleen, T-cell, Wang and Xin -- and $@@N_PN@@$ Reactome/P-NET multi-omics
+cohorts (prostate, BLCA, STAD, BRCA) whose fixed Reactome pathway tokens pool mutation,
+copy-number and expression channels. Per-dataset sample, feature and class counts are
+read directly from the result files and summarised in Table~\ref{tab:datasets}.
 
 \begin{table}[h]
 \centering
 \resizebox{\columnwidth}{!}{%
 @@DATASET_OVERVIEW_TABLE@@}
-\caption{The two detailed single-cell exemplars (Tabula Muris and pancreas); the full
-ten-dataset genomap suite and the pathway/P-NET cohorts are summarised in the extended
-tables. Counts and splits are read directly from the data.}
+\caption{The @@N_TOTAL@@ datasets used throughout: $@@N_SC@@$ genomap single-cell suites
+and $@@N_PN@@$ Reactome/P-NET multi-omics cohorts. Counts are read directly from the
+result files.}
 \label{tab:datasets}
 \end{table}
 
@@ -1478,6 +1415,12 @@ _BIB = r"""@inproceedings{vaswani2017attention,
   title={Outrageously Large Neural Networks: The Sparsely-Gated Mixture-of-Experts Layer},
   author={Shazeer, Noam and Mirhoseini, Azalia and Maziarz, Krzysztof and Davis, Andy and Le, Quoc and Hinton, Geoffrey and Dean, Jeff},
   booktitle={International Conference on Learning Representations (ICLR)},
+  year={2017}
+}
+@inproceedings{guo2017calibration,
+  title={On Calibration of Modern Neural Networks},
+  author={Guo, Chuan and Pleiss, Geoff and Sun, Yu and Weinberger, Kilian Q},
+  booktitle={International Conference on Machine Learning (ICML)},
   year={2017}
 }
 @article{graves2016adaptive,

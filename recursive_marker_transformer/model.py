@@ -145,6 +145,47 @@ class RecursiveMarkerTransformer(nn.Module):
     def set_gene_variance(self, variance: torch.Tensor) -> None:
         self.gene_variance.copy_(variance.to(self.gene_variance))
 
+    def init_gene_embed_from_operator(self, operator: torch.Tensor) -> bool:
+        """Warm-start the LEARNED gene graph from a biological affinity operator
+        (co-expression S or curated Reactome co-membership). We take the operator's
+        informative low-frequency eigenmodes (Laplacian-eigenmap style) to seed the
+        gene embedding, so the learned cosine graph A = normalize(E)normalize(E)^T
+        starts near the biological graph's structure and is then refined end-to-end.
+
+        Robustness safeguards:
+        (1) DROP the leading eigenvector -- for a smoothing / row-stochastic operator it
+            is the trivial ~uniform mode; seeding it makes every gene embed alike;
+        (2) add a matched random baseline (randn*0.01) so the embedding stays full-rank
+            and trainable;
+        (3) GUARD: some co-expression graphs are all-NaN (zero-variance genes) or empty;
+            seeding from them injects NaNs into the logits and collapses the model, so we
+            reject a degenerate operator and KEEP the random init.
+
+        Returns True if the biological warm-start was applied, False if it fell back to
+        the random init. No-op / False unless bio_learned_graph is enabled."""
+        if not getattr(self, "_bio_learned", False):
+            return False
+        with torch.no_grad():
+            W = operator.detach().cpu().float()
+            if W.dim() != 2 or W.shape[0] != W.shape[1] or W.shape[0] != self.gene_embed.shape[0]:
+                return False
+            W = torch.nan_to_num(W, nan=0.0, posinf=0.0, neginf=0.0)
+            if float(W.abs().sum()) == 0.0:                        # degenerate / empty graph
+                return False
+            W = 0.5 * (W + W.t())                                  # symmetrise
+            r = int(self.gene_embed.shape[1])
+            evals, evecs = torch.linalg.eigh(W)                   # ascending
+            order = torch.argsort(evals, descending=True)
+            # skip the leading (trivial, over-smoothing) mode; take the next r modes
+            idx = order[1:r + 1] if order.numel() > r else order[:r]
+            E = evecs[:, idx] * evals[idx].clamp(min=0.0).sqrt().unsqueeze(0)
+            if not torch.isfinite(E).all() or float(E.std()) < 1e-8:
+                return False
+            E = E / (E.std() + 1e-6) * 0.01                       # biological structure
+            E = E + torch.randn_like(E) * 0.01                    # matched random baseline
+            self.gene_embed.copy_(E.to(self.gene_embed))
+            return True
+
     def set_gene_interaction(self, centrality: torch.Tensor) -> None:
         """Install the genomap gene-gene-interaction centrality prior (N,)."""
         self.gene_centrality.copy_(centrality.to(self.gene_centrality))

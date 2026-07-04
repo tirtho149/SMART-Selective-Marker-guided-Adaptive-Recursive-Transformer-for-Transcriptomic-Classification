@@ -90,6 +90,12 @@ def _cfg(mode: str, K: int, seed: int, epochs: int) -> RMTConfig:
     elif mode == "learned":
         cfg.bio_learned_graph = True; cfg.bio_learned_rank = 16
         cfg.bio_prop_lambda_init = 0.2; cfg.bio_prop_hops = 1
+    elif mode == "learned_bio":
+        # learned graph, IDENTICAL to `learned` except gene_embed is warm-started from
+        # the co-expression graph (degenerate/NaN graphs fall back to random init).
+        cfg.bio_learned_graph = True; cfg.bio_learned_rank = 16
+        cfg.bio_prop_lambda_init = 0.2; cfg.bio_prop_hops = 1
+        cfg.bio_learned_init = "bio"
     return cfg
 
 
@@ -103,7 +109,7 @@ def run_cell(X, y, dataset, mode, K, seed, epochs, device):
            "test_macro_f1": 100 * f1_score(yt, yp, average="macro"),
            "test_accuracy": 100 * accuracy_score(yt, yp),
            "n_features": F, "n_classes": C, "n_samples": int(len(y))}
-    if mode == "learned":
+    if mode in ("learned", "learned_bio"):
         with torch.no_grad():
             out["learned_lambda"] = float(torch.sigmoid(model.bio_prop_logit))
     return out

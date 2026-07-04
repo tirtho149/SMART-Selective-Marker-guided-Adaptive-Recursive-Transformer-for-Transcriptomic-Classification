@@ -153,6 +153,14 @@ def _cfg(mode: str, K: int, seed: int, epochs: int, n_classes: int) -> RMTConfig
         cfg.bio_learned_rank = 16
         cfg.bio_prop_lambda_init = 0.2
         cfg.bio_prop_hops = 1
+    elif mode == "learned_bio":
+        # learned graph, IDENTICAL to `learned` except gene_embed is warm-started from
+        # the curated Reactome graph (degenerate graphs fall back to random init).
+        cfg.bio_learned_graph = True
+        cfg.bio_learned_rank = 16
+        cfg.bio_prop_lambda_init = 0.2
+        cfg.bio_prop_hops = 1
+        cfg.bio_learned_init = "bio"
     return cfg
 
 
@@ -164,10 +172,12 @@ def run_cell(X, y, genes, classes, family, cohort, task, mode, K, seed, epochs,
     cfg = _cfg(mode, K, seed, epochs, C)
     cfg.n_markers = min(cfg.n_markers, F)
     # curated/random install a fixed external graph; none/learned install nothing
-    # (learned builds its own graph inside the model).
+    # (learned builds its own graph inside the model). learned_bio installs no fixed
+    # prior but warm-starts the learned graph from the curated Reactome operator.
     inter = graphs[mode] if mode in ("curated", "random") else None
+    bio_op = graphs["curated"].operator if mode == "learned_bio" else None
     yt, yp, model = _fit_eval(X.astype(np.float32), y, tr, va, te, cfg, F, C, device,
-                              inter=inter)
+                              inter=inter, bio_op=bio_op)
     out = {
         "family": family, "cohort": cohort, "task": task, "mode": mode,
         "K": K, "seed": seed,

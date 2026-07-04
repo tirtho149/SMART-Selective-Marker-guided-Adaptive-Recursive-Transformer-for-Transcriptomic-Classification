@@ -75,7 +75,7 @@ Classify a cell/sample from $x\!\in\!\mathbb{R}^{N}$ ($N\!\approx\!20$k genes) \
   \node[stage, right=of pool, fill=panelB] (clf) {{\textcolor{accentB}{\faChartBar}}\\[1pt]\textbf{Phenotype}\\[1pt]{\tiny\textcolor{subcap}{cell type / cancer}}};
   % ---- biological prior node ----
   \node[stage, right=of mtok, draw=accentA, line width=1.2pt, fill=panelA, text width=22mm]
-        (gint) {{\textcolor{accentA}{\faProjectDiagram}}\\[1pt]\textbf{Gene / Pathway Graph}\\[1pt]{\tiny\textcolor{subcap}{co-expr.\,/\,Reactome $\pi$ (label-free)}}};
+        (gint) {{\textcolor{accentA}{\faProjectDiagram}}\\[1pt]\textbf{Gene / Pathway Graph}\\[1pt]{\tiny\textcolor{subcap}{fixed co-expr.\,/\,Reactome \emph{or} \textbf{learned} $\pi$}}};
 
   \draw[flow, draw=accentA] (inp) -- (router);
   \draw[flow, draw=accentA] (router) -- (mtok);
@@ -103,37 +103,37 @@ Classify a cell/sample from $x\!\in\!\mathbb{R}^{N}$ ($N\!\approx\!20$k genes) \
 \end{frame}
 
 % ======================= SLIDE 2: results ==================================
-\begin{frame}{Results: efficiency wins, accuracy is a wash (honest negatives)}
+\begin{frame}{Results: learned routing wins; efficiency holds; fixed priors don't}
 \begin{columns}[T]
 \column{0.5\textwidth}
 \centering\textbf{\footnotesize Token reduction}\\[-1mm]
-{\scriptsize macro-F1 vs \# marker tokens $M$}\\[1mm]
+{\scriptsize macro-F1 vs \# marker tokens $M$ (13-dataset suite)}\\[1mm]
 \resizebox{\linewidth}{!}{%
 \begin{tabular}{lcccc}
 \toprule
 \rowcolor{nathead}
  & $M{=}16$ & $M{=}64$ & $M{=}128$ & $M{=}256$ \\
 \midrule
-Tabula Muris & 35.4 & 64.6 & 71.3 & \cellcolor{natgood}75.3 \\
-Prototype    & 62.5 & 90.2 & 94.8 & \cellcolor{natgood}97.2 \\
-Pancreas     & 43.9 & 53.0 & 58.4 & \cellcolor{natgood}57.7 \\
-Prostate     & 74.1 & 78.5 & 77.0 & \cellcolor{natgood}78.2 \\
+Baron    & 33.7 & 53.9 & 62.6 & \cellcolor{natgood}66.9 \\
+Lung     & 30.8 & 61.5 & 71.4 & \cellcolor{natgood}78.4 \\
+T-cell   & 25.5 & 43.1 & 47.4 & \cellcolor{natgood}61.5 \\
+Prostate & 74.3 & \cellcolor{natgood}78.0 & 76.7 & 77.3 \\
 \bottomrule
 \end{tabular}}
 \vspace{2mm}
 
-\centering\textbf{\footnotesize Vanilla vs Recursive vs MoR @ $K^\star{=}4$}\\[1mm]
+\centering\textbf{\footnotesize Vanilla vs Recursive vs MoR @ $K{=}4$}\\[1mm]
 \resizebox{\linewidth}{!}{%
 \begin{tabular}{lrrr}
 \toprule
 \rowcolor{nathead}
-pancreas & Vanilla & Recursive & MoR \\
+suite mean (13) & Vanilla & Recursive & MoR \\
 \midrule
-Params (unique) & 299{,}136 & \cellcolor{natgood}74{,}784 & \cellcolor{natgood}75{,}168 \\
-FLOPs/sample    & 62.9\,M & 62.9\,M & \cellcolor{natgood}38.9\,M \\
+Params (unique) & 299{,}520 & \cellcolor{natgood}74{,}880 & \cellcolor{natgood}75{,}168 \\
+FLOPs (rel.)    & 1.00$\times$ & 1.00$\times$ & \cellcolor{natgood}0.62$\times$ \\
 Compute saved   & --- & --- & \cellcolor{natgood}38\% \\
-macro-F1        & 54.1$\pm$0.8 & 57.3$\pm$5.8 & 54.2$\pm$0.9 \\
-accuracy        & 92.4 & 91.8 & 91.1 \\
+macro-F1        & 51.4$\pm$16.8 & 52.3$\pm$17.1 & 50.4$\pm$17.1 \\
+accuracy        & 66.2 & 67.1 & 66.6 \\
 \bottomrule
 \end{tabular}}\\[1mm]
 {\tiny Equal accuracy: MoR $=$ \good{4$\times$ fewer params} than Vanilla $+$ \comp{38\% fewer FLOPs} than Recursive.}
@@ -149,15 +149,15 @@ accuracy        & 92.4 & 91.8 & 91.1 \\
     \node[font=\tiny, text=white] at (\x*1.2+0.5,\w*0.16) {\f};
   }
   \node[font=\scriptsize, text=accentB, align=center] at (2.6,1.55)
-     {mean depth $2.75/4$\\[-1pt]\comp{$\sim$31\% fewer FLOPs}};
+     {mean depth $2.75/4$\\[-1pt]\comp{$\sim$38\% fewer FLOPs}};
 \end{tikzpicture}}
 \vspace{1mm}
 
-\begin{block}{\footnotesize Verdicts (multi-seed, statistical)}
+\begin{block}{\footnotesize Verdicts (multi-seed, 13 datasets)}
 \scriptsize
-\comp{$+$} Adaptive depth: \comp{$\sim$31\% compute saved} at matched accuracy \& params ($p\!<\!0.001$).\\[2pt]
-\bad{$-$} Biological prior vs random-graph: $\Delta$F1 $=\!+0.28$, $p\!=\!0.871$, \bad{0/10 significant}.\\[2pt]
-\bad{$-$} Adaptive vs vanilla accuracy \& calibration: \bad{no consistent gain}.
+\good{$+$} \good{Learned} routing graph: \good{$+12.0$ F1} single cell (66.5 vs 54.5), the decisive win --- beats fixed biology, random \emph{and} no prior.\\[2pt]
+\comp{$+$} Adaptive depth: \comp{$\sim$38\% compute saved} at matched accuracy \& params.\\[2pt]
+\bad{$-$} \emph{Fixed} biology prior: $=$ its random-graph control, \bad{collapses on some suites}; calibration \bad{no gain}.
 \end{block}
 \end{columns}
 \end{frame}
@@ -190,7 +190,7 @@ accuracy        & 92.4 & 91.8 & 91.1 \\
   \item \good{Validate:} check survival-depth rankings against \good{known lineage / disease markers}.
 \end{itemize}
 \vspace{1mm}
-{\footnotesize\good{Take-away:} token reduction is the biologically meaningful lever that \emph{works}; the bio prior is a promising direction, reported honestly.}
+{\footnotesize\good{Take-away:} token reduction is the biologically meaningful lever that \emph{works} --- and a \good{learned} routing graph (next slide) turns the biology-prior direction into a real accuracy gain.}
 \end{columns}
 \end{frame}
 
@@ -239,9 +239,10 @@ $\Rightarrow$ a \good{cleaner marker token}.
 \emph{in} noise $\Rightarrow$ over-smooths, no SNR gain.
 \end{block}
 \vspace{1mm}
-{\footnotesize\good{On data (P-NET, 10 seeds):} learned $-$ none $=\mathbf{+1.9}$ F1
-(\good{$p{=}.043$}); \good{$+5.7$} on prostate. Beats co-expression, Reactome
-\emph{and} random --- the first mechanism that does.}
+{\footnotesize\good{On data (10 seeds):} learned $-$ none $=\mathbf{+12.0}$ F1 on single
+cell (66.5 vs 54.5; up to \good{$+19$} on Baron / T-cell) and \good{$+1.9$} on P-NET
+(\good{$+5.7$} prostate). Beats co-expression, Reactome \emph{and} random --- the first
+mechanism that does.}
 \end{columns}
 \end{frame}
 

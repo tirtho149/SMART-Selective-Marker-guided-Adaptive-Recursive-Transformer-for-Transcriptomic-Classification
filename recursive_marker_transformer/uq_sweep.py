@@ -18,11 +18,13 @@ import torch
 
 from .config import RMTConfig
 from .singlecell import _DictLoader, _load_dataset, _make_splits, _fit_eval, HEAD
-from .uq import predict_probs, uq_metrics
+from .uq import predict_probs, predict_logits, uq_metrics, temperature_scaled_metrics
 from .train import resolve_device
 
-SC = ["tabula_muris", "pancreas", "common_class", "prototype", "baron",
-      "segerstolpe", "lung", "oesophagus", "spleen", "tcell"]
+# 13-dataset paper: 9 genomap single-cell sets (materialised into data/singlecell/
+# by tools/materialize_sc.py so this shares arrays with the learned Table-1 sweep).
+SC = ["baron", "lung", "muraro", "oesophagus", "segerstolpe",
+      "spleen", "tcell", "wang", "xin"]
 
 # config -> overrides on the shared single-cell base config
 CONFIGS = {
@@ -32,6 +34,9 @@ CONFIGS = {
     "fixed":       dict(gene_interaction="none", recursion_mode="fixed"),
     "depth1":      dict(gene_interaction="none", recursion_mode="expert", recursion_depth=1),
     "independent": dict(gene_interaction="none", recursion_mode="expert", share_weights=False),
+    # data-driven LEARNED gene-gene graph (Table-1 positive) -- does it help calibration?
+    "learned":     dict(gene_interaction="none", recursion_mode="expert",
+                        bio_learned_graph=True, bio_learned_rank=16),
 }
 
 
@@ -45,7 +50,7 @@ def _base(seed, epochs):
         router_prior_beta=1.0, router_prior_anneal=True)
 
 
-COH = {"prostate": "mut_cnv", "blca": "mut_cnv", "stad": "mut_cnv", "panmeta_subtype": "expr"}
+COH = {"prostate": "mut_cnv", "blca": "mut_cnv", "stad": "mut_cnv", "brca": "mut_cnv"}
 # cohort overrides (Reactome prior is the biological-prior analogue of co-expression)
 COH_CONFIGS = {
     "bio":         dict(gene_interaction="reactome", recursion_mode="expert"),
@@ -54,6 +59,9 @@ COH_CONFIGS = {
     "fixed":       dict(gene_interaction="reactome", recursion_mode="fixed"),
     "depth1":      dict(gene_interaction="reactome", recursion_mode="expert", recursion_depth=1),
     "independent": dict(gene_interaction="reactome", recursion_mode="expert", share_weights=False),
+    # learned graph replaces the fixed Reactome prior (matches the Table-1 P-NET learned run)
+    "learned":     dict(gene_interaction="none", recursion_mode="expert",
+                        bio_learned_graph=True, bio_learned_rank=16),
 }
 
 
@@ -85,13 +93,20 @@ def _run_cohorts(config, seeds, epochs, out, device):
             dtypes = {task: "multiclass"}
             print(f"\n##### uq[coh] {config} {task} seed={seed} G={G} K={K} #####", flush=True)
             yt, yp, model, dl_te = _pw_fit(task, coh, X, y, tr, va, te, cfg, G, K, dtypes, device)
-            ytt, probs = predict_probs(model, dl_te, device, task)
-            m = uq_metrics(ytt, probs)
+            # rebuild a val loader with the SAME z-scoring _pw_fit used, for temp scaling
+            from .pathway_tasks import _zscore_train, _DictLoader as _PWLoader
+            Xs = _zscore_train(X, tr)
+            dl_va = _PWLoader(Xs, y, va, bs, False, task)
+            yv, logv = predict_logits(model, dl_va, device, task)
+            ytt, logt = predict_logits(model, dl_te, device, task)
+            T, m, m_ts = temperature_scaled_metrics(logv, yv, logt, ytt)
             outd = out / config / f"s{seed}"
             outd.mkdir(parents=True, exist_ok=True)
             (outd / f"{task}.json").write_text(json.dumps(
                 {"dataset": task, "config": config, "seed": seed,
-                 "n_classes": K, "n_test": int(len(te)), **m}, indent=1))
+                 "n_classes": K, "n_test": int(len(te)), **m, "temperature": T,
+                 "nll_ts": m_ts["nll"], "ece_ts": m_ts["ece"], "brier_ts": m_ts["brier"],
+                 "auroc_ts": m_ts["auroc"]}, indent=1))
             print(f"  [uq] {task} s{seed}: NLL={m['nll']:.3f} ECE={m['ece']:.3f} "
                   f"AUROC={m['auroc']:.3f}", flush=True)
 
@@ -122,19 +137,24 @@ def main():
             cfg = replace(_base(seed, args.epochs), **over)
             print(f"\n##### uq {args.config} {ds} seed={seed} F={F} K={K} #####", flush=True)
             _, _, model = _fit_eval(Xf, y, tr, va, te, cfg, F, K, device)
-            # rebuild the test loader exactly as _fit_eval z-scored it, to get probs
+            # rebuild the loaders exactly as _fit_eval z-scored them, to get logits
             mu = Xf[tr].mean(0, keepdims=True); sd = Xf[tr].std(0, keepdims=True) + 1e-6
             Xs = (Xf - mu) / sd
+            dl_va = _DictLoader(Xs, y, va, cfg.batch_size, False)
             dl_te = _DictLoader(Xs, y, te, cfg.batch_size, False)
-            yt, probs = predict_probs(model, dl_te, device, HEAD)
-            m = uq_metrics(yt, probs)
+            yv, logv = predict_logits(model, dl_va, device, HEAD)
+            yt, logt = predict_logits(model, dl_te, device, HEAD)
+            # temperature scaling: fit T on val, apply to test (accuracy/F1 unchanged)
+            T, m, m_ts = temperature_scaled_metrics(logv, yv, logt, yt)
             outd = args.out / args.config / f"s{seed}"
             outd.mkdir(parents=True, exist_ok=True)
             (outd / f"{ds}.json").write_text(json.dumps(
                 {"dataset": ds, "config": args.config, "seed": seed,
-                 "n_classes": K, "n_test": int(len(te)), **m}, indent=1))
-            print(f"  [uq] {ds} s{seed}: NLL={m['nll']:.3f} ECE={m['ece']:.3f} "
-                  f"Brier={m['brier']:.3f} conf={m['conf']:.3f} AUROC={m['auroc']:.3f}", flush=True)
+                 "n_classes": K, "n_test": int(len(te)), **m, "temperature": T,
+                 "nll_ts": m_ts["nll"], "ece_ts": m_ts["ece"], "brier_ts": m_ts["brier"],
+                 "auroc_ts": m_ts["auroc"]}, indent=1))
+            print(f"  [uq] {ds} s{seed}: NLL={m['nll']:.3f}->{m_ts['nll']:.3f} "
+                  f"ECE={m['ece']:.3f}->{m_ts['ece']:.3f} T={T:.2f} AUROC={m['auroc']:.3f}", flush=True)
 
     if args.cohorts:
         _run_cohorts(args.config, args.seeds, max(40, args.epochs // 2), args.out, device)

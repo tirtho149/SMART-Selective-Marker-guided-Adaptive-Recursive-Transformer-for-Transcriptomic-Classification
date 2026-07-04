@@ -440,6 +440,8 @@ INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/tfm/public/amsfonts/cmextra/cmex9.t
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/tfm/public/amsfonts/symbols/msam10.tfm
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/tfm/public/amsfonts/symbols/msbm10.tfm
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/tfm/public/cm/cmssi9.tfm
+INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/tfm/public/cm/cmtt9.tfm
+INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/tfm/public/cm/cmssi12.tfm
 OUTPUT slides_smart.nav
 OUTPUT slides_smart.toc
 OUTPUT slides_smart.snm
@@ -449,15 +451,19 @@ INPUT ./slides_smart.out
 INPUT /home/tirtho/.TinyTeX/texmf-var/fonts/pk/ljfour/jknappen/ec/tcss0600.600pk
 INPUT /home/tirtho/.TinyTeX/texmf-var/fonts/pk/ljfour/jknappen/ec/tcss0800.600pk
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/fontawesome5/FontAwesome5Free-Solid.pfb
+INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cmextra/cmex9.pfb
+INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi5.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi6.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb
+INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi9.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmss10.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmss12.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmss8.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmss9.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmssbx10.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmssi10.pfb
+INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmssi12.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmssi8.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmssi9.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb
@@ -465,5 +471,6 @@ INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy5.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy6.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy9.pfb
+INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt9.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb
 INPUT /home/tirtho/.TinyTeX/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm7.pfb

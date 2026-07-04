@@ -124,6 +124,10 @@ class RMTConfig:
     # label-free, annealed-away, and not task-shaped.
     bio_learned_graph: bool = False              # enable the learned gene graph
     bio_learned_rank: int = 16                   # r: gene-embedding rank (graph is rank-r)
+    bio_learned_init: str = "random"             # "random" | "bio": warm-start the learned
+                                                 # gene embedding from the biological graph
+                                                 # (co-expression / curated Reactome operator,
+                                                 # top-r eigenvectors) instead of randn.
 
     # ---- pathway-hierarchy attention bias (Reactome pathway->pathway graph) ----
     pathway_attn_bias: bool = False              # bias self-attention so a pathway
