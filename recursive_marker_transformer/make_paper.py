@@ -350,23 +350,48 @@ def _uq_stat(config, key):
     return per
 
 
+# per-dataset calibration columns (display, uq-config)
+_UQ_COLS = [("Vanilla", "independent"), ("None", "none"), ("Fixed", "fixed"),
+            ("Adaptive", "adaptive"), ("Bio", "bio"), ("Learned", "learned")]
+
+
+def _uq_ds(config, name, key):
+    """Mean over seeds of a calibration metric for one (config, dataset)."""
+    vals = [r[key] for f in _g("results_uq13", config, "s*", f"{name}.json")
+            if (r := _J(f)) is not None and key in r]
+    return _mean(vals)
+
+
 def table4() -> str:
-    """Calibration per configuration: raw and temperature-scaled NLL/ECE (temperature
-    scaling fits one scalar T on validation and leaves accuracy/macro-F1 unchanged)."""
-    def cell(config, key, fmt):
-        m, s = _mean_std(_uq_stat(config, key))
-        return "--" if m is None else (fmt % (m, s))
-    n2, e3 = "%.2f\\,$\\pm$\\,%.2f", "%.3f\\,$\\pm$\\,%.3f"
-    lines = ["\\begin{tabular}{lccccc}", "\\toprule",
-             "& \\multicolumn{2}{c}{NLL $\\downarrow$} & \\multicolumn{2}{c}{ECE $\\downarrow$} & \\\\",
-             "\\cmidrule(lr){2-3}\\cmidrule(lr){4-5}",
-             "Configuration & raw & $+T$ & raw & $+T$ & AUROC $\\uparrow$ \\\\",
-             "\\midrule"]
-    for config, label in _UQ_ROWS:
-        au_m, au_s = _mean_std(_uq_stat(config, "auroc"))
-        c_au = "--" if au_m is None else f"{au_m:.3f}"
-        lines.append(f"{label} & {cell(config,'nll',n2)} & {cell(config,'nll_ts',n2)} & "
-                     f"{cell(config,'ece',e3)} & {cell(config,'ece_ts',e3)} & {c_au} \\\\")
+    """Per-dataset raw NLL for each configuration, with mean raw and mean
+    temperature-scaled ($+T$) rows (temperature scaling leaves accuracy unchanged)."""
+    cols = _UQ_COLS
+    span = len(cols) + 1
+    lines = ["\\begin{tabular}{l" + "c" * len(cols) + "}", "\\toprule",
+             "& \\multicolumn{%d}{c}{NLL $\\downarrow$ (raw)} \\\\" % len(cols),
+             "\\cmidrule(lr){2-%d}" % (len(cols) + 1),
+             "Dataset & " + " & ".join(d for d, _ in cols) + " \\\\", "\\midrule",
+             "\\multicolumn{%d}{l}{\\emph{Single-cell (genomap)}} \\\\" % span]
+
+    def _row(name):
+        out = []
+        for _, k in cols:
+            v = _uq_ds(k, name, "nll")
+            out.append("--" if v is None else f"{v:.2f}")
+        return out
+    for ds in _SC:
+        lines.append(f"\\quad {_SC_DISP[ds]} & " + " & ".join(_row(ds)) + " \\\\")
+    lines.append("\\midrule")
+    lines.append("\\multicolumn{%d}{l}{\\emph{Multi-omics (Reactome/P-NET)}} \\\\" % span)
+    for coh in _PN:
+        lines.append(f"\\quad {_PN_DISP[coh]} & " + " & ".join(_row(coh)) + " \\\\")
+    lines.append("\\midrule")
+    for key, label in [("nll", "Mean NLL (raw)"), ("nll_ts", "Mean NLL ($+T$)")]:
+        cells = []
+        for _, k in cols:
+            m = _mean([v for n in _SC + _PN if (v := _uq_ds(k, n, key)) is not None])
+            cells.append("--" if m is None else f"\\textbf{{{m:.2f}}}")
+        lines.append(f"\\textbf{{{label}}} & " + " & ".join(cells) + " \\\\")
     lines += ["\\bottomrule", "\\end{tabular}"]
     return "\n".join(lines)
 
@@ -413,19 +438,45 @@ def _ladder_runs(variant):
     return accs, f1s
 
 
+# per-dataset ladder columns: (display, arch-variant, params x, flops-key)
+_T5_COLS = [("Vanilla", "independent", 4.0, "independent"),
+            ("Recursive", "fixed", 1.0, "fixed"),
+            ("MoR-tok", "token", 1.0, "token"),
+            ("MoR-exp", "shared", 1.0, "expert")]
+
+
 def table5() -> str:
+    """Per-dataset efficiency ladder: macro-F1 / accuracy for each architecture variant,
+    with Mean and the (dataset-agnostic) design-time Params / FLOPs cost rows."""
     fl = _flops_ratios()
-    lines = ["\\begin{tabular}{lcccc}", "\\toprule",
-             "& \\multicolumn{2}{c}{Cost (design)} & \\multicolumn{2}{c}{Suite mean (%d)} \\\\"
-             % (len(_SC) + len(_PN)),
-             "\\cmidrule(lr){2-3}\\cmidrule(lr){4-5}",
-             "Configuration & Params & FLOPs & Accuracy & Macro-F1 \\\\",
-             "\\midrule"]
-    for label, key, pratio, fkey in _LADDER:
-        accs, f1s = _ladder_runs(key)
-        cells = [f"{pratio:.0f}$\\times$", f"{fl[fkey]:.2f}$\\times$",
-                 _ms_pct(accs), _ms_pct(f1s)]
-        lines.append(f"{label} & " + " & ".join(cells) + " \\\\")
+    cols = _T5_COLS
+    span = len(cols) + 1
+    lines = ["\\begin{tabular}{l" + "c" * len(cols) + "}", "\\toprule",
+             "Dataset & " + " & ".join(d for d, _, _, _ in cols) + " \\\\", "\\midrule",
+             "\\multicolumn{%d}{l}{\\emph{Single-cell (genomap)}} \\\\" % span]
+
+    def _row(name, is_sc):
+        return [_fa(_arch_vals(name, is_sc, k, "macro_f1"), _arch_vals(name, is_sc, k, "accuracy"))
+                for _, k, _, _ in cols]
+    for ds in _SC:
+        lines.append(f"\\quad {_SC_DISP[ds]} & " + " & ".join(_row(ds, True)) + " \\\\")
+    lines.append("\\midrule")
+    lines.append("\\multicolumn{%d}{l}{\\emph{Multi-omics (Reactome/P-NET)}} \\\\" % span)
+    for coh in _PN:
+        lines.append(f"\\quad {_PN_DISP[coh]} & " + " & ".join(_row(coh, False)) + " \\\\")
+    lines.append("\\midrule")
+    mean_cells = []
+    for _, k, _, _ in cols:
+        f1 = [_mean(_arch_vals(ds, True, k, "macro_f1")) for ds in _SC] + \
+             [_mean(_arch_vals(c, False, k, "macro_f1")) for c in _PN]
+        ac = [_mean(_arch_vals(ds, True, k, "accuracy")) for ds in _SC] + \
+             [_mean(_arch_vals(c, False, k, "accuracy")) for c in _PN]
+        mf, ma = _mean(f1), _mean(ac)
+        mean_cells.append("--" if mf is None else f"\\textbf{{{mf:.1f}/{ma:.0f}}}")
+    lines.append("\\textbf{Mean} & " + " & ".join(mean_cells) + " \\\\")
+    lines.append("\\midrule")
+    lines.append("Params (rel.) & " + " & ".join(f"{p:.0f}$\\times$" for _, _, p, _ in cols) + " \\\\")
+    lines.append("FLOPs (rel.) & " + " & ".join(f"{fl[fk]:.2f}$\\times$" for _, _, _, fk in cols) + " \\\\")
     lines += ["\\bottomrule", "\\end{tabular}"]
     return "\n".join(lines)
 
@@ -869,22 +920,27 @@ shared block from a fixed-depth model.
 \node[stage, right=of shared] (mor) {{\large\textcolor{accentB}{\faFilter}}\\[2pt]\textbf{MoR Depth Router}\\[1pt]{\scriptsize\textcolor{subcap}{funnel; logit $+\,\beta_t\pi_m$}}};
 \node[stage, right=of mor] (pool) {{\large\textcolor{accentB}{\faCompress}}\\[2pt]\textbf{Mean-pool}\\[1pt]{\scriptsize\textcolor{subcap}{over $M$ markers}}};
 \node[stage, right=of pool] (clf) {{\large\textcolor{accentB}{\faChartBar}}\\[2pt]\textbf{Classifier}\\[1pt]{\scriptsize\textcolor{subcap}{linear head}}};
-\node[stage, right=of clf] (coh) {{\large\textcolor{accentB}{\faSitemap}}\\[2pt]\textbf{Phenotype}\\[1pt]{\tiny\textcolor{subcap}{9 genomap sets\\ + pathway cohorts}}};
+\node[stage, right=of clf] (coh) {{\large\textcolor{accentB}{\faSitemap}}\\[2pt]\textbf{Phenotype}\\[1pt]{\tiny\textcolor{subcap}{8 genomap sets\\ + 3 P-NET cohorts}}};
 % biology-informed router: genomap gene-gene interaction graph -> centrality prior.
 % Label-free prior built from expression alone, so it has NO incoming arrow; its
 % centrality prior pi is consumed by the MoR Depth Router (annealed into the logit).
-\node[stage, right=of mtok, text width=22mm, draw=accentA, line width=1.4pt, fill=panelA] (gint) {{\large\textcolor{accentA}{\faProjectDiagram}}\\[1pt]\textbf{Gene--Gene / Pathway Graph}\\[1pt]{\tiny\textcolor{subcap}{co-expr.\,/\,Reactome\\ centrality $\pi$ (label-free)}}};
-\node[ptab=accentA, anchor=south east, font=\tiny\bfseries] at ([yshift=0.5mm]gint.north east) {biological prior};
+\node[stage, right=of mtok, text width=22mm, draw=accentA, line width=1.4pt, fill=panelA] (gint) {{\large\textcolor{accentA}{\faProjectDiagram}}\\[1pt]\textbf{Gene--Gene Graph}\\[1pt]{\tiny\textcolor{subcap}{\textbf{learned} or fixed\\ (co-expr.\,/\,Reactome)}}};
+\node[ptab=accentA, anchor=south east, font=\tiny\bfseries] at ([yshift=0.5mm]gint.north east) {gene graph};
 \draw[flow] (shared) -- (mor);
 \draw[flow] (mor) -- (pool);
 \draw[flow] (pool) -- (clf);
 \draw[flow] (clf) -- (coh);
-% biology-informed routing (CENTERPIECE): the label-free centrality prior pi is the
-% only biological signal injected into the recursion decision; emphasised dashed path.
+% PRIMARY mechanism (our best result): the LEARNED gene graph smooths the input
+% expression before marker selection (denoising); curved dashed path back to the router.
 \draw[-{Stealth[length=3mm]}, draw=accentA, dashed, line width=1.3pt]
-  (gint.south) -- ++(0,-7mm) -| (mor.north);
+  (gint.north) .. controls ++(0,9mm) and ++(0,9mm) .. (router.north);
 \node[font=\scriptsize\bfseries, text=accentA, fill=white, inner sep=1.2pt]
-  at ([yshift=-7mm]gint.south -| mor.north) {$+\,\beta_t\,\pi_m$ into depth logit};
+  at ($(gint.north)!0.5!(router.north) + (0,8mm)$) {smooth $x$ (denoise)};
+% SECONDARY: the graph's centrality also primes the depth router (additive prior).
+\draw[-{Stealth[length=3mm]}, draw=accentA, dashed, line width=1.0pt, opacity=0.7]
+  (gint.south) -- ++(0,-7mm) -| (mor.north);
+\node[font=\scriptsize, text=accentA, fill=white, inner sep=1.2pt]
+  at ([yshift=-7mm]gint.south -| mor.north) {$+\,\beta_t\,\pi_m$ prime routing};
 
 \draw[loop] (shared.south east) .. controls ++(0,-9mm) and ++(0,-9mm) .. (shared.south west)
   node[midway, below=0.5mm, font=\scriptsize\bfseries, text=accentB, align=center]
@@ -910,12 +966,13 @@ gene-by-gene, then $M$ learnable query slots cross-attend over \emph{all} $N$ ge
 \textbf{Panel B:} a \emph{single} weight-shared block $f_\theta$ is applied up to $K$
 times (loop-back arrow) with a per-marker refinement gate between passes; a
 Mixture-of-Recursions router funnels capacity so each marker gets an \emph{adaptive}
-depth $d_m$. \textbf{Biology-informed routing (our centerpiece):} a genomap gene-gene
-co-expression graph supplies a label-free network-centrality prior $\pi$ that is
-added (annealed by $\beta_t$) to the depth-router logit (dashed arrow), so
-co-expression hub genes get a head start in the funnel without any label leakage.
-Tokens are mean-pooled and classified; the \emph{same} pipeline serves both
-single-cell datasets.}
+depth $d_m$. \textbf{Gene-graph routing (our best result):} a gene-gene graph -- either a
+\emph{fixed} co-expression / Reactome graph or, decisively, a \emph{learned} low-rank
+graph -- \emph{smooths} the input expression before marker selection (denoising, curved
+dashed arrow) and additionally primes the depth router via a centrality prior
+$\beta_t\pi_m$ (lower dashed arrow). The learned graph is the win; the fixed prior does
+not beat a random-graph control. Tokens are mean-pooled and classified; the \emph{same}
+pipeline serves both single-cell and multi-omics data.}
 \label{fig:overview}
 \end{figure*}
 
@@ -1040,10 +1097,12 @@ funnel $1,\tfrac34,\tfrac12,\tfrac12$); a marker not kept is frozen, so its
 \emph{recursion depth} $d_m$ is the deepest step it survived. The keep decision adds a
 label-free genomap co-expression-centrality prior $\beta_t\pi_m$ to each logit
 (Eq.~\ref{eq:biorouter}); the \textcolor{accentA}{green bars} show that prior $\pi$
-(longer $=$ more central a co-expression hub), so lineage and hub genes
+(longer $=$ more central a hub), so lineage and hub genes
 (\texttt{Cd3e}, \texttt{Epcam}) are primed to recur deepest while settled
 house-keeping genes (\texttt{Gapdh}, \texttt{Actb}) exit at $d_m{=}1$. The bar
-heights are illustrative of the centrality ordering, not fitted values.}
+heights are illustrative of the centrality ordering, not fitted values. The prior graph
+may be \emph{fixed} (shown) or \emph{learned} end-to-end; empirically the learned graph is
+the decisive win, while a fixed centrality prior does not beat a random-graph control.}
 \label{fig:mor}
 \end{figure*}
 
@@ -1238,10 +1297,13 @@ interpretable recursion-depth signal, not an accuracy gain from depth itself.
 \centering
 \resizebox{\columnwidth}{!}{%
 @@TABLE5@@}
-\caption{\textbf{Efficiency ladder.} From a vanilla transformer to expert-choice MoR:
-design-time parameter and FLOP cost, and accuracy / macro-F1 pooled over all
-@@N_TOTAL@@ datasets. Weight sharing removes the $@@PARAMRATIO@@\times$ parameter cost and
-adaptive routing removes $\sim$@@COMPUTE_SAVE@@\% of the FLOPs, both at matched accuracy.}
+\caption{\textbf{Efficiency ladder, per dataset.} Macro-F1 / accuracy (\%) for each
+architecture variant on every dataset -- \emph{Vanilla} ($K$ independent layers),
+\emph{Recursive} (weight-shared fixed depth), \emph{MoR-tok} (token-choice) and
+\emph{MoR-exp} (expert-choice) -- with the design-time Params / FLOPs cost (dataset
+agnostic) in the last two rows. Accuracy is flat across the ladder while weight sharing
+removes the $@@PARAMRATIO@@\times$ parameter cost and adaptive routing
+$\sim$@@COMPUTE_SAVE@@\% of the FLOPs.}
 \label{tab:ladder}
 \end{table}
 
@@ -1299,8 +1361,8 @@ learned routing accuracy gain and the efficiency results.
 
 \paragraph{Recovering calibration without touching accuracy.}
 The miscalibration is a property of the raw softmax, not of the routing, and it is
-largely removed by a standard post-hoc fix. The ``$+T$'' columns of Table~\ref{tab:uq}
-apply \emph{temperature scaling} \cite{guo2017calibration}: a single scalar $T$ is fit on
+largely removed by a standard post-hoc fix. The ``Mean NLL ($+T$)'' row of Table~\ref{tab:uq}
+applies \emph{temperature scaling} \cite{guo2017calibration}: a single scalar $T$ is fit on
 the validation set and divides the logits before the softmax. Because dividing all logits
 by one positive scalar is monotonic, the arg-max -- and hence every accuracy and macro-F1
 number in this paper -- is \emph{exactly unchanged}; only confidence is recalibrated. It
@@ -1317,13 +1379,13 @@ accurate (via the learned graph) and far better scored.
 \centering
 \resizebox{0.95\columnwidth}{!}{%
 @@TABLE4@@}
-\caption{\textbf{Calibration, raw and temperature-scaled.} NLL and ECE per configuration
-(mean over all @@N_TOTAL@@ datasets, @@NSEEDS@@ seeds), each shown raw and after
-temperature scaling ($+T$: one scalar fit on validation, which leaves accuracy/macro-F1
-exactly unchanged). No routing prior improves raw calibration -- including the
-accuracy-winning learned graph -- but temperature scaling sharply reduces NLL for every
-configuration (ECE improves more modestly, limited by the small per-cohort validation
-splits), at no accuracy cost.}
+\caption{\textbf{Calibration per dataset (raw NLL $\downarrow$).} Negative log-likelihood
+for each configuration on every dataset (mean over @@NSEEDS@@ seeds); a few Bio cells are
+blank where the degenerate co-expression graph gave non-finite NLL. The bottom rows give
+the mean raw NLL and the mean after \emph{temperature scaling} ($+T$: one scalar fit on
+validation, which leaves accuracy exactly unchanged). No routing prior improves raw
+calibration -- including the accuracy-winning learned graph -- but temperature scaling
+sharply reduces NLL for every configuration at no accuracy cost.}
 \label{tab:uq}
 \end{table}
 

@@ -257,22 +257,27 @@ shared block from a fixed-depth model.
 \node[stage, right=of shared] (mor) {{\large\textcolor{accentB}{\faFilter}}\\[2pt]\textbf{MoR Depth Router}\\[1pt]{\scriptsize\textcolor{subcap}{funnel; logit $+\,\beta_t\pi_m$}}};
 \node[stage, right=of mor] (pool) {{\large\textcolor{accentB}{\faCompress}}\\[2pt]\textbf{Mean-pool}\\[1pt]{\scriptsize\textcolor{subcap}{over $M$ markers}}};
 \node[stage, right=of pool] (clf) {{\large\textcolor{accentB}{\faChartBar}}\\[2pt]\textbf{Classifier}\\[1pt]{\scriptsize\textcolor{subcap}{linear head}}};
-\node[stage, right=of clf] (coh) {{\large\textcolor{accentB}{\faSitemap}}\\[2pt]\textbf{Phenotype}\\[1pt]{\tiny\textcolor{subcap}{9 genomap sets\\ + pathway cohorts}}};
+\node[stage, right=of clf] (coh) {{\large\textcolor{accentB}{\faSitemap}}\\[2pt]\textbf{Phenotype}\\[1pt]{\tiny\textcolor{subcap}{8 genomap sets\\ + 3 P-NET cohorts}}};
 % biology-informed router: genomap gene-gene interaction graph -> centrality prior.
 % Label-free prior built from expression alone, so it has NO incoming arrow; its
 % centrality prior pi is consumed by the MoR Depth Router (annealed into the logit).
-\node[stage, right=of mtok, text width=22mm, draw=accentA, line width=1.4pt, fill=panelA] (gint) {{\large\textcolor{accentA}{\faProjectDiagram}}\\[1pt]\textbf{Gene--Gene / Pathway Graph}\\[1pt]{\tiny\textcolor{subcap}{co-expr.\,/\,Reactome\\ centrality $\pi$ (label-free)}}};
-\node[ptab=accentA, anchor=south east, font=\tiny\bfseries] at ([yshift=0.5mm]gint.north east) {biological prior};
+\node[stage, right=of mtok, text width=22mm, draw=accentA, line width=1.4pt, fill=panelA] (gint) {{\large\textcolor{accentA}{\faProjectDiagram}}\\[1pt]\textbf{Gene--Gene Graph}\\[1pt]{\tiny\textcolor{subcap}{\textbf{learned} or fixed\\ (co-expr.\,/\,Reactome)}}};
+\node[ptab=accentA, anchor=south east, font=\tiny\bfseries] at ([yshift=0.5mm]gint.north east) {gene graph};
 \draw[flow] (shared) -- (mor);
 \draw[flow] (mor) -- (pool);
 \draw[flow] (pool) -- (clf);
 \draw[flow] (clf) -- (coh);
-% biology-informed routing (CENTERPIECE): the label-free centrality prior pi is the
-% only biological signal injected into the recursion decision; emphasised dashed path.
+% PRIMARY mechanism (our best result): the LEARNED gene graph smooths the input
+% expression before marker selection (denoising); curved dashed path back to the router.
 \draw[-{Stealth[length=3mm]}, draw=accentA, dashed, line width=1.3pt]
-  (gint.south) -- ++(0,-7mm) -| (mor.north);
+  (gint.north) .. controls ++(0,9mm) and ++(0,9mm) .. (router.north);
 \node[font=\scriptsize\bfseries, text=accentA, fill=white, inner sep=1.2pt]
-  at ([yshift=-7mm]gint.south -| mor.north) {$+\,\beta_t\,\pi_m$ into depth logit};
+  at ($(gint.north)!0.5!(router.north) + (0,8mm)$) {smooth $x$ (denoise)};
+% SECONDARY: the graph's centrality also primes the depth router (additive prior).
+\draw[-{Stealth[length=3mm]}, draw=accentA, dashed, line width=1.0pt, opacity=0.7]
+  (gint.south) -- ++(0,-7mm) -| (mor.north);
+\node[font=\scriptsize, text=accentA, fill=white, inner sep=1.2pt]
+  at ([yshift=-7mm]gint.south -| mor.north) {$+\,\beta_t\,\pi_m$ prime routing};
 
 \draw[loop] (shared.south east) .. controls ++(0,-9mm) and ++(0,-9mm) .. (shared.south west)
   node[midway, below=0.5mm, font=\scriptsize\bfseries, text=accentB, align=center]
@@ -298,12 +303,13 @@ gene-by-gene, then $M$ learnable query slots cross-attend over \emph{all} $N$ ge
 \textbf{Panel B:} a \emph{single} weight-shared block $f_\theta$ is applied up to $K$
 times (loop-back arrow) with a per-marker refinement gate between passes; a
 Mixture-of-Recursions router funnels capacity so each marker gets an \emph{adaptive}
-depth $d_m$. \textbf{Biology-informed routing (our centerpiece):} a genomap gene-gene
-co-expression graph supplies a label-free network-centrality prior $\pi$ that is
-added (annealed by $\beta_t$) to the depth-router logit (dashed arrow), so
-co-expression hub genes get a head start in the funnel without any label leakage.
-Tokens are mean-pooled and classified; the \emph{same} pipeline serves both
-single-cell datasets.}
+depth $d_m$. \textbf{Gene-graph routing (our best result):} a gene-gene graph -- either a
+\emph{fixed} co-expression / Reactome graph or, decisively, a \emph{learned} low-rank
+graph -- \emph{smooths} the input expression before marker selection (denoising, curved
+dashed arrow) and additionally primes the depth router via a centrality prior
+$\beta_t\pi_m$ (lower dashed arrow). The learned graph is the win; the fixed prior does
+not beat a random-graph control. Tokens are mean-pooled and classified; the \emph{same}
+pipeline serves both single-cell and multi-omics data.}
 \label{fig:overview}
 \end{figure*}
 
@@ -428,10 +434,12 @@ funnel $1,\tfrac34,\tfrac12,\tfrac12$); a marker not kept is frozen, so its
 \emph{recursion depth} $d_m$ is the deepest step it survived. The keep decision adds a
 label-free genomap co-expression-centrality prior $\beta_t\pi_m$ to each logit
 (Eq.~\ref{eq:biorouter}); the \textcolor{accentA}{green bars} show that prior $\pi$
-(longer $=$ more central a co-expression hub), so lineage and hub genes
+(longer $=$ more central a hub), so lineage and hub genes
 (\texttt{Cd3e}, \texttt{Epcam}) are primed to recur deepest while settled
 house-keeping genes (\texttt{Gapdh}, \texttt{Actb}) exit at $d_m{=}1$. The bar
-heights are illustrative of the centrality ordering, not fitted values.}
+heights are illustrative of the centrality ordering, not fitted values. The prior graph
+may be \emph{fixed} (shown) or \emph{learned} end-to-end; empirically the learned graph is
+the decisive win, while a fixed centrality prior does not beat a random-graph control.}
 \label{fig:mor}
 \end{figure*}
 
@@ -651,20 +659,36 @@ interpretable recursion-depth signal, not an accuracy gain from depth itself.
 \resizebox{\columnwidth}{!}{%
 \begin{tabular}{lcccc}
 \toprule
-& \multicolumn{2}{c}{Cost (design)} & \multicolumn{2}{c}{Suite mean (11)} \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}
-Configuration & Params & FLOPs & Accuracy & Macro-F1 \\
+Dataset & Vanilla & Recursive & MoR-tok & MoR-exp \\
 \midrule
-Vanilla transformer ($K$ independent layers) & 4$\times$ & 1.00$\times$ & 72.6\,$\pm$\,12.0 & 56.8\,$\pm$\,10.2 \\
-Recursive, fixed depth & 1$\times$ & 1.00$\times$ & 73.3\,$\pm$\,13.7 & 58.2\,$\pm$\,10.0 \\
-Adaptive MoR, token-choice & 1$\times$ & 0.56$\times$ & 73.8\,$\pm$\,14.2 & 59.7\,$\pm$\,11.9 \\
-Adaptive MoR, expert-choice (\textbf{ours}) & 1$\times$ & 0.62$\times$ & 72.2\,$\pm$\,13.7 & 56.1\,$\pm$\,10.9 \\
+\multicolumn{5}{l}{\emph{Single-cell (genomap)}} \\
+\quad Baron & 62.5/85 & 63.0/86 & 63.7/86 & 58.6/83 \\
+\quad Lung & 70.4/79 & 73.6/81 & 73.0/80 & 71.4/79 \\
+\quad Muraro & 67.8/78 & 73.2/88 & 75.0/88 & 68.9/82 \\
+\quad Oeso. & 55.8/80 & 55.0/81 & 56.5/80 & 55.0/80 \\
+\quad Seger. & 58.1/82 & 59.1/84 & 62.6/86 & 56.9/83 \\
+\quad Spleen & 48.4/56 & 49.0/57 & 48.8/56 & 49.0/57 \\
+\quad T-cell & 48.9/65 & 48.5/63 & 49.6/67 & 49.2/65 \\
+\quad Xin & 65.9/88 & 66.1/89 & 61.5/86 & 68.2/89 \\
+\midrule
+\multicolumn{5}{l}{\emph{Multi-omics (Reactome/P-NET)}} \\
+\quad Prostate & 54.5/64 & 57.9/62 & 76.3/78 & 53.8/68 \\
+\quad BLCA & 40.0/67 & 44.5/64 & 42.8/55 & 42.2/60 \\
+\quad STAD & 53.0/55 & 50.0/52 & 46.9/49 & 43.9/47 \\
+\midrule
+\textbf{Mean} & \textbf{56.8/73} & \textbf{58.2/73} & \textbf{59.7/74} & \textbf{56.1/72} \\
+\midrule
+Params (rel.) & 4$\times$ & 1$\times$ & 1$\times$ & 1$\times$ \\
+FLOPs (rel.) & 1.00$\times$ & 1.00$\times$ & 0.56$\times$ & 0.62$\times$ \\
 \bottomrule
 \end{tabular}}
-\caption{\textbf{Efficiency ladder.} From a vanilla transformer to expert-choice MoR:
-design-time parameter and FLOP cost, and accuracy / macro-F1 pooled over all
-11 datasets. Weight sharing removes the $4\times$ parameter cost and
-adaptive routing removes $\sim$38\% of the FLOPs, both at matched accuracy.}
+\caption{\textbf{Efficiency ladder, per dataset.} Macro-F1 / accuracy (\%) for each
+architecture variant on every dataset -- \emph{Vanilla} ($K$ independent layers),
+\emph{Recursive} (weight-shared fixed depth), \emph{MoR-tok} (token-choice) and
+\emph{MoR-exp} (expert-choice) -- with the design-time Params / FLOPs cost (dataset
+agnostic) in the last two rows. Accuracy is flat across the ladder while weight sharing
+removes the $4\times$ parameter cost and adaptive routing
+$\sim$38\% of the FLOPs.}
 \label{tab:ladder}
 \end{table}
 
@@ -754,8 +778,8 @@ learned routing accuracy gain and the efficiency results.
 
 \paragraph{Recovering calibration without touching accuracy.}
 The miscalibration is a property of the raw softmax, not of the routing, and it is
-largely removed by a standard post-hoc fix. The ``$+T$'' columns of Table~\ref{tab:uq}
-apply \emph{temperature scaling} \cite{guo2017calibration}: a single scalar $T$ is fit on
+largely removed by a standard post-hoc fix. The ``Mean NLL ($+T$)'' row of Table~\ref{tab:uq}
+applies \emph{temperature scaling} \cite{guo2017calibration}: a single scalar $T$ is fit on
 the validation set and divides the logits before the softmax. Because dividing all logits
 by one positive scalar is monotonic, the arg-max -- and hence every accuracy and macro-F1
 number in this paper -- is \emph{exactly unchanged}; only confidence is recalibrated. It
@@ -771,28 +795,38 @@ accurate (via the learned graph) and far better scored.
 \begin{table}[t]
 \centering
 \resizebox{0.95\columnwidth}{!}{%
-\begin{tabular}{lccccc}
+\begin{tabular}{lcccccc}
 \toprule
-& \multicolumn{2}{c}{NLL $\downarrow$} & \multicolumn{2}{c}{ECE $\downarrow$} & \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}
-Configuration & raw & $+T$ & raw & $+T$ & AUROC $\uparrow$ \\
+& \multicolumn{6}{c}{NLL $\downarrow$ (raw)} \\
+\cmidrule(lr){2-7}
+Dataset & Vanilla & None & Fixed & Adaptive & Bio & Learned \\
 \midrule
-Vanilla ($K$ independent layers) & 1.30\,$\pm$\,1.26 & 0.73\,$\pm$\,0.22 & 0.088\,$\pm$\,0.071 & 0.073\,$\pm$\,0.074 & 0.723 \\
-Shared recursion, no prior & 1.29\,$\pm$\,1.20 & 0.72\,$\pm$\,0.22 & 0.083\,$\pm$\,0.070 & 0.076\,$\pm$\,0.070 & 0.725 \\
-Fixed-depth recursion & 1.36\,$\pm$\,1.56 & 0.67\,$\pm$\,0.24 & 0.090\,$\pm$\,0.082 & 0.061\,$\pm$\,0.050 & 0.731 \\
-Single pass ($K{=}1$) & 2.71\,$\pm$\,3.31 & 0.76\,$\pm$\,0.20 & 0.145\,$\pm$\,0.165 & 0.073\,$\pm$\,0.061 & 0.712 \\
-Adaptive MoR & 1.45\,$\pm$\,1.28 & 0.72\,$\pm$\,0.22 & 0.093\,$\pm$\,0.083 & 0.077\,$\pm$\,0.070 & 0.728 \\
-Fixed biology prior & 1.79\,$\pm$\,1.36 & 0.75\,$\pm$\,0.25 & 0.070\,$\pm$\,0.091 & 0.041\,$\pm$\,0.048 & 0.678 \\
-Learned routing graph & 1.31\,$\pm$\,1.20 & 0.67\,$\pm$\,0.29 & 0.092\,$\pm$\,0.049 & 0.106\,$\pm$\,0.136 & 0.704 \\
+\multicolumn{7}{l}{\emph{Single-cell (genomap)}} \\
+\quad Baron & 0.57 & 0.53 & 0.46 & 0.53 & 0.49 & 0.34 \\
+\quad Lung & 0.68 & 0.61 & 0.64 & 0.61 & 0.63 & 0.55 \\
+\quad Muraro & 0.57 & 0.54 & 0.44 & 0.54 & -- & 0.81 \\
+\quad Oeso. & 0.60 & 0.66 & 0.61 & 0.66 & 0.54 & 0.48 \\
+\quad Seger. & 0.64 & 0.59 & 0.53 & 0.59 & -- & 0.49 \\
+\quad Spleen & 1.29 & 1.29 & 1.27 & 1.29 & 1.27 & 1.06 \\
+\quad T-cell & 1.04 & 1.01 & 0.99 & 1.01 & 1.05 & 1.12 \\
+\quad Xin & 0.48 & 0.43 & 0.47 & 0.43 & -- & 1.41 \\
+\midrule
+\multicolumn{7}{l}{\emph{Multi-omics (Reactome/P-NET)}} \\
+\quad Prostate & 4.54 & 4.30 & 5.74 & 4.27 & 4.33 & 4.26 \\
+\quad BLCA & 3.13 & 3.16 & 3.09 & 3.16 & 3.16 & 3.17 \\
+\quad STAD & 0.73 & 1.10 & 0.73 & 2.90 & 2.87 & 0.69 \\
+\midrule
+\textbf{Mean NLL (raw)} & \textbf{1.30} & \textbf{1.29} & \textbf{1.36} & \textbf{1.45} & \textbf{1.79} & \textbf{1.31} \\
+\textbf{Mean NLL ($+T$)} & \textbf{0.73} & \textbf{0.72} & \textbf{0.67} & \textbf{0.72} & \textbf{0.75} & \textbf{0.67} \\
 \bottomrule
 \end{tabular}}
-\caption{\textbf{Calibration, raw and temperature-scaled.} NLL and ECE per configuration
-(mean over all 11 datasets, 3 seeds), each shown raw and after
-temperature scaling ($+T$: one scalar fit on validation, which leaves accuracy/macro-F1
-exactly unchanged). No routing prior improves raw calibration -- including the
-accuracy-winning learned graph -- but temperature scaling sharply reduces NLL for every
-configuration (ECE improves more modestly, limited by the small per-cohort validation
-splits), at no accuracy cost.}
+\caption{\textbf{Calibration per dataset (raw NLL $\downarrow$).} Negative log-likelihood
+for each configuration on every dataset (mean over 3 seeds); a few Bio cells are
+blank where the degenerate co-expression graph gave non-finite NLL. The bottom rows give
+the mean raw NLL and the mean after \emph{temperature scaling} ($+T$: one scalar fit on
+validation, which leaves accuracy exactly unchanged). No routing prior improves raw
+calibration -- including the accuracy-winning learned graph -- but temperature scaling
+sharply reduces NLL for every configuration at no accuracy cost.}
 \label{tab:uq}
 \end{table}
 
