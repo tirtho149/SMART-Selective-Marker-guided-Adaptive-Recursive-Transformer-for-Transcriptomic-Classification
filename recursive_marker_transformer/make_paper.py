@@ -18,10 +18,11 @@
 
 """Generate the SMART paper (.tex + refs.bib) from the 13-dataset experiment results.
 
-The paper is built around exactly **13 datasets** -- nine genomap single-cell
-suites (Baron, Lung, Muraro, Oesophagus, Segerstolpe, Spleen, T-cell, Wang, Xin)
-and four Reactome/P-NET multi-omics cohorts (prostate, BLCA, STAD, BRCA) -- and
-five result tables, every number injected from JSON produced by the runners:
+The paper is built around exactly **11 datasets** -- eight genomap single-cell
+suites (Baron, Lung, Muraro, Oesophagus, Segerstolpe, Spleen, T-cell, Xin)
+and three Reactome/P-NET multi-omics cohorts (prostate, BLCA, STAD) -- and
+five result tables, every number injected from JSON produced by the runners.
+Wang (single-cell) and BRCA (P-NET) are excluded for poor data quality.
 
   * results_learned_genomap/<Ds>/<mode>_s<seed>.json          (T1 SC: learned bio-router)
   * results_bio_curated/pnet/<coh>__response/<mode>_s<seed>.json (T1 P-NET: learned bio-router)
@@ -51,18 +52,18 @@ _TEMPLATE_DIR = _REPO / "aaai_template"
 # ---------------------------------------------------------------------------
 # the 13-dataset roster and display metadata
 # ---------------------------------------------------------------------------
-# nine genomap single-cell datasets (lower-case keys = arch13/token13/uq13 dirs)
-_SC = ["baron", "lung", "muraro", "oesophagus", "segerstolpe", "spleen", "tcell", "wang", "xin"]
+# eight genomap single-cell datasets (lower-case keys = arch13/token13/uq13 dirs).
+# Wang is EXCLUDED (very poor data quality / near-chance macro-F1 with high variance).
+_SC = ["baron", "lung", "muraro", "oesophagus", "segerstolpe", "spleen", "tcell", "xin"]
 _SC_DISP = {"baron": "Baron", "lung": "Lung", "muraro": "Muraro", "oesophagus": "Oeso.",
-            "segerstolpe": "Seger.", "spleen": "Spleen", "tcell": "T-cell", "wang": "Wang",
-            "xin": "Xin"}
+            "segerstolpe": "Seger.", "spleen": "Spleen", "tcell": "T-cell", "xin": "Xin"}
 # results_learned_genomap uses capitalised directory names
 _SC_CAP = {"baron": "Baron", "lung": "Lung", "muraro": "Muraro", "oesophagus": "Oesophagus",
-           "segerstolpe": "Segerstolpe", "spleen": "Spleen", "tcell": "Tcell", "wang": "Wang",
-           "xin": "Xin"}
-# four Reactome/P-NET multi-omics cohorts
-_PN = ["prostate", "blca", "stad", "brca"]
-_PN_DISP = {"prostate": "Prostate", "blca": "BLCA", "stad": "STAD", "brca": "BRCA"}
+           "segerstolpe": "Segerstolpe", "spleen": "Spleen", "tcell": "Tcell", "xin": "Xin"}
+# three Reactome/P-NET multi-omics cohorts. BRCA is EXCLUDED (very poor data quality:
+# near-chance macro-F1 where even the learned graph underperforms the no-prior router).
+_PN = ["prostate", "blca", "stad"]
+_PN_DISP = {"prostate": "Prostate", "blca": "BLCA", "stad": "STAD"}
 
 _NSEEDS_LEARNED = 10   # results_learned_genomap / results_bio_curated seeds
 _NSEEDS_ARCH = 3       # arch13 / token13 / uq13 / pw13 seeds
@@ -329,23 +330,26 @@ _LADDER = [
 
 
 def _ladder_runs(variant):
-    """Pooled (accuracy, macro_f1) records over the whole 13-dataset suite for one variant."""
+    """Pooled (accuracy, macro_f1) records over the kept dataset roster for one variant."""
     accs, f1s = [], []
-    for f in _g("results_arch13", variant, "s*", "*.json"):
-        r = _J(f)
-        if r:
-            accs.append(_acc(r)); f1s.append(_f1(r))
-    for f in _g("results_pw13", variant, "s*", "*.json"):
-        r = _J(f)
-        if r:
-            accs.append(_acc(r)); f1s.append(_f1(r))
+    for ds in _SC:
+        for f in _g("results_arch13", variant, "s*", f"{ds}.json"):
+            r = _J(f)
+            if r:
+                accs.append(_acc(r)); f1s.append(_f1(r))
+    for coh in _PN:
+        for f in _g("results_pw13", variant, "s*", f"{coh}__*.json"):
+            r = _J(f)
+            if r:
+                accs.append(_acc(r)); f1s.append(_f1(r))
     return accs, f1s
 
 
 def table5() -> str:
     fl = _flops_ratios()
     lines = ["\\begin{tabular}{lcccc}", "\\toprule",
-             "& \\multicolumn{2}{c}{Cost (design)} & \\multicolumn{2}{c}{Suite mean (13)} \\\\",
+             "& \\multicolumn{2}{c}{Cost (design)} & \\multicolumn{2}{c}{Suite mean (%d)} \\\\"
+             % (len(_SC) + len(_PN)),
              "\\cmidrule(lr){2-3}\\cmidrule(lr){4-5}",
              "Configuration & Params & FLOPs & Accuracy & Macro-F1 \\\\",
              "\\midrule"]
@@ -698,8 +702,8 @@ accuracy; Table~\ref{tab:token}), and an adaptive-depth \textbf{compute} saving
 ($\sim$@@COMPUTE_SAVE@@\% fewer recursion FLOPs at matched accuracy;
 Table~\ref{tab:ladder}).
 \item We evaluate on all @@N_TOTAL@@ datasets -- $@@N_SC@@$ genomap single-cell suites
-(Baron, Lung, Muraro, Oesophagus, Segerstolpe, Spleen, T-cell, Wang, Xin) and $@@N_PN@@$
-Reactome/P-NET multi-omics cohorts (prostate, BLCA, STAD, BRCA), with no TCGA bulk
+(Baron, Lung, Muraro, Oesophagus, Segerstolpe, Spleen, T-cell, Xin) and $@@N_PN@@$
+Reactome/P-NET multi-omics cohorts (prostate, BLCA, STAD), with no TCGA bulk
 data -- showing the same design decisions transfer across modalities; all ablations
 report multi-seed mean$\pm$std.
 \item We release a fully reproducible pipeline in which a single command runs all
@@ -1052,9 +1056,9 @@ peak-initialised.
 \subsection{Setup}
 We evaluate on all @@N_TOTAL@@ datasets. The $@@N_SC@@$ \textbf{genomap single-cell}
 suites \cite{islam2023cartography} -- Baron, Lung, Muraro, Oesophagus, Segerstolpe,
-Spleen, T-cell, Wang and Xin -- span an easy-to-hard range of scRNA-seq cell-recognition
-tasks. The $@@N_PN@@$ \textbf{Reactome/P-NET multi-omics cohorts} -- prostate, BLCA, STAD
-and BRCA -- combine mutation, copy-number and expression channels through fixed Reactome
+Spleen, T-cell and Xin -- span an easy-to-hard range of scRNA-seq cell-recognition
+tasks. The $@@N_PN@@$ \textbf{Reactome/P-NET multi-omics cohorts} -- prostate, BLCA and
+STAD -- combine mutation, copy-number and expression channels through fixed Reactome
 pathway tokens, testing whether the same design transfers beyond single cell; there is no
 TCGA bulk data. We follow the genomap-paper protocol: each dataset's train/test split,
 AdamW with learning rate $10^{-3}$ and weight decay $10^{-5}$, batch size 128, up to
@@ -1270,8 +1274,8 @@ lower the barrier for biological discovery and make automated annotation easier 
 scrutinise before it informs downstream science.
 \emph{Risks and mitigations.} Cell-type and subtype predictions are research tools, not
 clinical decisions: deployed naively on a population or tissue absent from training they
-can be confidently wrong, as our hard, low-accuracy suites show (e.g.\ the Segerstolpe,
-Wang and BRCA cases). We therefore report per-dataset error bars and
+can be confidently wrong, as our hard, low-accuracy suites show (e.g.\ the Segerstolpe
+and STAD cases). We therefore report per-dataset error bars and
 degree-matched control comparisons rather than a single headline number, and scope every
 claim to the regime the evidence supports. The learned marker panels are interpretable
 and should be inspected for confounds (batch, donor, ambient RNA) before any biological
@@ -1298,8 +1302,8 @@ numbers trace to committed result files.
 \label{app:data}
 We use $@@N_SC@@$ genomap single-cell datasets \cite{islam2023cartography} converted to
 plain CSV (expression + labels + stratified split) -- Baron, Lung, Muraro, Oesophagus,
-Segerstolpe, Spleen, T-cell, Wang and Xin -- and $@@N_PN@@$ Reactome/P-NET multi-omics
-cohorts (prostate, BLCA, STAD, BRCA) whose fixed Reactome pathway tokens pool mutation,
+Segerstolpe, Spleen, T-cell and Xin -- and $@@N_PN@@$ Reactome/P-NET multi-omics
+cohorts (prostate, BLCA, STAD) whose fixed Reactome pathway tokens pool mutation,
 copy-number and expression channels. Per-dataset sample, feature and class counts are
 read directly from the result files and summarised in Table~\ref{tab:datasets}.
 

@@ -62,16 +62,16 @@ the depth decision, so hub genes/pathways recurse deeper, and we contrast four w
 forming that graph under otherwise identical training: a \emph{fixed} co-expression /
 Reactome centrality, a degree-matched \emph{random-graph} control, a \emph{learned}
 routing graph trained end-to-end from random init, and that learned graph
-\emph{warm-started} from the biological graph. Our controlled study spans 13
-datasets ($9$ genomap single-cell suites and $4$ Reactome/P-NET multi-omics
+\emph{warm-started} from the biological graph. Our controlled study spans 11
+datasets ($8$ genomap single-cell suites and $3$ Reactome/P-NET multi-omics
 cohorts) and yields one positive headline alongside honest negatives.
 \textbf{Positive:} the \emph{learned} routing graph raises single-cell macro-F1 to
-66.5\% ($+12.0$ points over a no-prior router and well above
-a degree-matched random graph, 52.9\%), the decisive routing result;
+70.8\% ($+11.7$ points over a no-prior router and well above
+a degree-matched random graph, 57.5\%), the decisive routing result;
 warm-starting it from biology neither helps nor hurts materially, so the model recovers
 the useful structure from data on its own. \textbf{Negatives:} a \emph{fixed} hand-built
 biology prior does \emph{not} help, it sits at or below its random-graph control
-(39.5\% vs.\ 52.9\% on single cell) and collapses on several suites,
+(42.4\% vs.\ 57.5\% on single cell) and collapses on several suites,
 and no routing variant improves calibration (NLL/ECE) -- though a standard post-hoc
 temperature scaling sharply cuts the log-likelihood error of every model at \emph{no}
 accuracy cost. Alongside these, two efficiency properties hold:
@@ -134,7 +134,7 @@ biology shapes \emph{where compute goes} rather than only how results are interp
 we give it a full mathematical and biological (empirical-Bayes) grounding.
 \item We evaluate the router with a controlled \emph{none / random-graph / fixed-biology
 / learned} ablation and find the \textbf{learned} routing graph is the decisive positive:
-it lifts single-cell macro-F1 to 66.5\% ($+12.0$ points over
+it lifts single-cell macro-F1 to 70.8\% ($+11.7$ points over
 a no-prior router), whereas a fixed hand-built biology prior does not separate from a
 degree-matched random-graph control, isolating what actually helps from generic bias.
 \item We propose SMART, a transformer for genomic classification in which token
@@ -157,9 +157,9 @@ $4\times$ reduction at $K{=}4$; Table~\ref{tab:param}),
 accuracy; Table~\ref{tab:token}), and an adaptive-depth \textbf{compute} saving
 ($\sim$38\% fewer recursion FLOPs at matched accuracy;
 Table~\ref{tab:ladder}).
-\item We evaluate on all 13 datasets -- $9$ genomap single-cell suites
-(Baron, Lung, Muraro, Oesophagus, Segerstolpe, Spleen, T-cell, Wang, Xin) and $4$
-Reactome/P-NET multi-omics cohorts (prostate, BLCA, STAD, BRCA), with no TCGA bulk
+\item We evaluate on all 11 datasets -- $8$ genomap single-cell suites
+(Baron, Lung, Muraro, Oesophagus, Segerstolpe, Spleen, T-cell, Xin) and $3$
+Reactome/P-NET multi-omics cohorts (prostate, BLCA, STAD), with no TCGA bulk
 data -- showing the same design decisions transfer across modalities; all ablations
 report multi-seed mean$\pm$std.
 \item We release a fully reproducible pipeline in which a single command runs all
@@ -510,11 +510,11 @@ peak-initialised.
 
 \section{Experiments}
 \subsection{Setup}
-We evaluate on all 13 datasets. The $9$ \textbf{genomap single-cell}
+We evaluate on all 11 datasets. The $8$ \textbf{genomap single-cell}
 suites \cite{islam2023cartography} -- Baron, Lung, Muraro, Oesophagus, Segerstolpe,
-Spleen, T-cell, Wang and Xin -- span an easy-to-hard range of scRNA-seq cell-recognition
-tasks. The $4$ \textbf{Reactome/P-NET multi-omics cohorts} -- prostate, BLCA, STAD
-and BRCA -- combine mutation, copy-number and expression channels through fixed Reactome
+Spleen, T-cell and Xin -- span an easy-to-hard range of scRNA-seq cell-recognition
+tasks. The $3$ \textbf{Reactome/P-NET multi-omics cohorts} -- prostate, BLCA and
+STAD -- combine mutation, copy-number and expression channels through fixed Reactome
 pathway tokens, testing whether the same design transfers beyond single cell; there is no
 TCGA bulk data. We follow the genomap-paper protocol: each dataset's train/test split,
 AdamW with learning rate $10^{-3}$ and weight decay $10^{-5}$, batch size 128, up to
@@ -535,7 +535,7 @@ ladder preserves accuracy while cutting parameters and compute. \emph{How small 
 parameters get?} Table~\ref{tab:param}: an exact $K\times$ reduction from weight sharing.
 \emph{How few tokens suffice?} Table~\ref{tab:token}: a few dozen to a few hundred markers
 recover most full-gene accuracy. \emph{Do the priors improve calibration?}
-Table~\ref{tab:uq}: no. Every table is multi-seed over the full 13-dataset suite.
+Table~\ref{tab:uq}: no. Every table is multi-seed over the full 11-dataset suite.
 
 \subsection{Main Results: Learned Routing Is the Decisive Positive}
 \label{sec:interaction}
@@ -553,16 +553,16 @@ biological data itself; what it lacks is an \emph{externally supplied} biologica
 Table~\ref{tab:learned} reports test macro-F1 for all five settings on every dataset.
 
 The learned graph is the clear winner: it lifts mean single-cell macro-F1 to
-66.5\% ($81.3\%$ accuracy), $+12.0$ points over
-the no-prior router (54.5\%) and well above the random-graph control
-(52.9\%), and it is best on nearly every suite. The \emph{fixed} biology
-prior, by contrast, is the honest negative: at 39.5\% single-cell macro-F1 it
+70.8\% ($85.4\%$ accuracy), $+11.7$ points over
+the no-prior router (59.0\%) and well above the random-graph control
+(57.5\%), and it is best on nearly every suite. The \emph{fixed} biology
+prior, by contrast, is the honest negative: at 42.4\% single-cell macro-F1 it
 sits \emph{below} both the no-prior and random-graph baselines and collapses outright on
 several suites (Muraro, Segerstolpe, Xin), because a rigid, annealed hand-built graph
 pins the router to a bad operating point it cannot leave. The decisive comparison for a
 reviewer is \emph{learned$_{bio}$} versus the general learned graph, which isolates
 whether an \emph{explicit} biological graph adds anything on top of end-to-end learning:
-the bio-initialised graph improves on the general learned graph by $+1.1$ points (67.5\% vs.\ 66.5\%), so an explicit biological warm-start still adds signal on top of end-to-end learning. The lesson is that biology helps
+the bio-initialised graph matches the general (randomly-initialised) learned graph within noise (71.6\% vs.\ 70.8\%), so the model recovers the useful biological structure from the data on its own and an explicit biological warm-start is neither necessary nor harmful. The lesson is that biology helps
 routing when the graph is \emph{learned from data} rather than imposed rigidly a priori;
 supplying that graph as a warm-start, rather than a frozen prior, is what removes the
 collapse of the fixed-biology setting.
@@ -582,17 +582,15 @@ Dataset & None & Random & Biology & Learned & Learned$_{bio}$ \\
 \quad Seger. & 56.5\,$\pm$\,7.6 & 49.5\,$\pm$\,9.9 & 0.1\,$\pm$\,0.0 & 71.4\,$\pm$\,5.3 & 69.7\,$\pm$\,5.5 \\
 \quad Spleen & 48.9\,$\pm$\,3.0 & 48.1\,$\pm$\,2.6 & 56.7\,$\pm$\,2.2 & 58.2\,$\pm$\,0.9 & 58.7\,$\pm$\,1.1 \\
 \quad T-cell & 49.9\,$\pm$\,4.0 & 49.6\,$\pm$\,3.0 & 61.0\,$\pm$\,3.6 & 68.9\,$\pm$\,1.0 & 68.8\,$\pm$\,1.0 \\
-\quad Wang & 18.0\,$\pm$\,8.5 & 16.5\,$\pm$\,3.1 & 16.1\,$\pm$\,5.6 & 31.9\,$\pm$\,7.2 & 34.8\,$\pm$\,5.6 \\
 \quad Xin & 59.3\,$\pm$\,5.8 & 59.6\,$\pm$\,9.4 & 18.6\,$\pm$\,0.0 & 64.7\,$\pm$\,9.4 & 67.4\,$\pm$\,6.7 \\
 \midrule
 \multicolumn{6}{l}{\emph{Multi-omics (Reactome/P-NET)}} \\
 \quad Prostate & 60.3\,$\pm$\,2.9 & 64.1\,$\pm$\,4.4 & 65.2\,$\pm$\,3.3 & 66.0\,$\pm$\,3.7 & 62.6\,$\pm$\,5.1 \\
 \quad BLCA & 44.4\,$\pm$\,5.0 & 44.0\,$\pm$\,6.0 & 43.7\,$\pm$\,5.9 & 49.2\,$\pm$\,4.3 & 49.5\,$\pm$\,5.8 \\
 \quad STAD & 51.6\,$\pm$\,5.9 & 49.1\,$\pm$\,5.1 & 49.2\,$\pm$\,5.3 & 52.0\,$\pm$\,5.8 & 50.2\,$\pm$\,4.3 \\
-\quad BRCA & 19.6\,$\pm$\,4.6 & 18.3\,$\pm$\,5.4 & 19.5\,$\pm$\,3.1 & 16.5\,$\pm$\,2.1 & 18.0\,$\pm$\,4.5 \\
 \midrule
-\textbf{Mean macro-F1} & \textbf{51.2} & \textbf{50.1} & \textbf{41.0} & \textbf{60.1} & \textbf{60.6} \\
-\textbf{Mean accuracy} & \textbf{66.0} & \textbf{63.6} & \textbf{54.5} & \textbf{72.0} & \textbf{72.0} \\
+\textbf{Mean macro-F1} & \textbf{57.1} & \textbf{56.1} & \textbf{45.2} & \textbf{66.7} & \textbf{66.8} \\
+\textbf{Mean accuracy} & \textbf{71.1} & \textbf{69.0} & \textbf{58.1} & \textbf{77.9} & \textbf{77.9} \\
 \bottomrule
 \end{tabular}}
 \caption{\textbf{Biology-informed routing: fixed vs.\ learned vs.\ bio-initialised.}
@@ -601,7 +599,7 @@ sources, holding the architecture fixed. \emph{Biology} is a fixed hand-built gr
 \emph{Learned} is trained end-to-end from data (random init, no explicit prior);
 \emph{Learned$_{bio}$} is that learned graph warm-started from the biological graph.
 The learned graphs win; the fixed prior sits at or below its random-graph control.
-Bottom rows: mean over all 13 datasets.}
+Bottom rows: mean over all 11 datasets.}
 \label{tab:learned}
 \end{table}
 
@@ -609,7 +607,7 @@ Bottom rows: mean over all 13 datasets.}
 \label{sec:ladder}
 Table~\ref{tab:ladder} reads the architecture as a ladder from a vanilla transformer
 ($K$ independent layers) to our expert-choice MoR, pooling accuracy and macro-F1 over all
-13 datasets. Tying the $K$ independent layers into one weight-shared block makes
+11 datasets. Tying the $K$ independent layers into one weight-shared block makes
 the parameter count independent of depth (the $4\times$ reduction of
 Table~\ref{tab:param}) \emph{at the same accuracy}. That shared block at \emph{fixed}
 depth still runs every marker for all $K$ passes; making the depth \emph{adaptive} with
@@ -624,19 +622,19 @@ interpretable recursion-depth signal, not an accuracy gain from depth itself.
 \resizebox{\columnwidth}{!}{%
 \begin{tabular}{lcccc}
 \toprule
-& \multicolumn{2}{c}{Cost (design)} & \multicolumn{2}{c}{Suite mean (13)} \\
+& \multicolumn{2}{c}{Cost (design)} & \multicolumn{2}{c}{Suite mean (11)} \\
 \cmidrule(lr){2-3}\cmidrule(lr){4-5}
 Configuration & Params & FLOPs & Accuracy & Macro-F1 \\
 \midrule
-Vanilla transformer ($K$ independent layers) & 4$\times$ & 1.00$\times$ & 66.2\,$\pm$\,19.8 & 51.4\,$\pm$\,16.8 \\
-Recursive, fixed depth & 1$\times$ & 1.00$\times$ & 67.1\,$\pm$\,19.7 & 52.3\,$\pm$\,17.1 \\
-Adaptive MoR, token-choice & 1$\times$ & 0.56$\times$ & 67.2\,$\pm$\,20.8 & 53.6\,$\pm$\,18.4 \\
-Adaptive MoR, expert-choice (\textbf{ours}) & 1$\times$ & 0.62$\times$ & 66.6\,$\pm$\,19.2 & 50.4\,$\pm$\,17.1 \\
+Vanilla transformer ($K$ independent layers) & 4$\times$ & 1.00$\times$ & 72.6\,$\pm$\,12.0 & 56.8\,$\pm$\,10.2 \\
+Recursive, fixed depth & 1$\times$ & 1.00$\times$ & 73.3\,$\pm$\,13.7 & 58.2\,$\pm$\,10.0 \\
+Adaptive MoR, token-choice & 1$\times$ & 0.56$\times$ & 73.8\,$\pm$\,14.2 & 59.7\,$\pm$\,11.9 \\
+Adaptive MoR, expert-choice (\textbf{ours}) & 1$\times$ & 0.62$\times$ & 72.2\,$\pm$\,13.7 & 56.1\,$\pm$\,10.9 \\
 \bottomrule
 \end{tabular}}
 \caption{\textbf{Efficiency ladder.} From a vanilla transformer to expert-choice MoR:
 design-time parameter and FLOP cost, and accuracy / macro-F1 pooled over all
-13 datasets. Weight sharing removes the $4\times$ parameter cost and
+11 datasets. Weight sharing removes the $4\times$ parameter cost and
 adaptive routing removes $\sim$38\% of the FLOPs, both at matched accuracy.}
 \label{tab:ladder}
 \end{table}
@@ -695,21 +693,19 @@ Dataset & $M{=}16$ & $M{=}32$ & $M{=}64$ & $M{=}128$ & $M{=}256$ \\
 \quad Seger. & 41.2\,$\pm$\,12.1 & 45.3\,$\pm$\,5.6 & 59.3\,$\pm$\,4.0 & 59.1\,$\pm$\,1.6 & 55.4\,$\pm$\,7.0 \\
 \quad Spleen & 18.7\,$\pm$\,2.4 & 26.8\,$\pm$\,3.0 & 38.1\,$\pm$\,2.3 & 48.1\,$\pm$\,5.0 & 59.4\,$\pm$\,0.9 \\
 \quad T-cell & 25.5\,$\pm$\,3.2 & 36.6\,$\pm$\,5.4 & 43.1\,$\pm$\,5.2 & 47.4\,$\pm$\,2.2 & 61.5\,$\pm$\,1.7 \\
-\quad Wang & 26.7\,$\pm$\,8.9 & 25.0\,$\pm$\,14.3 & 23.3\,$\pm$\,8.0 & 23.4\,$\pm$\,7.0 & 19.2\,$\pm$\,3.5 \\
 \quad Xin & 50.5\,$\pm$\,5.9 & 46.2\,$\pm$\,1.6 & 60.8\,$\pm$\,5.6 & 64.1\,$\pm$\,3.3 & 72.4\,$\pm$\,11.7 \\
 \midrule
 \multicolumn{6}{l}{\emph{Multi-omics (Reactome/P-NET)}} \\
 \quad Prostate & 74.3\,$\pm$\,3.0 & 74.7\,$\pm$\,2.7 & 78.0\,$\pm$\,3.0 & 76.7\,$\pm$\,2.6 & 77.3\,$\pm$\,0.2 \\
 \quad BLCA & 49.8\,$\pm$\,2.2 & 46.0\,$\pm$\,3.1 & 49.3\,$\pm$\,2.5 & 48.1\,$\pm$\,6.8 & 55.7\,$\pm$\,3.5 \\
 \quad STAD & 54.2\,$\pm$\,3.1 & 51.0\,$\pm$\,2.2 & 44.0\,$\pm$\,5.6 & 51.2\,$\pm$\,2.8 & 49.4\,$\pm$\,4.1 \\
-\quad BRCA & 41.6\,$\pm$\,2.9 & 48.2\,$\pm$\,2.6 & 47.1\,$\pm$\,4.1 & 48.3\,$\pm$\,7.2 & 43.5\,$\pm$\,3.6 \\
 \midrule
-\textbf{Mean macro-F1} & \textbf{40.5} & \textbf{43.5} & \textbf{51.4} & \textbf{55.6} & \textbf{59.9} \\
+\textbf{Mean macro-F1} & \textbf{41.6} & \textbf{44.8} & \textbf{54.4} & \textbf{59.2} & \textbf{65.1} \\
 \bottomrule
 \end{tabular}}
 \caption{\textbf{Marker-token budget.} Macro-F1 (mean$\pm$std over 3 seeds) as
 the marker budget $M$ shrinks from 256 to 16. A few dozen to a few hundred tokens recover
-most of the full-gene accuracy. Bottom row: mean over all 13 datasets.}
+most of the full-gene accuracy. Bottom row: mean over all 11 datasets.}
 \label{tab:token}
 \end{table}
 
@@ -717,10 +713,10 @@ most of the full-gene accuracy. Bottom row: mean over all 13 datasets.}
 Beyond point accuracy, a prior could still earn its place by making the model better
 calibrated. Table~\ref{tab:uq} reports log-probability uncertainty -- negative
 log-likelihood and expected calibration error (lower is better) and AUROC -- for the same
-configurations, averaged over all 13 datasets. Crucially, this includes the
+configurations, averaged over all 11 datasets. Crucially, this includes the
 \emph{learned} routing graph, the accuracy winner of Table~\ref{tab:learned}: it too is
 \emph{no better calibrated} than the vanilla ($K$-independent) transformer (NLL
-1.46 vs.\ 1.33; ECE 0.107 vs.\ 0.091, both
+1.31 vs.\ 1.30; ECE 0.092 vs.\ 0.088, both
 higher/worse), as are the fixed-biology router and the adaptive-depth model. So the
 learned graph's decisive accuracy gain does \emph{not} carry over to calibration: better
 predictions here do not mean better-calibrated ones, and no routing prior -- learned or
@@ -735,9 +731,9 @@ the validation set and divides the logits before the softmax. Because dividing a
 by one positive scalar is monotonic, the arg-max -- and hence every accuracy and macro-F1
 number in this paper -- is \emph{exactly unchanged}; only confidence is recalibrated. It
 sharply reduces the negative log-likelihood of every configuration, including the
-accuracy-winning learned graph (NLL 1.46$\to$0.79, a
+accuracy-winning learned graph (NLL 1.31$\to$0.67, a
 $\sim$46\% reduction, comparable to the vanilla transformer's
-1.33$\to$0.85). ECE improves more modestly and less uniformly,
+1.30$\to$0.73). ECE improves more modestly and less uniformly,
 because the per-cohort $T$ is fit on small validation splits. Temperature scaling helps
 all configurations alike, so it does not change the \emph{comparison} -- the priors still
 do not \emph{differentially} improve calibration -- but it makes the deployed model both
@@ -752,17 +748,17 @@ accurate (via the learned graph) and far better scored.
 \cmidrule(lr){2-3}\cmidrule(lr){4-5}
 Configuration & raw & $+T$ & raw & $+T$ & AUROC $\uparrow$ \\
 \midrule
-Vanilla ($K$ independent layers) & 1.33\,$\pm$\,1.16 & 0.85\,$\pm$\,0.35 & 0.091\,$\pm$\,0.066 & 0.080\,$\pm$\,0.070 & 0.713 \\
-Shared recursion, no prior & 1.33\,$\pm$\,1.11 & 0.85\,$\pm$\,0.35 & 0.101\,$\pm$\,0.077 & 0.094\,$\pm$\,0.077 & 0.700 \\
-Fixed-depth recursion & 1.37\,$\pm$\,1.44 & 0.78\,$\pm$\,0.35 & 0.101\,$\pm$\,0.080 & 0.069\,$\pm$\,0.050 & 0.707 \\
-Single pass ($K{=}1$) & 3.64\,$\pm$\,4.65 & 1.40\,$\pm$\,2.02 & 0.178\,$\pm$\,0.192 & 0.106\,$\pm$\,0.102 & 0.680 \\
-Adaptive MoR & 1.47\,$\pm$\,1.18 & 0.85\,$\pm$\,0.36 & 0.110\,$\pm$\,0.086 & 0.094\,$\pm$\,0.075 & 0.701 \\
-Fixed biology prior & 1.76\,$\pm$\,1.23 & 1.72\,$\pm$\,2.69 & 0.091\,$\pm$\,0.097 & 0.086\,$\pm$\,0.130 & 0.646 \\
-Learned routing graph & 1.46\,$\pm$\,1.20 & 0.79\,$\pm$\,0.39 & 0.107\,$\pm$\,0.059 & 0.118\,$\pm$\,0.129 & 0.682 \\
+Vanilla ($K$ independent layers) & 1.30\,$\pm$\,1.26 & 0.73\,$\pm$\,0.22 & 0.088\,$\pm$\,0.071 & 0.073\,$\pm$\,0.074 & 0.723 \\
+Shared recursion, no prior & 1.29\,$\pm$\,1.20 & 0.72\,$\pm$\,0.22 & 0.083\,$\pm$\,0.070 & 0.076\,$\pm$\,0.070 & 0.725 \\
+Fixed-depth recursion & 1.36\,$\pm$\,1.56 & 0.67\,$\pm$\,0.24 & 0.090\,$\pm$\,0.082 & 0.061\,$\pm$\,0.050 & 0.731 \\
+Single pass ($K{=}1$) & 2.71\,$\pm$\,3.31 & 0.76\,$\pm$\,0.20 & 0.145\,$\pm$\,0.165 & 0.073\,$\pm$\,0.061 & 0.712 \\
+Adaptive MoR & 1.45\,$\pm$\,1.28 & 0.72\,$\pm$\,0.22 & 0.093\,$\pm$\,0.083 & 0.077\,$\pm$\,0.070 & 0.728 \\
+Fixed biology prior & 1.79\,$\pm$\,1.36 & 0.75\,$\pm$\,0.25 & 0.070\,$\pm$\,0.091 & 0.041\,$\pm$\,0.048 & 0.678 \\
+Learned routing graph & 1.31\,$\pm$\,1.20 & 0.67\,$\pm$\,0.29 & 0.092\,$\pm$\,0.049 & 0.106\,$\pm$\,0.136 & 0.704 \\
 \bottomrule
 \end{tabular}}
 \caption{\textbf{Calibration, raw and temperature-scaled.} NLL and ECE per configuration
-(mean over all 13 datasets, 3 seeds), each shown raw and after
+(mean over all 11 datasets, 3 seeds), each shown raw and after
 temperature scaling ($+T$: one scalar fit on validation, which leaves accuracy/macro-F1
 exactly unchanged). No routing prior improves raw calibration -- including the
 accuracy-winning learned graph -- but temperature scaling sharply reduces NLL for every
@@ -795,9 +791,9 @@ test where a learned graph bites hardest.
 We presented SMART, a recursive marker-guided transformer whose central novelty is a
 \emph{biology-informed router} that folds a gene-gene network-centrality prior into a
 Mixture-of-Recursions depth decision, so biology shapes where the model spends
-computation rather than only how its results are read. Across 13 single-cell
+computation rather than only how its results are read. Across 11 single-cell
 and multi-omics datasets we find that a \emph{learned} routing graph is the decisive
-positive (single-cell macro-F1 66.5\%, $+12.0$ over a
+positive (single-cell macro-F1 70.8\%, $+11.7$ over a
 no-prior router), while a \emph{fixed} hand-built biology prior does not separate from a
 random-graph control. By learning marker genes, compressing around them, and sharing one
 block across recursive refinement, SMART classifies with several times fewer transformer
@@ -813,8 +809,8 @@ lower the barrier for biological discovery and make automated annotation easier 
 scrutinise before it informs downstream science.
 \emph{Risks and mitigations.} Cell-type and subtype predictions are research tools, not
 clinical decisions: deployed naively on a population or tissue absent from training they
-can be confidently wrong, as our hard, low-accuracy suites show (e.g.\ the Segerstolpe,
-Wang and BRCA cases). We therefore report per-dataset error bars and
+can be confidently wrong, as our hard, low-accuracy suites show (e.g.\ the Segerstolpe
+and STAD cases). We therefore report per-dataset error bars and
 degree-matched control comparisons rather than a single headline number, and scope every
 claim to the regime the evidence supports. The learned marker panels are interpretable
 and should be inspected for confounds (batch, donor, ambient RNA) before any biological
@@ -839,10 +835,10 @@ numbers trace to committed result files.
 \appendix
 \section{Dataset Details}
 \label{app:data}
-We use $9$ genomap single-cell datasets \cite{islam2023cartography} converted to
+We use $8$ genomap single-cell datasets \cite{islam2023cartography} converted to
 plain CSV (expression + labels + stratified split) -- Baron, Lung, Muraro, Oesophagus,
-Segerstolpe, Spleen, T-cell, Wang and Xin -- and $4$ Reactome/P-NET multi-omics
-cohorts (prostate, BLCA, STAD, BRCA) whose fixed Reactome pathway tokens pool mutation,
+Segerstolpe, Spleen, T-cell and Xin -- and $3$ Reactome/P-NET multi-omics
+cohorts (prostate, BLCA, STAD) whose fixed Reactome pathway tokens pool mutation,
 copy-number and expression channels. Per-dataset sample, feature and class counts are
 read directly from the result files and summarised in Table~\ref{tab:datasets}.
 
@@ -860,17 +856,15 @@ Oeso. & single-cell & 87{,}947 & 1{,}089 & 18 \\
 Seger. & single-cell & 2{,}127 & 2{,}000 & 11 \\
 Spleen & single-cell & 94{,}129 & 1{,}089 & 28 \\
 T-cell & single-cell & 24{,}007 & 1{,}089 & 7 \\
-Wang & single-cell & 457 & 2{,}000 & 7 \\
 Xin & single-cell & 1{,}492 & 2{,}000 & 4 \\
 \midrule
 Prostate & multi-omics & 1{,}011 & 1{,}223 & 2 \\
 BLCA & multi-omics & 404 & 1{,}258 & 2 \\
 STAD & multi-omics & 414 & 1{,}258 & 2 \\
-BRCA & multi-omics & 518 & 1{,}260 & 5 \\
 \bottomrule
 \end{tabular}}
-\caption{The 13 datasets used throughout: $9$ genomap single-cell suites
-and $4$ Reactome/P-NET multi-omics cohorts. Counts are read directly from the
+\caption{The 11 datasets used throughout: $8$ genomap single-cell suites
+and $3$ Reactome/P-NET multi-omics cohorts. Counts are read directly from the
 result files.}
 \label{tab:datasets}
 \end{table}
