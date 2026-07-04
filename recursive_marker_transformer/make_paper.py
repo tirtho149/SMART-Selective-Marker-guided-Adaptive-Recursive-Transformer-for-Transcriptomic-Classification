@@ -566,13 +566,13 @@ _TEX = r"""\documentclass[letterpaper]{article}
 \setlength{\pdfpagewidth}{8.5in}
 \setlength{\pdfpageheight}{11in}
 \pdfinfo{
-/Title (SMART: Biology-Informed Recursive Routing for Single-Cell Transcriptomics)
+/Title (SMART: A Marker-Guided Recursive Transformer with Learned Gene-Graph Routing for Single-Cell and Multi-Omics Classification)
 /Author (Koushik Howlader, Tirtho Roy, Md Tauhidul Islam, Wei Le)
-/Keywords (single-cell genomics, transformers, parameter efficiency, marker genes, recursive computation, gene-gene interaction)
+/Keywords (single-cell genomics, multi-omics, transformers, parameter efficiency, marker genes, recursive computation, learned gene graph, calibration)
 }
 \setcounter{secnumdepth}{1}
 
-\title{SMART: A Selective Marker-guided Adaptive Recursive Transformer\\ with Biology-Informed Routing for Single-Cell Transcriptomics}
+\title{SMART: A Selective Marker-guided Adaptive Recursive Transformer\\ with Learned Gene-Graph Routing for Single-Cell and Multi-Omics Classification}
 \author{Koushik Howlader\textsuperscript{1} \and Tirtho Roy\textsuperscript{1} \and Md Tauhidul Islam\textsuperscript{2} \and Wei Le\textsuperscript{1}\\
 \textsuperscript{1}Iowa State University, Ames, Iowa, USA\\
 \textsuperscript{2}Stanford University, Stanford, California, USA\\
@@ -666,16 +666,21 @@ $M\ll N$ markers, cutting attention from $\mathcal{O}(N^2)$ to $\mathcal{O}(M^2)
 spirit of Universal Transformers \cite{dehghani2019universal}, ALBERT
 \cite{lan2020albert} and Mixture-of-Recursions \cite{bae2025mixture}, with an
 expert-choice depth router that gives each gene an adaptive recursion depth. On top
-of this, the \emph{biology-informed router} (our centerpiece) folds a label-free
-genomap \cite{islam2023cartography} gene-gene interaction prior into that depth
-decision.
+of this, a \emph{biology-informed router} folds a gene-gene interaction graph into that
+depth decision. Our central finding concerns \emph{how} that graph should be formed: a
+\emph{fixed} hand-built graph (genomap co-expression \cite{islam2023cartography} or
+Reactome centrality) does not beat a degree-matched random-graph control, whereas a
+\emph{learned}, data-driven graph trained end-to-end does -- so biology helps routing
+only when the graph is learned rather than imposed a priori.
 
 We make the following contributions:
 \begin{itemize}
 \item We propose a \textbf{biology-informed recursion router} that folds a gene-gene
-network-centrality prior into the depth-routing logit as an annealed additive bias, so
-biology shapes \emph{where compute goes} rather than only how results are interpreted;
-we give it a full mathematical and biological (empirical-Bayes) grounding.
+graph into the depth-routing decision, so biology shapes \emph{where compute goes}
+rather than only how results are interpreted. The graph can be a fixed network-centrality
+prior (an annealed additive bias) or, in our best variant, a low-rank graph
+\emph{learned end-to-end}; we give the mechanism a full mathematical and empirical-Bayes
+grounding.
 \item We evaluate the router with a controlled \emph{none / random-graph / fixed-biology
 / learned} ablation and find the \textbf{learned} routing graph is the decisive positive:
 it lifts single-cell macro-F1 to @@LEARNED_SC_F1@@\% ($+@@LEARNED_GAIN_SC@@$ points over
@@ -1036,6 +1041,24 @@ degree-matched \emph{random}-graph control: only if the real co-expression graph
 the random one is it the biology, not mere smoothing, that helps
 (Sec.~\ref{sec:interaction}).
 
+\paragraph{The learned graph (our best variant).}
+A fixed graph is frozen and label-free; it cannot adapt to the task. We therefore also
+let the model \emph{learn} its own gene-gene graph. We attach a low-rank gene embedding
+$\mathbf{E}\in\mathbb{R}^{N\times r}$ ($r{=}16$) whose row-cosine similarity
+\emph{is} the affinity, $\mathbf{A}=\tilde{\mathbf{E}}\tilde{\mathbf{E}}^{\top}$ with
+$\tilde{\mathbf{E}}=\mathrm{normalize}(\mathbf{E})$, and smooth the input along it before
+marker selection, $\mathbf{x}\leftarrow(1-\lambda)\mathbf{x}+\lambda\,(\mathbf{x}
+\tilde{\mathbf{E}})\tilde{\mathbf{E}}^{\top}$, computed in the low-rank order so it never
+forms the $N\times N$ matrix and costs $\mathcal{O}(Nr)$; the trust weight $\lambda$ is
+learned. Because $\mathbf{E}$ receives gradient from the task loss
+($\partial\mathcal{L}/\partial\mathbf{E}\neq 0$), the graph is shaped to be
+discriminative rather than merely variance- or centrality-maximal, and its $r$ latent
+factors act as learned gene programs that denoise each gene toward its program's
+consensus. This graph can be initialised randomly or \emph{warm-started} from the
+biological graph (top-$r$ eigenmodes of the co-expression / Reactome operator); we
+compare both. As Sec.~\ref{sec:interaction} shows, this learned graph is the one routing
+variant that decisively helps.
+
 \subsection{Training Objective}
 We minimise a composite loss
 $\mathcal{L} = \mathcal{L}_{\mathrm{task}} + \lambda\mathcal{L}_{\mathrm{marker}}
@@ -1247,10 +1270,14 @@ even hurts on some suites; biology helps routing only when the graph is learned 
 (iii) \emph{Adaptive routing buys compute, not accuracy.} Across the suite the routing
 and sharing variants cluster within run-to-run noise, so the architecture's benefit is
 efficiency and the interpretable depth signal rather than an accuracy gain from depth
-itself. (iv) \emph{Richer priors and broader data.} Pathway-membership or
-regulatory-network centrality priors, the optional logit-Laplacian smoothing of
-Appendix~\ref{app:theory}, and larger single-cell atlases are the natural next steps to
-test where a learned graph bites hardest.
+itself. (iv) \emph{Calibration needs a separate fix.} No routing variant improves probability
+calibration, and the accuracy-winning learned graph is no better calibrated than a
+vanilla transformer; calibration is an orthogonal axis, and a standard post-hoc
+temperature scaling restores it at no accuracy cost (Table~\ref{tab:uq}). (v)
+\emph{Richer priors and broader data.} Pathway-membership or regulatory-network priors,
+the optional logit-Laplacian smoothing of Appendix~\ref{app:theory}, and larger
+single-cell atlases are the natural next steps to test where a learned graph bites
+hardest.
 
 \section{Conclusion}
 We presented SMART, a recursive marker-guided transformer whose central novelty is a
