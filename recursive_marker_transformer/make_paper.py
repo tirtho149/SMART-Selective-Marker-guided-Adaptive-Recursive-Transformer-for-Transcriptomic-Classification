@@ -161,10 +161,15 @@ def _t1_pn(coh, col, metric):
             if (r := _J(f)) is not None]
 
 
-# routing columns (display, mode-key) and architecture columns (display, arch-variant)
-_T1_ROUTE = [("None", "None"), ("Random", "Random"), ("Biology", "Biology"),
-             ("Learned", "Learned"), ("Learn$_{bio}$", "Learned$_{bio}$")]
-_T1_ARCH = [("Vanilla", "independent"), ("Recursive", "fixed"), ("MoR", "shared")]
+# Columns ordered as a NARRATIVE from the plain baseline to the best model:
+#   architecture ladder (Vanilla -> Recursive -> MoR), then routing prior on MoR
+#   (None -> Random -> Biology -> Learned -> Learn_bio). (display, kind, key)
+_T1_ORD = [
+    ("Vanilla", "arch", "independent"), ("Recursive", "arch", "fixed"), ("MoR", "arch", "shared"),
+    ("None", "route", "None"), ("Random", "route", "Random"), ("Biology", "route", "Biology"),
+    ("Learned", "route", "Learned"), ("Learn$_{bio}$", "route", "Learned$_{bio}$"),
+]
+_T1_ARCH_N = 3   # first 3 columns are the architecture ladder
 
 
 def _arch_vals(ds, is_sc, variant, metric):
@@ -185,52 +190,70 @@ def _fa(f1s, accs, bold=False):
     return f"\\textbf{{{s}}}" if bold else s
 
 
-def _t1_row(name, is_sc):
-    cells = []
-    for _, key in _T1_ROUTE:
-        f1 = _t1_sc(name, key, "test_macro_f1") if is_sc else _t1_pn(name, key, "test_macro_f1")
-        ac = _t1_sc(name, key, "test_accuracy") if is_sc else _t1_pn(name, key, "test_accuracy")
-        cells.append(_fa(f1, ac))
-    for _, variant in _T1_ARCH:
-        cells.append(_fa(_arch_vals(name, is_sc, variant, "macro_f1"),
-                         _arch_vals(name, is_sc, variant, "accuracy")))
-    return cells
+def _t1_col_f1(name, is_sc, kind, key):
+    if kind == "arch":
+        return _arch_vals(name, is_sc, key, "macro_f1")
+    return _t1_sc(name, key, "test_macro_f1") if is_sc else _t1_pn(name, key, "test_macro_f1")
+
+
+def _t1_col_acc(name, is_sc, kind, key):
+    if kind == "arch":
+        return _arch_vals(name, is_sc, key, "accuracy")
+    return _t1_sc(name, key, "test_accuracy") if is_sc else _t1_pn(name, key, "test_accuracy")
+
+
+def _t1_col_mean_f1(kind, key):
+    """Mean macro-F1 of a column over the per-dataset means (all datasets)."""
+    per = [_mean(_t1_col_f1(ds, True, kind, key)) for ds in _SC] + \
+          [_mean(_t1_col_f1(c, False, kind, key)) for c in _PN]
+    return _mean(per)
 
 
 def table1() -> str:
-    """Comprehensive main-results table: every routing prior AND every architecture
-    variant, per dataset; each cell is macro-F1 / accuracy (%), mean over seeds."""
-    nr, na = len(_T1_ROUTE), len(_T1_ARCH)
-    header = [d for d, _ in _T1_ROUTE] + [d for d, _ in _T1_ARCH]
-    span = nr + na + 1
-    lines = ["\\begin{tabular}{l" + "c" * (nr + na) + "}", "\\toprule",
-             "& \\multicolumn{%d}{c}{Routing prior} & \\multicolumn{%d}{c}{Architecture} \\\\" % (nr, na),
-             "\\cmidrule(lr){2-%d}\\cmidrule(lr){%d-%d}" % (nr + 1, nr + 2, nr + na + 1),
+    """Main-results table read as a story: from a plain Vanilla transformer through the
+    architecture ladder to the routing priors on MoR, ending at the best learned graph.
+    Each cell is macro-F1 / accuracy (%); bottom rows give the mean and the macro-F1 gain
+    over the Vanilla baseline."""
+    n = len(_T1_ORD)
+    na = _T1_ARCH_N
+    header = [d for d, _, _ in _T1_ORD]
+    span = n + 1
+    lines = ["\\begin{tabular}{l" + "c" * n + "}", "\\toprule",
+             "& \\multicolumn{%d}{c}{Architecture (base router)} & \\multicolumn{%d}{c}{Routing prior (on MoR)} \\\\"
+             % (na, n - na),
+             "\\cmidrule(lr){2-%d}\\cmidrule(lr){%d-%d}" % (na + 1, na + 2, n + 1),
              "Dataset & " + " & ".join(header) + " \\\\",
              "\\midrule",
              "\\multicolumn{%d}{l}{\\emph{Single-cell (genomap)}} \\\\" % span]
+
+    def _row(name, is_sc):
+        return [_fa(_t1_col_f1(name, is_sc, k, key), _t1_col_acc(name, is_sc, k, key))
+                for _, k, key in _T1_ORD]
     for ds in _SC:
-        lines.append(f"\\quad {_SC_DISP[ds]} & " + " & ".join(_t1_row(ds, True)) + " \\\\")
+        lines.append(f"\\quad {_SC_DISP[ds]} & " + " & ".join(_row(ds, True)) + " \\\\")
     lines.append("\\midrule")
     lines.append("\\multicolumn{%d}{l}{\\emph{Multi-omics (Reactome/P-NET)}} \\\\" % span)
     for coh in _PN:
-        lines.append(f"\\quad {_PN_DISP[coh]} & " + " & ".join(_t1_row(coh, False)) + " \\\\")
-    # mean over the per-dataset means (all datasets)
+        lines.append(f"\\quad {_PN_DISP[coh]} & " + " & ".join(_row(coh, False)) + " \\\\")
+    # bottom: Mean (F1/acc) then Delta macro-F1 vs the Vanilla baseline
     lines.append("\\midrule")
+    col_mean = [_t1_col_mean_f1(k, key) for _, k, key in _T1_ORD]
     mean_cells = []
-    for _, key in _T1_ROUTE:
-        f1 = [_mean(_t1_sc(ds, key, "test_macro_f1")) for ds in _SC] + \
-             [_mean(_t1_pn(c, key, "test_macro_f1")) for c in _PN]
-        ac = [_mean(_t1_sc(ds, key, "test_accuracy")) for ds in _SC] + \
-             [_mean(_t1_pn(c, key, "test_accuracy")) for c in _PN]
-        mean_cells.append(_fa(f1, ac, bold=True))
-    for _, variant in _T1_ARCH:
-        f1 = [_mean(_arch_vals(ds, True, variant, "macro_f1")) for ds in _SC] + \
-             [_mean(_arch_vals(c, False, variant, "macro_f1")) for c in _PN]
-        ac = [_mean(_arch_vals(ds, True, variant, "accuracy")) for ds in _SC] + \
-             [_mean(_arch_vals(c, False, variant, "accuracy")) for c in _PN]
-        mean_cells.append(_fa(f1, ac, bold=True))
+    for (disp, k, key), mf in zip(_T1_ORD, col_mean):
+        ac = [_mean(_t1_col_acc(ds, True, k, key)) for ds in _SC] + \
+             [_mean(_t1_col_acc(c, False, k, key)) for c in _PN]
+        ma = _mean(ac)
+        mean_cells.append("--" if (mf is None or ma is None) else f"\\textbf{{{mf:.1f}/{ma:.0f}}}")
     lines.append("\\textbf{Mean} & " + " & ".join(mean_cells) + " \\\\")
+    base = col_mean[0]   # Vanilla mean macro-F1
+    delta_cells = []
+    for mf in col_mean:
+        if mf is None or base is None:
+            delta_cells.append("--")
+        else:
+            d = mf - base
+            delta_cells.append(("\\textbf{%+.1f}" % d) if d > 0 else ("%+.1f" % d))
+    lines.append("$\\Delta$ macro-F1 & " + " & ".join(delta_cells) + " \\\\")
     lines += ["\\bottomrule", "\\end{tabular}"]
     return "\n".join(lines)
 
@@ -1183,16 +1206,17 @@ collapse of the fixed-biology setting.
 \centering
 \resizebox{\textwidth}{!}{%
 @@TABLE1@@}
-\caption{\textbf{Main results: routing prior and architecture, per dataset.} Each cell is
-\emph{macro-F1 / accuracy} (\%), mean over seeds (@@NSEEDS_LEARNED@@ for routing,
-@@NSEEDS@@ for architecture). \emph{Routing} holds the architecture fixed and varies the
-depth-router graph: \emph{Biology} is a fixed hand-built graph, \emph{Learned} is trained
-end-to-end (random init), \emph{Learn$_{bio}$} is that learned graph warm-started from the
-biological graph. \emph{Architecture} holds the router fixed and traces the ladder:
-\emph{Vanilla} ($K$ independent layers), \emph{Recursive} (weight-shared, fixed depth) and
-\emph{MoR} (adaptive expert-choice recursion). The learned graphs win the routing axis;
-the architecture variants match within noise (efficiency, not accuracy). Bottom row: mean
-over all @@N_TOTAL@@ datasets.}
+\caption{\textbf{Main results, read left to right from baseline to best.} Each cell is
+\emph{macro-F1 / accuracy} (\%), mean over seeds (@@NSEEDS@@ for architecture,
+@@NSEEDS_LEARNED@@ for routing). We first trace the \emph{architecture} ladder at fixed
+routing -- \emph{Vanilla} ($K$ independent layers) $\to$ \emph{Recursive} (weight-shared,
+fixed depth) $\to$ \emph{MoR} (adaptive expert-choice recursion): accuracy is flat
+(efficiency, not accuracy). We then vary the \emph{routing prior} on MoR -- \emph{None}
+$\to$ \emph{Random} $\to$ \emph{Biology} (fixed hand-built graph) $\to$ \emph{Learned}
+(graph trained end-to-end) $\to$ \emph{Learn$_{bio}$} (learned graph warm-started from
+biology): the learned graphs are the decisive win, the fixed prior hurts. The bottom
+\emph{$\Delta$ macro-F1} row is the gain over the Vanilla baseline, mean over all
+@@N_TOTAL@@ datasets.}
 \label{tab:learned}
 \end{table*}
 
