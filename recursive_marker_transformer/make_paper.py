@@ -1475,6 +1475,19 @@ depth that the classical baselines do not provide. Closing the accuracy gap to a
 full-feature linear model -- e.g.\ with a larger marker budget or a hybrid linear head --
 is a clear direction the baselines make measurable.
 
+\paragraph{On gene-vocabulary foundation models.}
+A natural question is how SMART compares to pretrained single-cell foundation models such
+as scGPT \cite{cui2024scgpt} and Geneformer \cite{theodoris2023transfer}. These models
+\emph{tokenise genes by name} against a fixed gene-symbol vocabulary. The genomap
+single-cell suites used here are distributed as anonymised, image-featurised matrices
+\emph{without} gene identifiers, so a gene-vocabulary model cannot be instantiated on
+them -- a property of the benchmark, not of any method (the classical baselines above,
+which operate on the feature matrix directly, are the applicable strong comparison). The
+gene-symbol interface is available only on the multi-omics cohorts, where a bulk sample
+fed to a single-cell model is out-of-distribution; we therefore treat foundation-model
+comparison as most meaningful on raw, named-gene single-cell data, which the genomap
+preparation does not expose, and flag it as the natural next benchmark for SMART.
+
 \begin{table}[t]
 \centering
 \resizebox{\columnwidth}{!}{%

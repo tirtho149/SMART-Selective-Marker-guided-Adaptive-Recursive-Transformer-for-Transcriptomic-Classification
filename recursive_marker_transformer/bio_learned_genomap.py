@@ -73,10 +73,10 @@ def load_genomap(dataset: str):
     return X, y
 
 
-def _cfg(mode: str, K: int, seed: int, epochs: int) -> RMTConfig:
+def _cfg(mode: str, K: int, seed: int, epochs: int, n_markers: int = 128) -> RMTConfig:
     base = dict(
         heads=(HEAD,), n_hvg=None, batch_size=128, d_model=96, d_ff=192,
-        n_markers=128, marker_mode="router", recursion_mode="expert",
+        n_markers=n_markers, marker_mode="router", recursion_mode="expert",
         recursion_depth=K, share_weights=True, seed=seed, epochs=epochs,
         patience=12, lr=1e-3, weight_decay=1e-5, device="cuda",
         gene_interaction=(mode if mode in ("coexpr", "random") else "none"),
@@ -124,13 +124,13 @@ def _cfg(mode: str, K: int, seed: int, epochs: int) -> RMTConfig:
     return cfg
 
 
-def run_cell(X, y, dataset, mode, K, seed, epochs, device):
+def run_cell(X, y, dataset, mode, K, seed, epochs, device, n_markers=128):
     F, C = X.shape[1], int(y.max() + 1)
     torch.manual_seed(seed); np.random.seed(seed)
     tr, va, te = _make_splits(y, None, seed)
-    cfg = _cfg(mode, K, seed, epochs); cfg.n_markers = min(cfg.n_markers, F)
+    cfg = _cfg(mode, K, seed, epochs, n_markers=n_markers); cfg.n_markers = min(cfg.n_markers, F)
     yt, yp, model = _fit_eval(X.astype(np.float32), y, tr, va, te, cfg, F, C, device)
-    out = {"dataset": dataset, "mode": mode, "K": K, "seed": seed,
+    out = {"dataset": dataset, "mode": mode, "K": K, "seed": seed, "n_markers": cfg.n_markers,
            "test_macro_f1": 100 * f1_score(yt, yp, average="macro"),
            "test_accuracy": 100 * accuracy_score(yt, yp),
            "n_features": F, "n_classes": C, "n_samples": int(len(y))}
@@ -149,6 +149,7 @@ def main():
     ap.add_argument("--seeds", nargs="*", type=int, default=[0, 1, 2])
     ap.add_argument("--K", type=int, default=4)
     ap.add_argument("--epochs", type=int, default=60)
+    ap.add_argument("--n_markers", type=int, default=128)
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--out", type=Path, default=ROOT / "results_learned_genomap")
     ap.add_argument("--force", action="store_true")
@@ -165,7 +166,8 @@ def main():
             if p.exists() and not args.force:
                 summary.append(json.loads(p.read_text())); continue
             print(f"\n##### genomap {args.dataset} mode={mode} seed={seed} #####", flush=True)
-            r = run_cell(X, y, args.dataset, mode, args.K, seed, args.epochs, device)
+            r = run_cell(X, y, args.dataset, mode, args.K, seed, args.epochs, device,
+                         n_markers=args.n_markers)
             p.write_text(json.dumps(r, indent=1))
             print(f"  [{mode} s{seed}] F1={r['test_macro_f1']:.2f} acc={r['test_accuracy']:.2f}"
                   + (f" lam={r.get('learned_lambda'):.3f}" if "learned_lambda" in r else ""),

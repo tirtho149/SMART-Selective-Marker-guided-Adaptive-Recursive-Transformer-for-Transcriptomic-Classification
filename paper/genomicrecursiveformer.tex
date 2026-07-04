@@ -697,7 +697,7 @@ Dataset & None & Smooth$_{rand}$ & Smooth$_{fix}$ & Smooth$_{learn}$ & Route$_{f
 \quad Muraro & 69.7\,$\pm$\,4.9 & 67.6\,$\pm$\,3.7 & 2.1\,$\pm$\,0.0 & 75.3\,$\pm$\,6.4 & 2.1\,$\pm$\,0.0 & 74.1\,$\pm$\,10.3 \\
 \quad Oeso. & 56.7\,$\pm$\,3.4 & 56.6\,$\pm$\,3.5 & 58.9\,$\pm$\,2.9 & 69.6\,$\pm$\,1.4 & 57.5\,$\pm$\,3.6 & 57.4\,$\pm$\,3.0 \\
 \quad Seger. & 56.5\,$\pm$\,7.6 & 56.0\,$\pm$\,7.7 & 0.1\,$\pm$\,0.0 & 71.4\,$\pm$\,5.3 & 0.1\,$\pm$\,0.0 & 53.8\,$\pm$\,10.7 \\
-\quad Spleen & 48.9\,$\pm$\,3.0 & 49.7\,$\pm$\,3.7 & 57.9\,$\pm$\,1.7 & 58.2\,$\pm$\,0.9 & 49.1\,$\pm$\,3.7 & 47.3\,$\pm$\,3.6 \\
+\quad Spleen & 48.9\,$\pm$\,3.0 & 49.7\,$\pm$\,3.7 & 57.9\,$\pm$\,1.7 & 58.2\,$\pm$\,0.9 & 49.1\,$\pm$\,3.7 & 47.7\,$\pm$\,3.2 \\
 \quad T-cell & 49.9\,$\pm$\,4.0 & 49.8\,$\pm$\,3.4 & 61.3\,$\pm$\,2.8 & 68.9\,$\pm$\,1.0 & 50.2\,$\pm$\,3.6 & 49.2\,$\pm$\,2.2 \\
 \quad Xin & 59.3\,$\pm$\,5.8 & 65.7\,$\pm$\,8.6 & 18.6\,$\pm$\,0.0 & 64.7\,$\pm$\,9.4 & 18.6\,$\pm$\,0.0 & 65.0\,$\pm$\,9.0 \\
 \midrule
@@ -707,7 +707,7 @@ Dataset & None & Smooth$_{rand}$ & Smooth$_{fix}$ & Smooth$_{learn}$ & Route$_{f
 \quad STAD & 51.6\,$\pm$\,5.9 & 49.5\,$\pm$\,7.5 & 48.9\,$\pm$\,7.3 & 52.0\,$\pm$\,5.8 & 46.5\,$\pm$\,7.5 & 47.0\,$\pm$\,7.5 \\
 \midrule
 \textbf{Mean} & \textbf{57.1} & \textbf{57.9} & \textbf{45.2} & \textbf{66.7} & \textbf{42.3} & \textbf{57.7} \\
-$\Delta$ vs None & +0.0 & +0.8 & -11.9 & \textbf{+9.5} & -14.8 & +0.5 \\
+$\Delta$ vs None & +0.0 & +0.8 & -11.9 & \textbf{+9.5} & -14.8 & +0.6 \\
 \bottomrule
 \end{tabular}}
 \caption{\textbf{Confound factorial: smoothing vs.\ routing.} Macro-F1 (mean$\pm$std over
@@ -744,6 +744,19 @@ routing, not fixed priors -- is what drives the accuracy a compact marker model 
 depth that the classical baselines do not provide. Closing the accuracy gap to a
 full-feature linear model -- e.g.\ with a larger marker budget or a hybrid linear head --
 is a clear direction the baselines make measurable.
+
+\paragraph{On gene-vocabulary foundation models.}
+A natural question is how SMART compares to pretrained single-cell foundation models such
+as scGPT \cite{cui2024scgpt} and Geneformer \cite{theodoris2023transfer}. These models
+\emph{tokenise genes by name} against a fixed gene-symbol vocabulary. The genomap
+single-cell suites used here are distributed as anonymised, image-featurised matrices
+\emph{without} gene identifiers, so a gene-vocabulary model cannot be instantiated on
+them -- a property of the benchmark, not of any method (the classical baselines above,
+which operate on the feature matrix directly, are the applicable strong comparison). The
+gene-symbol interface is available only on the multi-omics cohorts, where a bulk sample
+fed to a single-cell model is out-of-distribution; we therefore treat foundation-model
+comparison as most meaningful on raw, named-gene single-cell data, which the genomap
+preparation does not expose, and flag it as the natural next benchmark for SMART.
 
 \begin{table}[t]
 \centering
