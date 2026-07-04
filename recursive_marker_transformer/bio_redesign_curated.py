@@ -161,6 +161,15 @@ def _cfg(mode: str, K: int, seed: int, epochs: int, n_classes: int) -> RMTConfig
         cfg.bio_prop_lambda_init = 0.2
         cfg.bio_prop_hops = 1
         cfg.bio_learned_init = "bio"
+    elif mode in ("learned_fused", "learned_fused_rand"):
+        # graph comes from BIOLOGY + LEARNING: curated Reactome interaction matrix (or a
+        # random control) kept as a persistent, learnably-gated propagation term.
+        cfg.bio_learned_graph = True
+        cfg.bio_learned_rank = 16
+        cfg.bio_prop_lambda_init = 0.2
+        cfg.bio_prop_hops = 1
+        cfg.bio_learned_init = "bio" if mode == "learned_fused" else "random"
+        cfg.bio_learned_fuse = True
     return cfg
 
 
@@ -175,7 +184,11 @@ def run_cell(X, y, genes, classes, family, cohort, task, mode, K, seed, epochs,
     # (learned builds its own graph inside the model). learned_bio installs no fixed
     # prior but warm-starts the learned graph from the curated Reactome operator.
     inter = graphs[mode] if mode in ("curated", "random") else None
-    bio_op = graphs["curated"].operator if mode == "learned_bio" else None
+    bio_op = None
+    if mode in ("learned_bio", "learned_fused"):
+        bio_op = graphs["curated"].operator
+    elif mode == "learned_fused_rand":
+        bio_op = graphs["random"].operator
     yt, yp, model = _fit_eval(X.astype(np.float32), y, tr, va, te, cfg, F, C, device,
                               inter=inter, bio_op=bio_op)
     out = {
@@ -189,6 +202,8 @@ def run_cell(X, y, genes, classes, family, cohort, task, mode, K, seed, epochs,
         with torch.no_grad():
             out["learned_lambda"] = float(torch.sigmoid(model.bio_prop_logit))
             out["learned_beta"] = float(torch.nn.functional.softplus(model.bio_beta))
+            if hasattr(model, "bio_fuse_gate"):
+                out["fuse_gate"] = float(torch.sigmoid(model.bio_fuse_gate))
     return out
 
 

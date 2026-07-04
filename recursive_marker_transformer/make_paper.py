@@ -161,31 +161,76 @@ def _t1_pn(coh, col, metric):
             if (r := _J(f)) is not None]
 
 
+# routing columns (display, mode-key) and architecture columns (display, arch-variant)
+_T1_ROUTE = [("None", "None"), ("Random", "Random"), ("Biology", "Biology"),
+             ("Learned", "Learned"), ("Learn$_{bio}$", "Learned$_{bio}$")]
+_T1_ARCH = [("Vanilla", "independent"), ("Recursive", "fixed"), ("MoR", "shared")]
+
+
+def _arch_vals(ds, is_sc, variant, metric):
+    """Per-dataset architecture metric (macro_f1 / accuracy) as a PERCENT list."""
+    if is_sc:
+        return [r["heads"]["cell_type"][metric] * 100
+                for f in _g("results_arch13", variant, "s*", f"{ds}.json") if (r := _J(f)) is not None]
+    return [r[metric] * 100
+            for f in _g("results_pw13", variant, "s*", f"{ds}__*.json") if (r := _J(f)) is not None]
+
+
+def _fa(f1s, accs, bold=False):
+    """Render 'macro-F1 / accuracy' from two percent lists."""
+    mf, ma = _mean(f1s), _mean(accs)
+    if mf is None or ma is None:
+        return "--"
+    s = f"{mf:.1f}/{ma:.0f}"
+    return f"\\textbf{{{s}}}" if bold else s
+
+
+def _t1_row(name, is_sc):
+    cells = []
+    for _, key in _T1_ROUTE:
+        f1 = _t1_sc(name, key, "test_macro_f1") if is_sc else _t1_pn(name, key, "test_macro_f1")
+        ac = _t1_sc(name, key, "test_accuracy") if is_sc else _t1_pn(name, key, "test_accuracy")
+        cells.append(_fa(f1, ac))
+    for _, variant in _T1_ARCH:
+        cells.append(_fa(_arch_vals(name, is_sc, variant, "macro_f1"),
+                         _arch_vals(name, is_sc, variant, "accuracy")))
+    return cells
+
+
 def table1() -> str:
-    """Learned bio-router ablation: test macro-F1 per dataset for none/random/biology/learned,
-    with mean macro-F1 and mean accuracy summary rows over all 13 datasets."""
-    lines = ["\\begin{tabular}{l" + "c" * len(_T1_COLS) + "}", "\\toprule",
-             "Dataset & " + " & ".join(_T1_COLS) + " \\\\",
+    """Comprehensive main-results table: every routing prior AND every architecture
+    variant, per dataset; each cell is macro-F1 / accuracy (%), mean over seeds."""
+    nr, na = len(_T1_ROUTE), len(_T1_ARCH)
+    header = [d for d, _ in _T1_ROUTE] + [d for d, _ in _T1_ARCH]
+    span = nr + na + 1
+    lines = ["\\begin{tabular}{l" + "c" * (nr + na) + "}", "\\toprule",
+             "& \\multicolumn{%d}{c}{Routing prior} & \\multicolumn{%d}{c}{Architecture} \\\\" % (nr, na),
+             "\\cmidrule(lr){2-%d}\\cmidrule(lr){%d-%d}" % (nr + 1, nr + 2, nr + na + 1),
+             "Dataset & " + " & ".join(header) + " \\\\",
              "\\midrule",
-             "\\multicolumn{%d}{l}{\\emph{Single-cell (genomap)}} \\\\" % (len(_T1_COLS) + 1)]
+             "\\multicolumn{%d}{l}{\\emph{Single-cell (genomap)}} \\\\" % span]
     for ds in _SC:
-        cells = [_ms_pp(_t1_sc(ds, c, "test_macro_f1")) for c in _T1_COLS]
-        lines.append(f"\\quad {_SC_DISP[ds]} & " + " & ".join(cells) + " \\\\")
+        lines.append(f"\\quad {_SC_DISP[ds]} & " + " & ".join(_t1_row(ds, True)) + " \\\\")
     lines.append("\\midrule")
-    lines.append("\\multicolumn{%d}{l}{\\emph{Multi-omics (Reactome/P-NET)}} \\\\" % (len(_T1_COLS) + 1))
+    lines.append("\\multicolumn{%d}{l}{\\emph{Multi-omics (Reactome/P-NET)}} \\\\" % span)
     for coh in _PN:
-        cells = [_ms_pp(_t1_pn(coh, c, "test_macro_f1")) for c in _T1_COLS]
-        lines.append(f"\\quad {_PN_DISP[coh]} & " + " & ".join(cells) + " \\\\")
-    # summary rows: mean over the per-dataset means, all 13 datasets
+        lines.append(f"\\quad {_PN_DISP[coh]} & " + " & ".join(_t1_row(coh, False)) + " \\\\")
+    # mean over the per-dataset means (all datasets)
     lines.append("\\midrule")
-    for metric, label in [("test_macro_f1", "Mean macro-F1"), ("test_accuracy", "Mean accuracy")]:
-        cells = []
-        for c in _T1_COLS:
-            per = [_mean(_t1_sc(ds, c, metric)) for ds in _SC] + \
-                  [_mean(_t1_pn(coh, c, metric)) for coh in _PN]
-            m = _mean(per)
-            cells.append("--" if m is None else f"\\textbf{{{m:.1f}}}")
-        lines.append(f"\\textbf{{{label}}} & " + " & ".join(cells) + " \\\\")
+    mean_cells = []
+    for _, key in _T1_ROUTE:
+        f1 = [_mean(_t1_sc(ds, key, "test_macro_f1")) for ds in _SC] + \
+             [_mean(_t1_pn(c, key, "test_macro_f1")) for c in _PN]
+        ac = [_mean(_t1_sc(ds, key, "test_accuracy")) for ds in _SC] + \
+             [_mean(_t1_pn(c, key, "test_accuracy")) for c in _PN]
+        mean_cells.append(_fa(f1, ac, bold=True))
+    for _, variant in _T1_ARCH:
+        f1 = [_mean(_arch_vals(ds, True, variant, "macro_f1")) for ds in _SC] + \
+             [_mean(_arch_vals(c, False, variant, "macro_f1")) for c in _PN]
+        ac = [_mean(_arch_vals(ds, True, variant, "accuracy")) for ds in _SC] + \
+             [_mean(_arch_vals(c, False, variant, "accuracy")) for c in _PN]
+        mean_cells.append(_fa(f1, ac, bold=True))
+    lines.append("\\textbf{Mean} & " + " & ".join(mean_cells) + " \\\\")
     lines += ["\\bottomrule", "\\end{tabular}"]
     return "\n".join(lines)
 
@@ -1134,19 +1179,22 @@ routing when the graph is \emph{learned from data} rather than imposed rigidly a
 supplying that graph as a warm-start, rather than a frozen prior, is what removes the
 collapse of the fixed-biology setting.
 
-\begin{table}[t]
+\begin{table*}[t]
 \centering
-\resizebox{\columnwidth}{!}{%
+\resizebox{\textwidth}{!}{%
 @@TABLE1@@}
-\caption{\textbf{Biology-informed routing: fixed vs.\ learned vs.\ bio-initialised.}
-Test macro-F1 (mean$\pm$std over @@NSEEDS_LEARNED@@ seeds) for five depth-router graph
-sources, holding the architecture fixed. \emph{Biology} is a fixed hand-built graph;
-\emph{Learned} is trained end-to-end from data (random init, no explicit prior);
-\emph{Learned$_{bio}$} is that learned graph warm-started from the biological graph.
-The learned graphs win; the fixed prior sits at or below its random-graph control.
-Bottom rows: mean over all @@N_TOTAL@@ datasets.}
+\caption{\textbf{Main results: routing prior and architecture, per dataset.} Each cell is
+\emph{macro-F1 / accuracy} (\%), mean over seeds (@@NSEEDS_LEARNED@@ for routing,
+@@NSEEDS@@ for architecture). \emph{Routing} holds the architecture fixed and varies the
+depth-router graph: \emph{Biology} is a fixed hand-built graph, \emph{Learned} is trained
+end-to-end (random init), \emph{Learn$_{bio}$} is that learned graph warm-started from the
+biological graph. \emph{Architecture} holds the router fixed and traces the ladder:
+\emph{Vanilla} ($K$ independent layers), \emph{Recursive} (weight-shared, fixed depth) and
+\emph{MoR} (adaptive expert-choice recursion). The learned graphs win the routing axis;
+the architecture variants match within noise (efficiency, not accuracy). Bottom row: mean
+over all @@N_TOTAL@@ datasets.}
 \label{tab:learned}
-\end{table}
+\end{table*}
 
 \subsection{The Vanilla-to-MoR Ladder Preserves Accuracy}
 \label{sec:ladder}

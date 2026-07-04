@@ -141,6 +141,12 @@ class RecursiveMarkerTransformer(nn.Module):
         if self._bio_learned:
             r = int(getattr(cfg, "bio_learned_rank", 16))
             self.gene_embed = nn.Parameter(torch.randn(n_genes, r) * 0.01)
+        # FUSION: learnably mix the fixed biological interaction matrix (installed via
+        # set_bio_graph) with the learned graph. sigmoid(gate) in [0,1]; gate<0 starts
+        # biology-light so a pathological graph is easy to down-weight.
+        self._bio_fuse = bool(getattr(cfg, "bio_learned_fuse", False))
+        if self._bio_learned and self._bio_fuse:
+            self.bio_fuse_gate = nn.Parameter(torch.tensor([-1.0]))
 
     def set_gene_variance(self, variance: torch.Tensor) -> None:
         self.gene_variance.copy_(variance.to(self.gene_variance))
@@ -268,11 +274,19 @@ class RecursiveMarkerTransformer(nn.Module):
         elif self._bio_learned and x.dim() == 2:
             lam = torch.sigmoid(self.bio_prop_logit)
             En = nn.functional.normalize(self.gene_embed, dim=1)     # (G, r) unit rows
+            fuse = self._bio_fuse and self._bio_have_graph
+            g = torch.sigmoid(self.bio_fuse_gate) if fuse else None
             xs = x
             for _ in range(max(1, self._bio_hops)):
-                prop = (xs @ En) @ En.t()                            # (B, G) low-rank
+                prop = (xs @ En) @ En.t()                            # (B, G) learned graph
                 prop = prop * (xs.norm(dim=1, keepdim=True)
                                / (prop.norm(dim=1, keepdim=True) + 1e-6))
+                if fuse:
+                    # persistent biological interaction matrix, learnably mixed in
+                    bprop = xs @ self.bio_operator                  # (B, G) fixed bio graph
+                    bprop = bprop * (xs.norm(dim=1, keepdim=True)
+                                     / (bprop.norm(dim=1, keepdim=True) + 1e-6))
+                    prop = (1.0 - g) * prop + g * bprop
                 xs = (1.0 - lam) * xs + lam * prop
             x = xs
 

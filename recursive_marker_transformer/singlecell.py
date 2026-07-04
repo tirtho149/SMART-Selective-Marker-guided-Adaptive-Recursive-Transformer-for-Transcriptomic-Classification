@@ -165,23 +165,34 @@ def _fit_eval(Xs_full, y, tr, va, te, cfg, F, K, device, inter="auto", bio_op=No
             print(f"  [bio-router] gene_interaction={cfg.gene_interaction} "
                   f"beta0={cfg.router_prior_beta} anneal={cfg.router_prior_anneal} "
                   f"knn={cfg.interaction_knn} prior installed", flush=True)
-    # Learned graph, BIO-INITIALISED: warm-start gene_embed from the biological graph
-    # (external curated Reactome operator if supplied, else the co-expression graph
-    # built on the train split). Only the initialisation differs from `learned`.
-    if getattr(cfg, "bio_learned_graph", False) and getattr(cfg, "bio_learned_init", "random") == "bio":
+    # Learned graph + biological interaction matrix: warm-start gene_embed from the
+    # biological graph (bio-init) and/or keep it as a persistent fused propagation term
+    # (fuse). External operator (curated Reactome) is used if supplied, else the
+    # co-expression / random graph built on the train split.
+    _want_init = getattr(cfg, "bio_learned_graph", False) and getattr(cfg, "bio_learned_init", "random") == "bio"
+    _want_fuse = getattr(cfg, "bio_learned_graph", False) and getattr(cfg, "bio_learned_fuse", False)
+    if _want_init or _want_fuse:
         op = bio_op
         if op is None:
             from .interaction import build_interaction_v2
             _b = build_interaction_v2(
-                Xs[tr].astype(np.float32, copy=False), F, mode="coexpr",
+                Xs[tr].astype(np.float32, copy=False), F,
+                mode=getattr(cfg, "bio_fuse_source", "coexpr"),
                 knn=cfg.interaction_knn, seed=cfg.seed,
                 centrality=getattr(cfg, "bio_centrality", "eigcent"))
             op = getattr(_b, "operator", None)
         if op is not None:
-            applied = model.init_gene_embed_from_operator(
-                op if torch.is_tensor(op) else torch.as_tensor(op))
-            print(f"  [learned-bio] gene_embed {'warm-started from biological graph' if applied else 'FALLBACK to random init (degenerate biological graph)'}",
-                  flush=True)
+            opt = op if torch.is_tensor(op) else torch.as_tensor(op)
+            if _want_init:
+                applied = model.init_gene_embed_from_operator(opt)
+                print(f"  [learned-bio] gene_embed {'warm-started' if applied else 'FALLBACK random init (degenerate graph)'}", flush=True)
+            if _want_fuse:
+                clean = torch.nan_to_num(opt.float(), nan=0.0, posinf=0.0, neginf=0.0)
+                if float(clean.abs().sum()) > 0:
+                    model.set_bio_graph(clean, None)
+                    print("  [learned-fuse] biological interaction matrix installed for fusion", flush=True)
+                else:
+                    print("  [learned-fuse] degenerate graph -> fusion disabled (pure learned)", flush=True)
         else:
             print("  [learned-bio] WARN no operator -> random init retained", flush=True)
     cw = _class_weights(torch.from_numpy(y[tr]), K).to(device)

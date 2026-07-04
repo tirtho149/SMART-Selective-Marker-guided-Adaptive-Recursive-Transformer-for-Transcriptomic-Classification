@@ -90,12 +90,37 @@ def _cfg(mode: str, K: int, seed: int, epochs: int) -> RMTConfig:
     elif mode == "learned":
         cfg.bio_learned_graph = True; cfg.bio_learned_rank = 16
         cfg.bio_prop_lambda_init = 0.2; cfg.bio_prop_hops = 1
+    # --- C1 confound factorial: isolate input SMOOTHING from depth ROUTING ---
+    elif mode in ("smooth_coexpr", "smooth_random"):
+        # SMOOTHING ONLY: propagate x along the fixed graph; NO routing prior.
+        cfg.gene_interaction = "coexpr" if mode == "smooth_coexpr" else "random"
+        cfg.bio_graph_prop = True; cfg.bio_prop_lambda_init = 0.3; cfg.bio_prop_hops = 1
+        cfg.bio_prior_gate = False; cfg.router_prior_beta = 0.0
+        cfg.bio_depth_laplacian = 0.0; cfg.bio_centrality = "ppr"; cfg.router_prior_anneal = False
+    elif mode in ("route_coexpr", "route_random"):
+        # ROUTING ONLY: fixed centrality prior on the depth router; NO input smoothing.
+        cfg.gene_interaction = "coexpr" if mode == "route_coexpr" else "random"
+        cfg.bio_graph_prop = False; cfg.bio_prior_gate = True; cfg.bio_prior_learnable = True
+        cfg.bio_beta_init = 0.5; cfg.bio_depth_laplacian = 0.0
+        cfg.bio_centrality = "ppr"; cfg.router_prior_anneal = False
     elif mode == "learned_bio":
         # learned graph, IDENTICAL to `learned` except gene_embed is warm-started from
         # the co-expression graph (degenerate/NaN graphs fall back to random init).
         cfg.bio_learned_graph = True; cfg.bio_learned_rank = 16
         cfg.bio_prop_lambda_init = 0.2; cfg.bio_prop_hops = 1
         cfg.bio_learned_init = "bio"
+    elif mode == "learned_fused":
+        # graph comes from BIOLOGY + LEARNING: co-expression interaction matrix kept as a
+        # persistent, learnably-gated propagation term alongside the learned graph.
+        cfg.bio_learned_graph = True; cfg.bio_learned_rank = 16
+        cfg.bio_prop_lambda_init = 0.2; cfg.bio_prop_hops = 1
+        cfg.bio_learned_init = "bio"; cfg.bio_learned_fuse = True; cfg.bio_fuse_source = "coexpr"
+    elif mode == "learned_fused_rand":
+        # control: fuse a degree-matched RANDOM graph instead of the biological one, to
+        # prove any gain from learned_fused is biology, not just the extra mechanism.
+        cfg.bio_learned_graph = True; cfg.bio_learned_rank = 16
+        cfg.bio_prop_lambda_init = 0.2; cfg.bio_prop_hops = 1
+        cfg.bio_learned_init = "random"; cfg.bio_learned_fuse = True; cfg.bio_fuse_source = "random"
     return cfg
 
 
@@ -109,9 +134,11 @@ def run_cell(X, y, dataset, mode, K, seed, epochs, device):
            "test_macro_f1": 100 * f1_score(yt, yp, average="macro"),
            "test_accuracy": 100 * accuracy_score(yt, yp),
            "n_features": F, "n_classes": C, "n_samples": int(len(y))}
-    if mode in ("learned", "learned_bio"):
+    if mode in ("learned", "learned_bio", "learned_fused", "learned_fused_rand"):
         with torch.no_grad():
             out["learned_lambda"] = float(torch.sigmoid(model.bio_prop_logit))
+            if hasattr(model, "bio_fuse_gate"):
+                out["fuse_gate"] = float(torch.sigmoid(model.bio_fuse_gate))
     return out
 
 

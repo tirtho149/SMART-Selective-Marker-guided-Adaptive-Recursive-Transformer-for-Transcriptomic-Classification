@@ -128,6 +128,12 @@ class RMTConfig:
                                                  # gene embedding from the biological graph
                                                  # (co-expression / curated Reactome operator,
                                                  # top-r eigenvectors) instead of randn.
+    bio_learned_fuse: bool = False               # keep the fixed biological interaction matrix
+                                                 # as a PERSISTENT propagation term, learnably
+                                                 # mixed (gate g) with the learned graph, so the
+                                                 # graph comes from biology AND is learned.
+    bio_fuse_source: str = "coexpr"              # which biological graph to fuse: "coexpr" |
+                                                 # "random" (degree-matched control) | "reactome"
 
     # ---- pathway-hierarchy attention bias (Reactome pathway->pathway graph) ----
     pathway_attn_bias: bool = False              # bias self-attention so a pathway
