@@ -1716,17 +1716,6 @@ not just in the mean. Lower computation and higher accuracy are therefore achiev
 the efficiency comes from weight-shared adaptive recursion and the accuracy from routing on
 the learned gene graph.
 
-\begin{table}[t]
-\centering
-\resizebox{\columnwidth}{!}{%
-@@TABLE_EFFACC@@}
-\caption{\textbf{Lower compute, higher accuracy -- per dataset.} Macro-F1 of a vanilla
-transformer ($K$ independent layers, $@@PARAMRATIO@@\times$ params, $1.00\times$ FLOPs)
-versus SMART (weight-shared MoR recursion $+$ learned routing graph, $1\times$ params,
-$\sim$@@EA_SAVED@@\% fewer FLOPs). SMART is cheaper on both axes \emph{and} more accurate
-($\Delta$F1 column) on nearly every single-cell and multi-omics dataset.}
-\label{tab:effacc}
-\end{table}
 
 \subsection{Parameter and Token Efficiency Are Architectural}
 \label{sec:params}
@@ -1819,6 +1808,18 @@ preparation.
 \bibliography{refs}
 
 \appendix
+\begin{table}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+@@TABLE_EFFACC@@}
+\caption{\textbf{Lower compute, higher accuracy -- per dataset.} Macro-F1 of a vanilla
+transformer ($K$ independent layers, $@@PARAMRATIO@@\times$ params, $1.00\times$ FLOPs)
+versus SMART (weight-shared MoR recursion $+$ learned routing graph, $1\times$ params,
+$\sim$@@EA_SAVED@@\% fewer FLOPs). SMART is cheaper on both axes \emph{and} more accurate
+($\Delta$F1 column) on nearly every single-cell and multi-omics dataset.}
+\label{tab:effacc}
+\end{table}
+
 \begin{table}[t]
 \centering
 \resizebox{\columnwidth}{!}{%
