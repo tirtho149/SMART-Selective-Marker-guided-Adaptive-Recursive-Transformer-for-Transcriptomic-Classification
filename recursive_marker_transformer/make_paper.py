@@ -1094,65 +1094,41 @@ _TEX = r"""\documentclass[letterpaper]{article}
 \setlength{\pdfpageheight}{11in}
 \pdfinfo{
 /Title (SMART: A Marker-Guided Recursive Transformer with Learned Gene-Graph Routing for Single-Cell and Multi-Omics Classification)
-/Author (Koushik Howlader, Tirtho Roy, Md Tauhidul Islam, Wei Le)
+/Author (Anonymous Submission)
 /Keywords (single-cell genomics, multi-omics, transformers, parameter efficiency, marker genes, recursive computation, learned gene graph, calibration)
 }
 \setcounter{secnumdepth}{1}
 
 \title{SMART: A Selective Marker-guided Adaptive Recursive Transformer\\ with Learned Gene-Graph Routing for Single-Cell and Multi-Omics Classification}
-\author{Koushik Howlader\textsuperscript{1} \and Tirtho Roy\textsuperscript{1} \and Md Tauhidul Islam\textsuperscript{2} \and Wei Le\textsuperscript{1}\\
-\textsuperscript{1}Iowa State University, Ames, Iowa, USA\\
-\textsuperscript{2}Stanford University, Stanford, California, USA\\
-weile@iastate.edu, tauhid@stanford.edu
-}
+\author{Anonymous Submission}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
 \begin{quote}
-Transformer foundation models for single-cell transcriptomics treat every one of
-the thousands of measured genes as an equally important token and stack many
-independent layers, which makes them parameter-heavy and leaves the biology of
-\emph{which} genes deserve computation entirely to be learned from data. We argue
-that for gene expression, parameter efficiency should be an \emph{architectural}
-property, and that biology should enter the \emph{routing decision} rather than only
-a post-hoc interpretation step. We present \textbf{SMART} (Selective Marker-guided
-Adaptive Recursive Transformer), which (i) learns end-to-end which genes are
-\emph{markers} worth dedicated computation through a cross-attention \emph{marker
-router} whose learnable queries attend over all genes; (ii) represents each cell by
-only its $M\ll N$ markers, cutting self-attention from $\mathcal{O}(N^2)$ to
-$\mathcal{O}(M^2)$; and (iii) processes the marker tokens with a \emph{single}
-transformer block applied recursively, where a Mixture-of-Recursions router grants
-each gene its own adaptive recursion depth, so depth becomes an intrinsic
-compute-allocation importance score. The same interface extends beyond expression:
-for bulk multi-omics the tokens are fixed \emph{Reactome pathway} tokens that pool a
-pathway's mutation, copy-number and expression channels. On top of the tokens we study
-a \textbf{biology-informed router} that folds a gene-gene network-centrality prior into
-the depth decision, so hub genes/pathways recurse deeper, and we contrast four ways of
-forming that graph under otherwise identical training: a \emph{fixed} co-expression /
-Reactome centrality, a degree-matched \emph{random-graph} control, a \emph{learned}
-routing graph trained end-to-end from random init, and that learned graph
-\emph{warm-started} from the biological graph. Our controlled study spans @@N_TOTAL@@
-datasets ($@@N_SC@@$ genomap single-cell suites and $@@N_PN@@$ Reactome/P-NET multi-omics
-cohorts) and yields one positive headline alongside honest negatives.
-\textbf{Positive:} the \emph{learned} routing graph raises single-cell macro-F1 to
-@@LEARNED_SC_F1@@\% ($+@@LEARNED_GAIN_SC@@$ points over a no-prior router and well above
-a degree-matched random graph, @@RANDOM_SC_F1@@\%), the decisive routing result;
-warm-starting it from biology neither helps nor hurts materially, so the model recovers
-the useful structure from data on its own. \textbf{Negatives:} a \emph{fixed} hand-built
-biology prior does \emph{not} help, it sits at or below its random-graph control
-(@@BIO_SC_F1@@\% vs.\ @@RANDOM_SC_F1@@\% on single cell) and collapses on several suites,
-and no routing variant improves calibration (NLL/ECE) -- though a standard post-hoc
-temperature scaling sharply cuts the log-likelihood error of every model at \emph{no}
-accuracy cost. Alongside these, two efficiency properties hold:
-\emph{parameter reduction} (one shared block uses $1/K$ of the parameters of $K$
-independent layers, a $@@PARAMRATIO@@\times$ reduction at $K{=}@@DEPTH@@$, at comparable
-accuracy) and \emph{token reduction} (a few dozen to a few hundred interpretable tokens
-recover most full-gene accuracy), and adaptive depth buys a $\sim$@@COMPUTE_SAVE@@\%
-\emph{compute} saving at matched accuracy. We report the controlled comparison exactly
-as the runs deliver it. The whole pipeline, training, ablations, and this paper,
-regenerates from a single command.
+Transformer models for single-cell and multi-omics classification treat thousands of
+genes as equally important tokens and stack many independent layers, making them
+parameter-heavy and leaving \emph{which} genes deserve computation entirely to data. We
+present \textbf{SMART} (Selective Marker-guided Adaptive Recursive Transformer), which
+(i) learns which genes are \emph{markers} via a cross-attention router and represents each
+sample by only its $M\ll N$ markers, cutting attention from $\mathcal{O}(N^2)$ to
+$\mathcal{O}(M^2)$; (ii) processes them with a \emph{single} weight-shared block applied
+recursively, a Mixture-of-Recursions router giving each token its own adaptive depth; and
+(iii) extends to bulk multi-omics via fixed \emph{Reactome pathway} tokens pooling
+mutation, copy-number and expression. Across @@N_TOTAL@@ datasets ($@@N_SC@@$ single-cell,
+$@@N_PN@@$ multi-omics) our controlled \emph{none / random / fixed-biology / learned} study
+finds the \emph{learned} gene-graph is the decisive positive ($+@@LEARNED_GAIN_SC@@$ points
+to @@LEARNED_SC_F1@@\% single-cell macro-F1, above a degree-matched random graph
+@@RANDOM_SC_F1@@\%), and a confound factorial isolates the gain as input \emph{smoothing},
+not depth routing. We surface honest negatives: a \emph{fixed} hand-built prior helps
+neither accuracy nor calibration. Efficiency is architectural: a $@@PARAMRATIO@@\times$
+parameter reduction at $K{=}@@DEPTH@@$, $\sim$@@COMPUTE_SAVE@@\% fewer recursion FLOPs at
+matched accuracy, and a few dozen tokens recovering most full-gene accuracy. Classical
+linear baselines remain strong on the engineered single-cell features, while on the raw
+multi-omics cohorts SMART's best multi-modal model is the strongest method; it also matches
+a far larger pretrained foundation model within noise. The whole pipeline and this paper
+regenerate from a single command.
 \end{quote}
 \end{abstract}
 
@@ -1202,44 +1178,26 @@ only when the graph is learned rather than imposed a priori.
 
 We make the following contributions:
 \begin{itemize}
-\item We propose a \textbf{biology-informed recursion router} that folds a gene-gene
-graph into the depth-routing decision, so biology shapes \emph{where compute goes}
-rather than only how results are interpreted. The graph can be a fixed network-centrality
-prior (an annealed additive bias) or, in our best variant, a low-rank graph
-\emph{learned end-to-end}; we give the mechanism a full mathematical and empirical-Bayes
-grounding.
-\item We evaluate the router with a controlled \emph{none / random-graph / fixed-biology
-/ learned} ablation and find the \textbf{learned} routing graph is the decisive positive:
-it lifts single-cell macro-F1 to @@LEARNED_SC_F1@@\% ($+@@LEARNED_GAIN_SC@@$ points over
-a no-prior router), whereas a fixed hand-built biology prior does not separate from a
-degree-matched random-graph control, isolating what actually helps from generic bias.
-\item We propose SMART, a transformer for genomic classification in which token
-selection, token compression, and parameter-shared recursion are co-designed and
-trained end-to-end, with each token's recursion depth serving as an intrinsic
-compute-allocation importance score. The token interface is interpretable and
-modality-general: \emph{learned marker genes} for single-cell expression, and fixed
-\emph{Reactome pathway tokens} (pooling each pathway's mutation, copy-number and
-expression channels) for bulk multi-omics.
-\item We run a controlled study of the full recursive-transformer design space --
-token count, marker vs pathway tokens, weight sharing, expert- vs token-choice routing,
-and the routing prior -- summarised in \emph{five} result tables. Two are deliberate
-negatives we surface rather than bury: a fixed hand-built biology prior \emph{neither
-beats a vanilla transformer on accuracy} (Table~\ref{tab:learned}) \emph{nor improves
-its calibration} (NLL/ECE, Table~\ref{tab:uq}). The others are the wins:
-\textbf{learned routing} (Table~\ref{tab:learned}), \textbf{parameter reduction}
-(one shared block uses $1/K$ of the parameters of $K$ independent layers, a
-$@@PARAMRATIO@@\times$ reduction at $K{=}@@DEPTH@@$; Table~\ref{tab:param}),
-\textbf{token reduction} (a few dozen to a few hundred tokens recover most full-gene
-accuracy; Table~\ref{tab:token}), and an adaptive-depth \textbf{compute} saving
-($\sim$@@COMPUTE_SAVE@@\% fewer recursion FLOPs at matched accuracy;
-Table~\ref{tab:ladder}).
-\item We evaluate on all @@N_TOTAL@@ datasets -- $@@N_SC@@$ genomap single-cell suites
-(Baron, Lung, Muraro, Oesophagus, Segerstolpe, Spleen, T-cell, Xin) and $@@N_PN@@$
-Reactome/P-NET multi-omics cohorts (prostate, BLCA, STAD), with no TCGA bulk
-data -- showing the same design decisions transfer across modalities; all ablations
-report multi-seed mean$\pm$std.
-\item We release a fully reproducible pipeline in which a single command runs all
-experiments and regenerates this paper, numbers, tables and figures included.
+\item \textbf{SMART}, a transformer for genomic classification that co-designs token
+selection, token compression, and parameter-shared recursion end-to-end, with each token's
+recursion depth as an intrinsic compute-allocation score. The token interface is
+modality-general: \emph{learned marker genes} for single-cell expression and fixed
+\emph{Reactome pathway tokens} (pooling mutation, copy-number and expression) for bulk
+multi-omics.
+\item A \textbf{controlled \emph{none / random-graph / fixed-biology / learned} study} of
+the gene-graph prior showing the \textbf{learned} graph is the decisive positive
+($+@@LEARNED_GAIN_SC@@$ points over a no-prior router, to @@LEARNED_SC_F1@@\% single-cell
+macro-F1), while a fixed hand-built prior does not separate from a degree-matched
+random-graph control; a confound factorial further isolates the gain as input
+\emph{smoothing}, not depth routing (Tables~\ref{tab:learned},~\ref{tab:confound}).
+\item \textbf{Efficiency that is architectural}: weight sharing gives a
+$@@PARAMRATIO@@\times$ parameter reduction at $K{=}@@DEPTH@@$, adaptive expert-choice
+recursion cuts $\sim$@@COMPUTE_SAVE@@\% of recursion FLOPs at matched accuracy, and a few
+dozen marker tokens recover most full-gene accuracy (Tables~\ref{tab:param},~\ref{tab:token},~\ref{tab:ladder}).
+\item An \textbf{honest evaluation} on all @@N_TOTAL@@ datasets ($@@N_SC@@$ single-cell,
+$@@N_PN@@$ multi-omics), multi-seed, surfacing negatives (fixed priors help neither
+accuracy nor calibration) and comparing to strong classical and foundation-model baselines;
+the full pipeline and paper regenerate from a single command.
 \end{itemize}
 
 \section{Related Work}
@@ -1573,24 +1531,13 @@ gene's $k$ nearest neighbours, symmetrising, and reading off the network central
 \begin{equation}
 \pi \;=\; \mathrm{zscore}\big(\text{eigvec-centrality}(\mathbf{W})\big),
 \end{equation}
-so co-expression \emph{hub} genes, whose perturbation propagates widely, receive a
-larger prior and are nudged to recurse deeper. Crucially $\mathbf{W}$ is built from
-\emph{expression alone, with no labels}, so the prior injects biological network
-structure without leaking the cell-type labels; this is what keeps any gene-discovery
-claim honest.
-
-\paragraph{Annealing $\beta_t$.}
-A fixed strong prior would behave like hard routing, pinning compute to known hubs and
-unable to discover new genes. We therefore warm-start: $\beta_t=\beta_0(1-\text{progress})$
-decays to $0$ over training, so the prior dominates early, when hidden states are
-still random, and the data-driven term takes over late. This is empirical-Bayes
-shrinkage: a strong prior when evidence is weak, fading as evidence accumulates.
-Because $\pi_m$ is a constant additive bias, $\tilde r^{(t)}_m$ stays smooth in
-$\mathbf{w}_r$ and the gate carries gradient, so trainability and the
-parameter-efficiency claim are unchanged. We validate the component against a
-degree-matched \emph{random}-graph control: only if the real co-expression graph beats
-the random one is it the biology, not mere smoothing, that helps
-(Sec.~\ref{sec:interaction}).
+so co-expression \emph{hub} genes receive a larger prior and are nudged to recurse deeper.
+$\mathbf{W}$ is built from \emph{expression alone, with no labels}, keeping any
+gene-discovery claim honest. The prior strength is annealed, $\beta_t=\beta_0(1-\text{progress})\!\to\!0$
+(empirical-Bayes shrinkage: strong when evidence is weak, fading as it accumulates), and it
+is a constant additive bias, so trainability is unchanged. We validate it against a
+degree-matched \emph{random}-graph control; as Sec.~\ref{sec:interaction} shows, this fixed
+prior is a \emph{negative} result -- it does not separate from its random control.
 
 \paragraph{The learned graph (our best variant).}
 A fixed graph is frozen and label-free; it cannot adapt to the task. We therefore also
@@ -1696,7 +1643,19 @@ relaxes to zero as the data takes over (degenerate NaN graphs disable the anchor
 back to random init). Even so, @@ANCHOR_VERDICT@@. This is the same conclusion the fixed
 prior and warm-start reach, now stress-tested: the value is in \emph{learning} the graph,
 and an explicit biological graph -- however forcefully injected -- does not improve on what
-end-to-end training already recovers (full stress-test in Table~\ref{tab:anchor}, appendix).
+end-to-end training already recovers (Table~\ref{tab:anchor}).
+
+\begin{table}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+@@TABLE_ANCHOR@@}
+\caption{\textbf{Stress-testing the biological warm-start} (single-cell macro-F1,
+mean$\pm$std). From a randomly-initialised learned graph we add a biological warm-start,
+then a stronger init, then an annealed anchor $\lambda(t)\lVert A_{\text{learned}}-A_{\text{bio}}\rVert_F^2$
+that keeps the graph near biology early. The $\Delta$ row is the mean gain over random
+init; forcing biology in more strongly does not beat learning the graph from data.}
+\label{tab:anchor}
+\end{table}
 
 \begin{table*}[t]
 \centering
@@ -1792,6 +1751,18 @@ recurse bottleneck and the softmax marker read-out discard linearly-decodable si
 the linear pipeline keeps. Closing it needs an architectural change -- a hybrid linear
 residual head, or a less lossy marker read-out -- not merely a bigger budget.
 
+\begin{table}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+@@TABLE_MBUDGET@@}
+\caption{\textbf{Marker-budget headroom.} Macro-F1 (mean$\pm$std) of the learned-graph
+model as the marker budget $M$ grows on the single-cell suites, against the full-feature
+linear baseline. Because $M$ is capped at the feature count, the largest rung uses
+\emph{every} feature as a marker, yet the mean still trails the linear pipeline by
+@@MB_RESID@@ points: the gap is architectural, not a token-budget limitation.}
+\label{tab:mbudget}
+\end{table}
+
 \paragraph{On gene-vocabulary foundation models.}
 A natural question is how SMART compares to pretrained single-cell foundation models such
 as scGPT \cite{cui2024scgpt} and Geneformer \cite{theodoris2023transfer}. These models
@@ -1809,6 +1780,18 @@ foundation model, and the numbers should be read in that light. On these cohorts
 @@FM_VERDICT@@. We therefore treat a foundation-model comparison on raw, named-gene
 single-cell data -- which the genomap preparation does not expose -- as the natural next
 benchmark for SMART.
+
+\begin{table}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+@@TABLE_FM@@}
+\caption{\textbf{SMART vs.\ gene-vocabulary foundation models} on the P-NET cohorts
+(macro-F1, mean$\pm$std over seeds). Geneformer (fine-tuned) and scGPT (frozen embedding
+$+$ logistic probe) are mapped onto each cohort's HUGO gene symbols with a per-gene
+mutation/copy-number alteration burden, on the same splits as SMART. Bulk DNA-alteration
+input is out-of-distribution for these single-cell-RNA models.}
+\label{tab:fm}
+\end{table}
 
 \begin{table}[t]
 \centering
@@ -1876,9 +1859,28 @@ parameter count depth-independent: one shared block uses $1/K$ of the parameters
 independent layers -- an exact @@PARAMRATIO@@$\times$ reduction at $K{=}$@@DEPTH@@ that
 widens with depth (Table~\ref{tab:param}, appendix). Second, the marker interface compresses
 $\mathcal{O}(N^2)\!\to\!\mathcal{O}(M^2)$: sweeping the budget shows a few dozen to a few
-hundred interpretable tokens recover most of the full-gene accuracy (Table~\ref{tab:token},
-appendix), while the soft-train / hard-eval router yields the recursion-depth ranking that
+hundred interpretable tokens recover most of the full-gene accuracy (Table~\ref{tab:token}),
+while the soft-train / hard-eval router yields the recursion-depth ranking that
 fixed panels cannot provide.
+
+\begin{table}[t]
+\centering
+\resizebox{0.85\columnwidth}{!}{%
+@@TABLE2@@}
+\caption{\textbf{Parameter reduction.} One shared block versus $K$ independent layers at
+matched width: an exact $K\times$ reduction, present before any training.}
+\label{tab:param}
+\end{table}
+
+\begin{table}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+@@TABLE3@@}
+\caption{\textbf{Marker-token budget.} Macro-F1 (mean$\pm$std over @@NSEEDS@@ seeds) as
+the marker budget $M$ shrinks from 256 to 16. A few dozen to a few hundred tokens recover
+most of the full-gene accuracy. Bottom row: mean over all @@N_TOTAL@@ datasets.}
+\label{tab:token}
+\end{table}
 
 \subsection{The Priors Do Not Improve Uncertainty Either}
 Beyond point accuracy, a prior could still earn its place by making the model better
@@ -1980,69 +1982,6 @@ preparation.
 \bibliography{refs}
 
 \appendix
-\section{Additional Results and Ablations}
-\label{app:extra}
-This appendix collects supporting tables referenced from the main text: the foundation-model
-comparison on the P-NET cohorts (Table~\ref{tab:fm}), the biological warm-start stress test
-(Table~\ref{tab:anchor}), the marker-budget headroom sweep (Table~\ref{tab:mbudget}) and the
-marker-token budget (Table~\ref{tab:token}).
-
-\begin{table}[t]
-\centering
-\resizebox{\columnwidth}{!}{%
-@@TABLE_FM@@}
-\caption{\textbf{SMART vs.\ gene-vocabulary foundation models} on the P-NET cohorts
-(macro-F1, mean$\pm$std over seeds). Geneformer (fine-tuned) and scGPT (frozen embedding
-$+$ logistic probe) are mapped onto each cohort's HUGO gene symbols with a per-gene
-mutation/copy-number alteration burden, on the same splits as SMART. Bulk DNA-alteration
-input is out-of-distribution for these single-cell-RNA models; this is an out-of-distribution
-sanity check, not a headline accuracy comparison.}
-\label{tab:fm}
-\end{table}
-
-\begin{table}[t]
-\centering
-\resizebox{\columnwidth}{!}{%
-@@TABLE_ANCHOR@@}
-\caption{\textbf{Stress-testing the biological warm-start} (single-cell macro-F1,
-mean$\pm$std). From a randomly-initialised learned graph we add a biological warm-start,
-then a stronger init, then an annealed anchor $\lambda(t)\lVert A_{\text{learned}}-A_{\text{bio}}\rVert_F^2$
-that keeps the graph near biology early. The $\Delta$ row is the mean gain over random
-init; forcing biology in more strongly does not beat learning the graph from data.}
-\label{tab:anchor}
-\end{table}
-
-\begin{table}[t]
-\centering
-\resizebox{\columnwidth}{!}{%
-@@TABLE_MBUDGET@@}
-\caption{\textbf{Marker-budget headroom.} Macro-F1 (mean$\pm$std) of the learned-graph
-model as the marker budget $M$ grows on the single-cell suites, against the full-feature
-linear baseline. Because $M$ is capped at the feature count, the largest rung uses
-\emph{every} feature as a marker, yet the mean still trails the linear pipeline by
-@@MB_RESID@@ points: the gap is architectural, not a token-budget limitation.}
-\label{tab:mbudget}
-\end{table}
-
-\begin{table}[t]
-\centering
-\resizebox{0.85\columnwidth}{!}{%
-@@TABLE2@@}
-\caption{\textbf{Parameter reduction.} One shared block versus $K$ independent layers at
-matched width: an exact $K\times$ reduction, present before any training.}
-\label{tab:param}
-\end{table}
-
-\begin{table}[t]
-\centering
-\resizebox{\columnwidth}{!}{%
-@@TABLE3@@}
-\caption{\textbf{Marker-token budget.} Macro-F1 (mean$\pm$std over @@NSEEDS@@ seeds) as
-the marker budget $M$ shrinks from 256 to 16. A few dozen to a few hundred tokens recover
-most of the full-gene accuracy. Bottom row: mean over all @@N_TOTAL@@ datasets.}
-\label{tab:token}
-\end{table}
-
 \section{Dataset Details}
 \label{app:data}
 We use $@@N_SC@@$ genomap single-cell datasets \cite{islam2023cartography} converted to
