@@ -171,7 +171,8 @@ def _fit_eval(Xs_full, y, tr, va, te, cfg, F, K, device, inter="auto", bio_op=No
     # co-expression / random graph built on the train split.
     _want_init = getattr(cfg, "bio_learned_graph", False) and getattr(cfg, "bio_learned_init", "random") == "bio"
     _want_fuse = getattr(cfg, "bio_learned_graph", False) and getattr(cfg, "bio_learned_fuse", False)
-    if _want_init or _want_fuse:
+    _want_anchor = getattr(cfg, "bio_learned_graph", False) and getattr(cfg, "bio_learned_anchor", False)
+    if _want_init or _want_fuse or _want_anchor:
         op = bio_op
         if op is None:
             from .interaction import build_interaction_v2
@@ -186,6 +187,9 @@ def _fit_eval(Xs_full, y, tr, va, te, cfg, F, K, device, inter="auto", bio_op=No
             if _want_init:
                 applied = model.init_gene_embed_from_operator(opt)
                 print(f"  [learned-bio] gene_embed {'warm-started' if applied else 'FALLBACK random init (degenerate graph)'}", flush=True)
+            if _want_anchor:
+                anch = model.set_bio_anchor(opt)
+                print(f"  [learned-anchor] bio-graph anchor {'installed (lam0=%.2f, annealed->0)' % float(getattr(cfg,'bio_anchor_lambda',0.5)) if anch else 'DISABLED (degenerate graph) -> plain learned'}", flush=True)
             if _want_fuse:
                 clean = torch.nan_to_num(opt.float(), nan=0.0, posinf=0.0, neginf=0.0)
                 if float(clean.abs().sum()) > 0:
@@ -236,6 +240,7 @@ def _fit_eval(Xs_full, y, tr, va, te, cfg, F, K, device, inter="auto", bio_op=No
                 break
     if best_state is not None:
         model.load_state_dict(best_state)
+    model._val_f1 = 100.0 * float(best_f1)          # best validation macro-F1 (for honest config selection)
 
     yt, yp = evaluate(model, dl_te, device, _DTYPES)[HEAD]
     return yt, yp, model

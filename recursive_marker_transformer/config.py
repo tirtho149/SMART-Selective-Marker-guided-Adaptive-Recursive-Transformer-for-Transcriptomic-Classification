@@ -134,6 +134,23 @@ class RMTConfig:
                                                  # graph comes from biology AND is learned.
     bio_fuse_source: str = "coexpr"              # which biological graph to fuse: "coexpr" |
                                                  # "random" (degree-matched control) | "reactome"
+    # ANCHORED warm-start: keep the learned graph near the biological graph EARLY, then
+    # let go. Adds an annealed Frobenius penalty ||A_learned - A_bio||^2 (computed in
+    # low rank) so the bio warm-start is not immediately overwritten by the task gradient
+    # -- the fix for "learned_bio matches random-init learned within noise". lambda decays
+    # linearly to 0 over training; the bio init is also given a larger footprint than the
+    # random baseline (bio_init_scale vs bio_init_rand). Degenerate (NaN) graphs disable
+    # the anchor and fall back to the plain random-init learned graph.
+    bio_learned_anchor: bool = False             # enable the annealed bio-graph anchor penalty
+    bio_anchor_lambda: float = 0.5               # lambda_0; annealed toward lambda_0*floor over epochs
+    bio_anchor_floor: float = 0.0                # persistent fraction of lambda_0 kept at end of
+                                                 # training (0 = fully release biology; >0 = keep a
+                                                 # standing pull so a genuinely-useful bio graph
+                                                 # survives to convergence)
+    bio_anchor_rank: int = 16                    # rank of the stored bio target factor B (A_bio=BB^T)
+    bio_anchor_source: str = "coexpr"            # biological graph to anchor to: "coexpr" | "reactome"
+    bio_init_scale: float = 0.05                 # magnitude of the biological init component
+    bio_init_rand: float = 0.005                 # magnitude of the matched random init component
 
     # ---- pathway-hierarchy attention bias (Reactome pathway->pathway graph) ----
     pathway_attn_bias: bool = False              # bias self-attention so a pathway

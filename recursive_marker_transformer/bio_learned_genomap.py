@@ -109,6 +109,24 @@ def _cfg(mode: str, K: int, seed: int, epochs: int, n_markers: int = 128) -> RMT
         cfg.bio_learned_graph = True; cfg.bio_learned_rank = 16
         cfg.bio_prop_lambda_init = 0.2; cfg.bio_prop_hops = 1
         cfg.bio_learned_init = "bio"
+        cfg.bio_init_scale = 0.01; cfg.bio_init_rand = 0.01   # original weak warm-start (unchanged)
+    elif mode == "learned_anchor":
+        # learned graph, warm-started from biology AND held near it early by an annealed
+        # ||A_learned - A_bio||^2 penalty (lambda: 0.5 -> 0 over training), with a larger
+        # biological init footprint. The fix for "learned_bio == random-init learned":
+        # keeps the warm-start from being overwritten before it can shape marker choice.
+        cfg.bio_learned_graph = True; cfg.bio_learned_rank = 16
+        cfg.bio_prop_lambda_init = 0.2; cfg.bio_prop_hops = 1
+        cfg.bio_learned_init = "bio"
+        cfg.bio_learned_anchor = True; cfg.bio_anchor_lambda = 0.5; cfg.bio_anchor_rank = 16
+        cfg.bio_init_scale = 0.05; cfg.bio_init_rand = 0.005
+    elif mode == "learned_bigbio":
+        # ABLATION: larger biological init footprint (0.05 vs 0.005) but NO anchor penalty.
+        # Isolates whether any learned_anchor gain is the anchor or merely a stronger init.
+        cfg.bio_learned_graph = True; cfg.bio_learned_rank = 16
+        cfg.bio_prop_lambda_init = 0.2; cfg.bio_prop_hops = 1
+        cfg.bio_learned_init = "bio"
+        cfg.bio_init_scale = 0.05; cfg.bio_init_rand = 0.005
     elif mode == "learned_fused":
         # graph comes from BIOLOGY + LEARNING: co-expression interaction matrix kept as a
         # persistent, learnably-gated propagation term alongside the learned graph.
@@ -124,19 +142,23 @@ def _cfg(mode: str, K: int, seed: int, epochs: int, n_markers: int = 128) -> RMT
     return cfg
 
 
-def run_cell(X, y, dataset, mode, K, seed, epochs, device, n_markers=128):
+def run_cell(X, y, dataset, mode, K, seed, epochs, device, n_markers=128, overrides=None):
     F, C = X.shape[1], int(y.max() + 1)
     torch.manual_seed(seed); np.random.seed(seed)
     tr, va, te = _make_splits(y, None, seed)
     cfg = _cfg(mode, K, seed, epochs, n_markers=n_markers); cfg.n_markers = min(cfg.n_markers, F)
+    for k, v in (overrides or {}).items():        # tuning-sweep hyperparameter overrides
+        setattr(cfg, k, v)
     yt, yp, model = _fit_eval(X.astype(np.float32), y, tr, va, te, cfg, F, C, device)
     out = {"dataset": dataset, "mode": mode, "K": K, "seed": seed, "n_markers": cfg.n_markers,
            "test_macro_f1": 100 * f1_score(yt, yp, average="macro"),
            "test_accuracy": 100 * accuracy_score(yt, yp),
+           "val_macro_f1": getattr(model, "_val_f1", None),   # for validation-based config selection
            "n_features": F, "n_classes": C, "n_samples": int(len(y))}
-    if mode in ("learned", "learned_bio", "learned_fused", "learned_fused_rand"):
+    if mode in ("learned", "learned_bio", "learned_anchor", "learned_bigbio", "learned_fused", "learned_fused_rand"):
         with torch.no_grad():
             out["learned_lambda"] = float(torch.sigmoid(model.bio_prop_logit))
+            out["bio_anchor_have"] = bool(getattr(model, "_bio_anchor_have", False))
             if hasattr(model, "bio_fuse_gate"):
                 out["fuse_gate"] = float(torch.sigmoid(model.bio_fuse_gate))
     return out
@@ -153,7 +175,17 @@ def main():
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--out", type=Path, default=ROOT / "results_learned_genomap")
     ap.add_argument("--force", action="store_true")
+    # anchor tuning overrides (applied to any anchor mode); None = leave mode default
+    ap.add_argument("--anchor_lambda", type=float, default=None)
+    ap.add_argument("--anchor_floor", type=float, default=None)
+    ap.add_argument("--anchor_rank", type=int, default=None)
+    ap.add_argument("--init_scale", type=float, default=None)
     args = ap.parse_args()
+    overrides = {}
+    if args.anchor_lambda is not None: overrides["bio_anchor_lambda"] = args.anchor_lambda
+    if args.anchor_floor is not None: overrides["bio_anchor_floor"] = args.anchor_floor
+    if args.anchor_rank is not None: overrides["bio_anchor_rank"] = args.anchor_rank
+    if args.init_scale is not None: overrides["bio_init_scale"] = args.init_scale
     device = resolve_device(args.device)
     X, y = load_genomap(args.dataset)
     out_dir = args.out / args.dataset; out_dir.mkdir(parents=True, exist_ok=True)
@@ -167,7 +199,7 @@ def main():
                 summary.append(json.loads(p.read_text())); continue
             print(f"\n##### genomap {args.dataset} mode={mode} seed={seed} #####", flush=True)
             r = run_cell(X, y, args.dataset, mode, args.K, seed, args.epochs, device,
-                         n_markers=args.n_markers)
+                         n_markers=args.n_markers, overrides=overrides)
             p.write_text(json.dumps(r, indent=1))
             print(f"  [{mode} s{seed}] F1={r['test_macro_f1']:.2f} acc={r['test_accuracy']:.2f}"
                   + (f" lam={r.get('learned_lambda'):.3f}" if "learned_lambda" in r else ""),

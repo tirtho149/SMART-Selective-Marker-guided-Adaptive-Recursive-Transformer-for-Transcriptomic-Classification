@@ -147,6 +147,17 @@ class RecursiveMarkerTransformer(nn.Module):
         self._bio_fuse = bool(getattr(cfg, "bio_learned_fuse", False))
         if self._bio_learned and self._bio_fuse:
             self.bio_fuse_gate = nn.Parameter(torch.tensor([-1.0]))
+        # ANCHORED warm-start: an annealed penalty pulling the learned graph toward the
+        # biological graph so the warm-start survives past initialisation. We store a
+        # low-rank normalised factor B (G x rb) with A_bio ~= B B^T; the penalty is the
+        # Frobenius distance ||norm(E)norm(E)^T - B B^T||^2, evaluated in r x rb space.
+        self._bio_anchor = bool(getattr(cfg, "bio_learned_anchor", False))
+        self._bio_anchor_have = False
+        self._anneal_progress = 0.0
+        if self._bio_learned and self._bio_anchor:
+            rb = int(getattr(cfg, "bio_anchor_rank", 16))
+            self.register_buffer("bio_anchor_factor", torch.zeros(n_genes, rb),
+                                 persistent=False)
 
     def set_gene_variance(self, variance: torch.Tensor) -> None:
         self.gene_variance.copy_(variance.to(self.gene_variance))
@@ -187,10 +198,70 @@ class RecursiveMarkerTransformer(nn.Module):
             E = evecs[:, idx] * evals[idx].clamp(min=0.0).sqrt().unsqueeze(0)
             if not torch.isfinite(E).all() or float(E.std()) < 1e-8:
                 return False
-            E = E / (E.std() + 1e-6) * 0.01                       # biological structure
-            E = E + torch.randn_like(E) * 0.01                    # matched random baseline
+            # Give the biological structure a larger footprint than the matched random
+            # baseline so the warm-start actually shapes the initial graph (the old code
+            # used equal 0.01/0.01, which made bio-init nearly indistinguishable from
+            # random). Scales are configurable; defaults 0.05 (bio) vs 0.005 (random).
+            s_bio = float(getattr(self.cfg, "bio_init_scale", 0.05))
+            s_rand = float(getattr(self.cfg, "bio_init_rand", 0.005))
+            E = E / (E.std() + 1e-6) * s_bio                      # biological structure
+            E = E + torch.randn_like(E) * s_rand                  # matched random baseline
             self.gene_embed.copy_(E.to(self.gene_embed))
             return True
+
+    def set_bio_anchor(self, operator: torch.Tensor) -> bool:
+        """Store a low-rank normalised factor B of the biological graph so the anchor
+        penalty can pull the learned cosine graph toward A_bio = B B^T. Rejects a
+        degenerate (NaN / empty) operator, disabling the anchor for that dataset (it then
+        behaves as the plain random-init learned graph). Returns True if installed."""
+        if not (self._bio_learned and self._bio_anchor):
+            return False
+        with torch.no_grad():
+            W = operator.detach().cpu().float()
+            if W.dim() != 2 or W.shape[0] != W.shape[1] or W.shape[0] != self.gene_embed.shape[0]:
+                return False
+            W = torch.nan_to_num(W, nan=0.0, posinf=0.0, neginf=0.0)
+            if float(W.abs().sum()) == 0.0:
+                return False
+            W = 0.5 * (W + W.t())
+            rb = int(self.bio_anchor_factor.shape[1])
+            evals, evecs = torch.linalg.eigh(W)
+            order = torch.argsort(evals, descending=True)
+            idx = order[1:rb + 1] if order.numel() > rb else order[:rb]   # drop trivial mode
+            B = evecs[:, idx] * evals[idx].clamp(min=0.0).sqrt().unsqueeze(0)
+            if not torch.isfinite(B).all() or float(B.std()) < 1e-8:
+                return False
+            B = nn.functional.normalize(B, dim=1)                 # so A_bio=BB^T is a cosine graph
+            self.bio_anchor_factor.copy_(B.to(self.bio_anchor_factor))
+            self._bio_anchor_have = True
+            return True
+
+    def bio_anchor_loss(self) -> torch.Tensor:
+        """Annealed Frobenius distance between the learned cosine graph A=norm(E)norm(E)^T
+        and the biological target A_bio=B B^T, computed in low rank (never materialising
+        the G x G matrices):  ||A - A_bio||_F^2 = ||E^T E||^2 - 2||E^T B||^2 + ||B^T B||^2.
+        Weight decays linearly to 0 over training so biology guides early, data decides
+        late. Zero unless an anchor factor was installed for this dataset."""
+        # bio_prop_logit is always registered; gene_embed exists ONLY when the learned
+        # graph is enabled, so derive the device from the former and guard before touching
+        # gene_embed (models without the learned graph, e.g. pathway P-NET, have none).
+        dev = self.bio_prop_logit.device
+        if not (getattr(self, "_bio_anchor", False) and getattr(self, "_bio_anchor_have", False)
+                and hasattr(self, "gene_embed")):
+            return torch.zeros((), device=dev)
+        lam0 = float(getattr(self.cfg, "bio_anchor_lambda", 0.5))
+        floor = float(getattr(self.cfg, "bio_anchor_floor", 0.0))
+        # decay from lam0 toward lam0*floor; floor>0 keeps a standing pull to convergence
+        lam = lam0 * (floor + (1.0 - floor) * (1.0 - self._anneal_progress))
+        if lam <= 0.0:
+            return torch.zeros((), device=dev)
+        En = nn.functional.normalize(self.gene_embed, dim=1)      # (G, r)
+        B = self.bio_anchor_factor.to(dev)                        # (G, rb)
+        ete = En.t() @ En                                         # (r, r)
+        etb = En.t() @ B                                          # (r, rb)
+        btb = B.t() @ B                                           # (rb, rb)
+        frob = (ete * ete).sum() - 2.0 * (etb * etb).sum() + (btb * btb).sum()
+        return lam * frob.clamp(min=0.0)
 
     def set_gene_interaction(self, centrality: torch.Tensor) -> None:
         """Install the genomap gene-gene-interaction centrality prior (N,)."""
@@ -245,6 +316,7 @@ class RecursiveMarkerTransformer(nn.Module):
         warm-start prior that hands off to the data-driven router), else stays at
         beta_0."""
         progress = min(1.0, max(0.0, float(progress)))
+        self._anneal_progress = progress                        # drives the bio-anchor decay
         if getattr(self.cfg, "anneal_markers", True) and \
                 self.selector is not None and hasattr(self.selector, "set_progress"):
             self.selector.set_progress(progress)
@@ -372,6 +444,7 @@ class RecursiveMarkerTransformer(nn.Module):
             "router_z_loss": route_info["z_loss"],
             "router_balance_loss": route_info["balance_loss"],
             "bio_lap_loss": bio_lap,                             # Fix E penalty
+            "bio_anchor_loss": self.bio_anchor_loss(),           # annealed warm-start anchor
         }
 
     def transformer_param_count(self) -> int:

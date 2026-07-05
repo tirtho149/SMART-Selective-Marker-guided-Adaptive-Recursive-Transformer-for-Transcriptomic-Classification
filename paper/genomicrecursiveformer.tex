@@ -614,6 +614,47 @@ routing when the graph is \emph{learned from data} rather than imposed rigidly a
 supplying that graph as a warm-start, rather than a frozen prior, is what removes the
 collapse of the fixed-biology setting.
 
+\paragraph{Does a stronger biological warm-start help?}
+A natural worry is that the warm-start looks neutral only because it is too weak -- the
+biological structure is seeded at initialisation and then immediately overwritten by the
+task gradient. We test this directly (Table~\ref{tab:anchor}) by making the warm-start
+progressively harder to forget: (i) a larger biological init footprint, and (ii) an
+\emph{annealed anchor} penalty $\lambda(t)\,\lVert A_{\text{learned}}-A_{\text{bio}}\rVert_F^2$
+that holds the learned cosine graph near the co-expression graph early in training and
+relaxes to zero as the data takes over (degenerate NaN graphs disable the anchor and fall
+back to random init). Even so, even with the annealed anchor the biological warm-start (62.5\%) trails random initialisation (72.1\%) by $-9.6$ points, so the data-driven graph is genuinely a better solution than the biological one for this task. This is the same conclusion the fixed
+prior and warm-start reach, now stress-tested: the value is in \emph{learning} the graph,
+and an explicit biological graph -- however forcefully injected -- does not improve on what
+end-to-end training already recovers.
+
+\begin{table}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lcccc}
+\toprule
+Dataset & Learned (random init) & $+$ bio warm-start & $+$ stronger init & $+$ annealed anchor \\
+\midrule
+Baron & 82.3\,$\pm$\,2.2 & 80.9\,$\pm$\,3.8 & 81.6\,$\pm$\,1.8 & 66.8\,$\pm$\,6.2 \\
+Lung & 79.5\,$\pm$\,1.4 & 79.8\,$\pm$\,0.8 & 78.4\,$\pm$\,0.6 & 70.0\,$\pm$\,2.7 \\
+Muraro & 74.5\,$\pm$\,5.4 & 75.3\,$\pm$\,4.9 & 76.6\,$\pm$\,5.4 & 75.9\,$\pm$\,9.3 \\
+Oeso. & 69.3\,$\pm$\,0.7 & 71.1\,$\pm$\,0.9 & 70.2\,$\pm$\,1.0 & 57.4\,$\pm$\,2.6 \\
+Seger. & 74.0\,$\pm$\,5.3 & 69.9\,$\pm$\,7.4 & 74.5\,$\pm$\,5.7 & 53.0\,$\pm$\,5.0 \\
+Spleen & 59.0\,$\pm$\,0.2 & 59.1\,$\pm$\,0.7 & 58.7\,$\pm$\,1.2 & 52.5\,$\pm$\,1.2 \\
+T-cell & 68.9\,$\pm$\,0.7 & 69.1\,$\pm$\,1.1 & 69.0\,$\pm$\,0.6 & 54.7\,$\pm$\,2.4 \\
+Xin & 69.2\,$\pm$\,5.0 & 67.2\,$\pm$\,8.4 & 68.5\,$\pm$\,6.1 & 69.5\,$\pm$\,7.7 \\
+\midrule
+\textbf{Mean macro-F1} & \textbf{72.1} & \textbf{71.5} & \textbf{72.2} & \textbf{62.5} \\
+\quad $\Delta$ vs.\ random & $+0.0$ & $-0.6$ & $+0.1$ & $-9.6$ \\
+\bottomrule
+\end{tabular}}
+\caption{\textbf{Stress-testing the biological warm-start} (single-cell macro-F1,
+mean$\pm$std). From a randomly-initialised learned graph we add a biological warm-start,
+then a stronger init, then an annealed anchor $\lambda(t)\lVert A_{\text{learned}}-A_{\text{bio}}\rVert_F^2$
+that keeps the graph near biology early. The $\Delta$ row is the mean gain over random
+init; forcing biology in more strongly does not beat learning the graph from data.}
+\label{tab:anchor}
+\end{table}
+
 \begin{table*}[t]
 \centering
 \resizebox{\textwidth}{!}{%
@@ -741,9 +782,17 @@ instead (i) the mechanistic result that \emph{learned gene-graph smoothing} -- n
 routing, not fixed priors -- is what drives the accuracy a compact marker model can reach
 (Table~\ref{tab:confound}); (ii) parameter and token efficiency (Tables~\ref{tab:param},
 \ref{tab:token}); and (iii) an interpretable marker panel and compute-allocated recursion
-depth that the classical baselines do not provide. Closing the accuracy gap to a
-full-feature linear model -- e.g.\ with a larger marker budget or a hybrid linear head --
-is a clear direction the baselines make measurable.
+depth that the classical baselines do not provide. We also \emph{measure} the obvious
+lever for closing the gap -- simply giving SMART more marker tokens
+(Table~\ref{tab:mbudget}). Growing the learned-graph budget from $M{=}$128 to
+$M{=}$2048 (at which point the marker set is the full feature vector on every
+single-cell suite) lifts mean macro-F1 only from 70.8\% to 71.6\%
+($+$0.8 points), leaving a 11.1-point residual to the full-feature linear
+model (82.6\%). The gap is therefore \emph{not} a compression artifact that a larger
+token budget removes: even when every feature is available as a marker, the aggregate-then-
+recurse bottleneck and the softmax marker read-out discard linearly-decodable signal that
+the linear pipeline keeps. Closing it needs an architectural change -- a hybrid linear
+residual head, or a less lossy marker read-out -- not merely a bigger budget.
 
 \paragraph{On gene-vocabulary foundation models.}
 A natural question is how SMART compares to pretrained single-cell foundation models such
@@ -753,10 +802,37 @@ single-cell suites used here are distributed as anonymised, image-featurised mat
 \emph{without} gene identifiers, so a gene-vocabulary model cannot be instantiated on
 them -- a property of the benchmark, not of any method (the classical baselines above,
 which operate on the feature matrix directly, are the applicable strong comparison). The
-gene-symbol interface is available only on the multi-omics cohorts, where a bulk sample
-fed to a single-cell model is out-of-distribution; we therefore treat foundation-model
-comparison as most meaningful on raw, named-gene single-cell data, which the genomap
-preparation does not expose, and flag it as the natural next benchmark for SMART.
+gene-symbol interface \emph{is} available on the multi-omics P-NET cohorts, so we run both
+foundation models there (Table~\ref{tab:fm}), mapping each cohort's HUGO symbols to the
+model vocabulary and feeding a per-gene mutation/copy-number alteration burden on the
+\emph{same} stratified splits as SMART. This is the honest, if imperfect, comparison the
+benchmark allows: bulk DNA-alteration input is out-of-distribution for a single-cell-RNA
+foundation model, and the numbers should be read in that light. On these cohorts,
+SMART matches the far larger, cancer-pretrained Geneformer on mean macro-F1 (57.1\% vs.\ 57.3\%, within seed-to-seed noise) at a tiny fraction of the parameters and while natively consuming \emph{both} the mutation and copy-number modalities, and it is far ahead of scGPT (38.7\%); the gene-vocabulary models are, moreover, out-of-distribution on bulk DNA-alteration input. We therefore treat a foundation-model comparison on raw, named-gene
+single-cell data -- which the genomap preparation does not expose -- as the natural next
+benchmark for SMART.
+
+\begin{table}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lccc}
+\toprule
+Cohort & SMART (mut+CNV) & Geneformer & scGPT \\
+\midrule
+Prostate & 78.2\,$\pm$\,2.2 & 78.2\,$\pm$\,3.3 & 40.1\,$\pm$\,0.0 \\
+BLCA & 40.9\,$\pm$\,1.9 & 47.7\,$\pm$\,3.7 & 40.4\,$\pm$\,0.0 \\
+STAD & 52.2\,$\pm$\,6.8 & 46.1\,$\pm$\,5.5 & 35.7\,$\pm$\,0.0 \\
+\midrule
+\textbf{Mean} & \textbf{57.1} & \textbf{57.3} & \textbf{38.7} \\
+\bottomrule
+\end{tabular}}
+\caption{\textbf{SMART vs.\ gene-vocabulary foundation models} on the P-NET cohorts
+(macro-F1, mean$\pm$std over seeds). Geneformer (fine-tuned) and scGPT (frozen embedding
+$+$ logistic probe) are mapped onto each cohort's HUGO gene symbols with a per-gene
+mutation/copy-number alteration burden, on the same splits as SMART. Bulk DNA-alteration
+input is out-of-distribution for these single-cell-RNA models.}
+\label{tab:fm}
+\end{table}
 
 \begin{table}[t]
 \centering
@@ -787,6 +863,35 @@ Dataset & Linear & Random Forest & Nearest Centroid & SMART \\
 on the same 11 stratified splits: a linear ANOVA$\to$PCA$\to$logistic pipeline, a Random
 Forest, and a Nearest-Centroid classifier.}
 \label{tab:baselines}
+\end{table}
+
+\begin{table}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lcccccc}
+\toprule
+Dataset & $M{=}128$ & $M{=}256$ & $M{=}512$ & $M{=}1024$ & $M{=}2048$ & Linear (all feat.) \\
+\midrule
+Baron & 79.1\,$\pm$\,2.8 & 78.1\,$\pm$\,1.4 & 79.6\,$\pm$\,4.4 & 82.6\,$\pm$\,2.0 & 80.4\,$\pm$\,2.1 & 91.1\,$\pm$\,2.0 \\
+Lung & 79.1\,$\pm$\,1.2 & 80.2\,$\pm$\,0.8 & 79.8\,$\pm$\,1.9 & 81.3\,$\pm$\,2.0 & 81.1\,$\pm$\,1.9 & 74.8\,$\pm$\,0.2 \\
+Muraro & 75.3\,$\pm$\,6.4 & 72.4\,$\pm$\,2.7 & 68.3\,$\pm$\,3.3 & 75.7\,$\pm$\,4.5 & 73.8\,$\pm$\,6.0 & 95.7\,$\pm$\,2.2 \\
+Oeso. & 69.6\,$\pm$\,1.4 & 69.8\,$\pm$\,0.6 & 71.5\,$\pm$\,1.6 & 73.6\,$\pm$\,0.5 & 72.2\,$\pm$\,1.6 & 69.5\,$\pm$\,1.1 \\
+Seger. & 71.4\,$\pm$\,5.3 & 70.3\,$\pm$\,4.1 & 73.8\,$\pm$\,5.4 & 69.4\,$\pm$\,14.7 & 68.3\,$\pm$\,3.3 & 89.5\,$\pm$\,5.0 \\
+Spleen & 58.2\,$\pm$\,0.9 & 58.6\,$\pm$\,1.6 & 59.9\,$\pm$\,0.8 & 61.1\,$\pm$\,2.3 & 61.6\,$\pm$\,4.0 & 64.7\,$\pm$\,0.1 \\
+T-cell & 68.9\,$\pm$\,1.0 & 69.9\,$\pm$\,0.3 & 71.5\,$\pm$\,0.4 & 71.8\,$\pm$\,2.3 & 73.0\,$\pm$\,0.3 & 78.1\,$\pm$\,0.3 \\
+Xin & 64.7\,$\pm$\,9.4 & 64.8\,$\pm$\,6.0 & 63.7\,$\pm$\,10.3 & 64.1\,$\pm$\,0.6 & 62.1\,$\pm$\,2.8 & 97.4\,$\pm$\,0.6 \\
+\midrule
+\textbf{Mean macro-F1} & \textbf{70.8} & \textbf{70.5} & \textbf{71.0} & \textbf{72.5} & \textbf{71.6} & \textbf{82.6} \\
+\bottomrule
+\end{tabular}}
+\caption{\textbf{Marker-budget headroom.} Macro-F1 (mean$\pm$std) of the learned-graph
+model as the marker budget $M$ grows on the single-cell suites, against the full-feature
+linear baseline. $M{=}128$ is the headline learned model (10 seeds); larger
+budgets are extended runs (3 seeds). Because $M$ is capped at the feature count,
+the largest rung uses \emph{every} feature as a marker, yet the mean still trails the
+linear pipeline by 11.1 points: the gap is architectural, not a token-budget
+limitation.}
+\label{tab:mbudget}
 \end{table}
 
 \subsection{The Vanilla-to-MoR Ladder Preserves Accuracy}
@@ -839,6 +944,53 @@ agnostic) in the last two rows. Accuracy is flat across the ladder while weight 
 removes the $4\times$ parameter cost and adaptive routing
 $\sim$38\% of the FLOPs.}
 \label{tab:ladder}
+\end{table}
+
+Putting the two effects together gives the headline picture (Table~\ref{tab:effacc}):
+against a vanilla transformer, SMART -- the MoR architecture \emph{with} the learned
+routing graph -- uses $4\times$ fewer unique parameters and
+$\sim$38\% fewer FLOPs while \emph{raising} mean macro-F1 from 56.8\% to
+66.7\% ($+$9.8 points), and it is more accurate on nearly every dataset,
+not just in the mean. Lower computation and higher accuracy are therefore achieved together:
+the efficiency comes from weight-shared adaptive recursion and the accuracy from routing on
+the learned gene graph.
+
+\begin{table}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lccc}
+\toprule
+Dataset & Vanilla & SMART & $\Delta$F1 \\
+& \footnotesize{$4\times$ params, $1.00\times$} & \footnotesize{$1\times$, $0.62\times$} & \\
+\midrule
+\multicolumn{4}{l}{\emph{Single-cell (genomap)}} \\
+\quad Baron & 62.5 & 79.1 & $+16.6$ \\
+\quad Lung & 70.4 & 79.1 & $+8.7$ \\
+\quad Muraro & 67.8 & 75.3 & $+7.5$ \\
+\quad Oeso. & 55.8 & 69.6 & $+13.8$ \\
+\quad Seger. & 58.1 & 71.4 & $+13.3$ \\
+\quad Spleen & 48.4 & 58.2 & $+9.8$ \\
+\quad T-cell & 48.9 & 68.9 & $+20.0$ \\
+\quad Xin & 65.9 & 64.7 & $-1.3$ \\
+\midrule
+\multicolumn{4}{l}{\emph{Multi-omics (Reactome/P-NET)}} \\
+\quad Prostate & 54.5 & 66.0 & $+11.5$ \\
+\quad BLCA & 40.0 & 49.2 & $+9.2$ \\
+\quad STAD & 53.0 & 52.0 & $-1.1$ \\
+\midrule
+\textbf{Mean macro-F1} & \textbf{56.8} & \textbf{66.7} & \textbf{$+9.8$} \\
+\midrule
+Params (unique) & $4\times$ & $\mathbf{1\times}$ & \\
+FLOPs (rel.) & $1.00\times$ & $\mathbf{0.62\times}$ & \\
+Compute saved & -- & \textbf{38\%} & \\
+\bottomrule
+\end{tabular}}
+\caption{\textbf{Lower compute, higher accuracy -- per dataset.} Macro-F1 of a vanilla
+transformer ($K$ independent layers, $4\times$ params, $1.00\times$ FLOPs)
+versus SMART (weight-shared MoR recursion $+$ learned routing graph, $1\times$ params,
+$\sim$38\% fewer FLOPs). SMART is cheaper on both axes \emph{and} more accurate
+($\Delta$F1 column) on nearly every single-cell and multi-omics dataset.}
+\label{tab:effacc}
 \end{table}
 
 \subsection{Parameter Efficiency Is Architectural}

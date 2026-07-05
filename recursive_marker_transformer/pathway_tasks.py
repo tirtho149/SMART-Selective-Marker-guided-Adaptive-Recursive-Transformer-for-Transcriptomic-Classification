@@ -164,7 +164,7 @@ def _fit_eval(task, coh, X, y, tr, va, te, cfg, G, K, dtypes, device, init_block
     if best_state is not None:
         model.load_state_dict(best_state)
     yt, yp = evaluate(model, dl_te, device, dtypes)[task]
-    return yt, yp, model, dl_te
+    return yt, yp, model, dl_te, best_f1
 
 
 def run(task, channel_set, base, out_dir, device, min_genes=5):
@@ -198,7 +198,7 @@ def run(task, channel_set, base, out_dir, device, min_genes=5):
           f"(train {len(tr)}, val {len(va)}, test {len(te)}) device={device} ##########",
           flush=True)
 
-    yt, yp, model, dl_te = _fit_eval(task, coh, X, y, tr, va, te, cfg, G, K, dtypes, device)
+    yt, yp, model, dl_te, val_f1 = _fit_eval(task, coh, X, y, tr, va, te, cfg, G, K, dtypes, device)
 
     mean_slot_depth, _midx, active = _depth_stats(model, dl_te, device, cfg)
 
@@ -222,6 +222,7 @@ def run(task, channel_set, base, out_dir, device, min_genes=5):
         "config": cfg.as_dict(),
         "accuracy": float(accuracy_score(yt, yp)),
         "macro_f1": float(f1_score(yt, yp, average="macro")),
+        "val_macro_f1": float(val_f1),                       # for validation-based arm selection
         "weighted_f1": float(f1_score(yt, yp, average="weighted")),
         "per_class": classification_report(yt, yp, zero_division=0, output_dict=True),
     }

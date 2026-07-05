@@ -80,14 +80,18 @@ class RMTLoss(nn.Module):
         bio_lap = out.get("bio_lap_loss", torch.zeros((), device=ident.device))
         bio = float(getattr(self.cfg, "bio_depth_laplacian", 0.0)) * bio_lap
 
+        # Anchored warm-start: already annealed + weighted inside the model.
+        bio_anchor = out.get("bio_anchor_loss", torch.zeros((), device=ident.device))
+
         total = (task
                  + self.cfg.lambda_marker * marker
                  + self.cfg.gamma_diversity * diversity
                  + self.cfg.beta_compression * compression
                  + router
-                 + bio)
+                 + bio
+                 + bio_anchor)
         return {
             "total": total, "task": task, "marker": marker,
             "diversity": diversity, "compression": compression, "router": router,
-            "bio": bio,
+            "bio": bio, "bio_anchor": bio_anchor,
         }
