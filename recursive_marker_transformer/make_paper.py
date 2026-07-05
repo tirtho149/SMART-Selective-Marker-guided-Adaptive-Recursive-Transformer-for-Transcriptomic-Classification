@@ -1133,6 +1133,87 @@ regenerate from a single command.
 \end{abstract}
 
 \section{Introduction}
+\begin{figure*}[t]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  node distance=10mm and 9mm,
+  stage/.style={rounded corners=3pt, draw=boxedge, line width=0.6pt, fill=white,
+                text width=21mm, minimum height=15mm, align=center, inner sep=3pt},
+  flow/.style={-{Stealth[length=2.6mm]}, line width=0.9pt, draw=boxedge},
+  loop/.style={-{Stealth[length=2.6mm]}, line width=1.1pt, draw=accentB},
+  panel/.style={rounded corners=6pt, inner xsep=4.5mm, inner ysep=6.5mm},
+  ptab/.style={font=\footnotesize\bfseries, text=white, fill=#1,
+               rounded corners=2pt, inner sep=2.5pt},
+]
+\node[stage] (inp) {{\large\textcolor{accentA}{\faDna}}\\[2pt]\textbf{Expression}\\[1pt]{\scriptsize\textcolor{subcap}{$x\!\in\!\mathbb{R}^{B\times N}$}}};
+\node[stage, right=of inp] (emb) {{\large\textcolor{accentA}{\faProjectDiagram}}\\[2pt]\textbf{Gene Embedding}\\[1pt]{\scriptsize\textcolor{subcap}{identity $+$ value proj.}}};
+\node[stage, right=of emb] (router) {{\large\textcolor{accentA}{\faSearch}}\\[2pt]\textbf{Marker / Pathway Router}\\[1pt]{\scriptsize\textcolor{subcap}{$M$ slots or Reactome sets}}};
+\node[stage, right=of router] (mtok) {{\large\textcolor{accentA}{\faTags}}\\[2pt]\textbf{Marker / Pathway Tokens}\\[1pt]{\scriptsize\textcolor{subcap}{$\mathbf{C}\!\in\!\mathbb{R}^{B\times M\times d}$}}};
+\draw[flow] (inp) -- (emb);
+\draw[flow] (emb) -- (router);
+\draw[flow] (router) -- (mtok);
+
+\node[stage, below=38mm of inp] (shared) {{\large\textcolor{accentB}{\faRedo}}\\[2pt]\textbf{Shared Block}\\[1pt]{\scriptsize\textcolor{subcap}{$f_\theta$ applied $\times K$}}};
+\node[stage, right=of shared] (mor) {{\large\textcolor{accentB}{\faFilter}}\\[2pt]\textbf{MoR Depth Router}\\[1pt]{\scriptsize\textcolor{subcap}{funnel; logit $+\,\beta_t\pi_m$}}};
+\node[stage, right=of mor] (pool) {{\large\textcolor{accentB}{\faCompress}}\\[2pt]\textbf{Mean-pool}\\[1pt]{\scriptsize\textcolor{subcap}{over $M$ markers}}};
+\node[stage, right=of pool] (clf) {{\large\textcolor{accentB}{\faChartBar}}\\[2pt]\textbf{Classifier}\\[1pt]{\scriptsize\textcolor{subcap}{linear head}}};
+\node[stage, right=of clf] (coh) {{\large\textcolor{accentB}{\faSitemap}}\\[2pt]\textbf{Phenotype}\\[1pt]{\tiny\textcolor{subcap}{8 genomap sets\\ + 3 P-NET cohorts}}};
+% biology-informed router: genomap gene-gene interaction graph -> centrality prior.
+% Label-free prior built from expression alone, so it has NO incoming arrow; its
+% centrality prior pi is consumed by the MoR Depth Router (annealed into the logit).
+\node[stage, right=of mtok, text width=22mm, draw=accentA, line width=1.4pt, fill=panelA] (gint) {{\large\textcolor{accentA}{\faProjectDiagram}}\\[1pt]\textbf{Gene--Gene Graph}\\[1pt]{\tiny\textcolor{subcap}{\textbf{learned} or fixed\\ (co-expr.\,/\,Reactome)}}};
+\node[ptab=accentA, anchor=south east, font=\tiny\bfseries] at ([yshift=0.5mm]gint.north east) {gene graph};
+\draw[flow] (shared) -- (mor);
+\draw[flow] (mor) -- (pool);
+\draw[flow] (pool) -- (clf);
+\draw[flow] (clf) -- (coh);
+% PRIMARY mechanism (our best result): the LEARNED gene graph smooths the input
+% expression before marker selection (denoising); curved dashed path back to the router.
+\draw[-{Stealth[length=3mm]}, draw=accentA, dashed, line width=1.3pt]
+  (gint.north) .. controls ++(0,9mm) and ++(0,9mm) .. (router.north);
+\node[font=\scriptsize\bfseries, text=accentA, fill=white, inner sep=1.2pt]
+  at ($(gint.north)!0.5!(router.north) + (0,8mm)$) {smooth $x$ (denoise)};
+% SECONDARY: the graph's centrality also primes the depth router (additive prior).
+\draw[-{Stealth[length=3mm]}, draw=accentA, dashed, line width=1.0pt, opacity=0.7]
+  (gint.south) -- ++(0,-7mm) -| (mor.north);
+\node[font=\scriptsize, text=accentA, fill=white, inner sep=1.2pt]
+  at ([yshift=-7mm]gint.south -| mor.north) {$+\,\beta_t\,\pi_m$ prime routing};
+
+\draw[loop] (shared.south east) .. controls ++(0,-9mm) and ++(0,-9mm) .. (shared.south west)
+  node[midway, below=0.5mm, font=\scriptsize\bfseries, text=accentB, align=center]
+  {$\times K$, weight-shared\\[-1pt]{\scriptsize\textcolor{subcap}{$+$ refinement gate}}};
+
+\draw[flow] (mtok.south) -- ++(0,-9mm) coordinate (cdrop) -| ([xshift=-8mm]shared.west) -- (shared.west);
+\node[font=\scriptsize, text=subcap, below, fill=white, inner sep=1pt] at ([xshift=-24mm]cdrop) {marker tokens};
+
+\begin{scope}[on background layer]
+\node[panel, fill=panelA, fit=(inp)(mtok)(gint)] (pA){};
+\node[panel, fill=panelB, fit=(shared)(coh)] (pB){};
+\end{scope}
+\node[ptab=accentA, anchor=west] at ([xshift=2mm]pA.north west)
+  {A\; $\cdot$\; Marker Selection (Q-Former router)};
+\node[ptab=accentB, anchor=west] at ([xshift=2mm]pB.north west)
+  {B\; $\cdot$\; Biology-Informed Recursive Routing \& Classification};
+
+\end{tikzpicture}%
+}
+\caption{\textbf{System overview.} \textbf{Panel A:} the expression vector is embedded
+gene-by-gene, then $M$ learnable query slots cross-attend over \emph{all} $N$ genes
+(temperature annealed soft$\to$peaked) to select interpretable marker tokens.
+\textbf{Panel B:} a \emph{single} weight-shared block $f_\theta$ is applied up to $K$
+times (loop-back arrow) with a per-marker refinement gate between passes; a
+Mixture-of-Recursions router funnels capacity so each marker gets an \emph{adaptive}
+depth $d_m$. \textbf{Learned gene-graph smoothing (our best result):} a gene-gene graph --
+either a \emph{fixed} co-expression / Reactome graph or, decisively, a \emph{learned}
+low-rank graph -- \emph{smooths} the input expression before marker selection (denoising,
+curved dashed arrow); a confound factorial shows this input smoothing, not the depth-router
+prior, is what helps. The learned graph is the win; the fixed prior does not beat a
+random-graph control. Tokens are mean-pooled and classified; the \emph{same}
+pipeline serves both single-cell and multi-omics data.}
+\label{fig:overview}
+\end{figure*}
+
 Single-cell RNA sequencing now profiles the expression of thousands of genes across
 millions of cells, and a wave of transformer \emph{foundation models}, scGPT
 \cite{cui2024scgpt}, Geneformer \cite{theodoris2023transfer}, scBERT
@@ -1702,24 +1783,7 @@ hundred interpretable tokens recover most of the full-gene accuracy (Table~\ref{
 while the soft-train / hard-eval router yields the recursion-depth ranking that
 fixed panels cannot provide.
 
-\begin{table}[t]
-\centering
-\resizebox{0.85\columnwidth}{!}{%
-@@TABLE2@@}
-\caption{\textbf{Parameter reduction.} One shared block versus $K$ independent layers at
-matched width: an exact $K\times$ reduction, present before any training.}
-\label{tab:param}
-\end{table}
 
-\begin{table}[t]
-\centering
-\resizebox{\columnwidth}{!}{%
-@@TABLE3@@}
-\caption{\textbf{Marker-token budget.} Macro-F1 (mean$\pm$std over @@NSEEDS@@ seeds) as
-the marker budget $M$ shrinks from 256 to 16. A few dozen to a few hundred tokens recover
-most of the full-gene accuracy. Bottom row: mean over all @@N_TOTAL@@ datasets.}
-\label{tab:token}
-\end{table}
 
 \subsection{The Priors Do Not Improve Uncertainty Either}
 Beyond point accuracy, a prior could still earn its place by making the model better
@@ -1812,86 +1876,25 @@ preparation.
 \bibliography{refs}
 
 \appendix
-\begin{figure*}[t]
+\begin{table}[t]
 \centering
-\resizebox{\linewidth}{!}{%
-\begin{tikzpicture}[
-  node distance=10mm and 9mm,
-  stage/.style={rounded corners=3pt, draw=boxedge, line width=0.6pt, fill=white,
-                text width=21mm, minimum height=15mm, align=center, inner sep=3pt},
-  flow/.style={-{Stealth[length=2.6mm]}, line width=0.9pt, draw=boxedge},
-  loop/.style={-{Stealth[length=2.6mm]}, line width=1.1pt, draw=accentB},
-  panel/.style={rounded corners=6pt, inner xsep=4.5mm, inner ysep=6.5mm},
-  ptab/.style={font=\footnotesize\bfseries, text=white, fill=#1,
-               rounded corners=2pt, inner sep=2.5pt},
-]
-\node[stage] (inp) {{\large\textcolor{accentA}{\faDna}}\\[2pt]\textbf{Expression}\\[1pt]{\scriptsize\textcolor{subcap}{$x\!\in\!\mathbb{R}^{B\times N}$}}};
-\node[stage, right=of inp] (emb) {{\large\textcolor{accentA}{\faProjectDiagram}}\\[2pt]\textbf{Gene Embedding}\\[1pt]{\scriptsize\textcolor{subcap}{identity $+$ value proj.}}};
-\node[stage, right=of emb] (router) {{\large\textcolor{accentA}{\faSearch}}\\[2pt]\textbf{Marker / Pathway Router}\\[1pt]{\scriptsize\textcolor{subcap}{$M$ slots or Reactome sets}}};
-\node[stage, right=of router] (mtok) {{\large\textcolor{accentA}{\faTags}}\\[2pt]\textbf{Marker / Pathway Tokens}\\[1pt]{\scriptsize\textcolor{subcap}{$\mathbf{C}\!\in\!\mathbb{R}^{B\times M\times d}$}}};
-\draw[flow] (inp) -- (emb);
-\draw[flow] (emb) -- (router);
-\draw[flow] (router) -- (mtok);
+\resizebox{0.85\columnwidth}{!}{%
+@@TABLE2@@}
+\caption{\textbf{Parameter reduction.} One shared block versus $K$ independent layers at
+matched width: an exact $K\times$ reduction, present before any training.}
+\label{tab:param}
+\end{table}
 
-\node[stage, below=38mm of inp] (shared) {{\large\textcolor{accentB}{\faRedo}}\\[2pt]\textbf{Shared Block}\\[1pt]{\scriptsize\textcolor{subcap}{$f_\theta$ applied $\times K$}}};
-\node[stage, right=of shared] (mor) {{\large\textcolor{accentB}{\faFilter}}\\[2pt]\textbf{MoR Depth Router}\\[1pt]{\scriptsize\textcolor{subcap}{funnel; logit $+\,\beta_t\pi_m$}}};
-\node[stage, right=of mor] (pool) {{\large\textcolor{accentB}{\faCompress}}\\[2pt]\textbf{Mean-pool}\\[1pt]{\scriptsize\textcolor{subcap}{over $M$ markers}}};
-\node[stage, right=of pool] (clf) {{\large\textcolor{accentB}{\faChartBar}}\\[2pt]\textbf{Classifier}\\[1pt]{\scriptsize\textcolor{subcap}{linear head}}};
-\node[stage, right=of clf] (coh) {{\large\textcolor{accentB}{\faSitemap}}\\[2pt]\textbf{Phenotype}\\[1pt]{\tiny\textcolor{subcap}{8 genomap sets\\ + 3 P-NET cohorts}}};
-% biology-informed router: genomap gene-gene interaction graph -> centrality prior.
-% Label-free prior built from expression alone, so it has NO incoming arrow; its
-% centrality prior pi is consumed by the MoR Depth Router (annealed into the logit).
-\node[stage, right=of mtok, text width=22mm, draw=accentA, line width=1.4pt, fill=panelA] (gint) {{\large\textcolor{accentA}{\faProjectDiagram}}\\[1pt]\textbf{Gene--Gene Graph}\\[1pt]{\tiny\textcolor{subcap}{\textbf{learned} or fixed\\ (co-expr.\,/\,Reactome)}}};
-\node[ptab=accentA, anchor=south east, font=\tiny\bfseries] at ([yshift=0.5mm]gint.north east) {gene graph};
-\draw[flow] (shared) -- (mor);
-\draw[flow] (mor) -- (pool);
-\draw[flow] (pool) -- (clf);
-\draw[flow] (clf) -- (coh);
-% PRIMARY mechanism (our best result): the LEARNED gene graph smooths the input
-% expression before marker selection (denoising); curved dashed path back to the router.
-\draw[-{Stealth[length=3mm]}, draw=accentA, dashed, line width=1.3pt]
-  (gint.north) .. controls ++(0,9mm) and ++(0,9mm) .. (router.north);
-\node[font=\scriptsize\bfseries, text=accentA, fill=white, inner sep=1.2pt]
-  at ($(gint.north)!0.5!(router.north) + (0,8mm)$) {smooth $x$ (denoise)};
-% SECONDARY: the graph's centrality also primes the depth router (additive prior).
-\draw[-{Stealth[length=3mm]}, draw=accentA, dashed, line width=1.0pt, opacity=0.7]
-  (gint.south) -- ++(0,-7mm) -| (mor.north);
-\node[font=\scriptsize, text=accentA, fill=white, inner sep=1.2pt]
-  at ([yshift=-7mm]gint.south -| mor.north) {$+\,\beta_t\,\pi_m$ prime routing};
+\begin{table}[t]
+\centering
+\resizebox{\columnwidth}{!}{%
+@@TABLE3@@}
+\caption{\textbf{Marker-token budget.} Macro-F1 (mean$\pm$std over @@NSEEDS@@ seeds) as
+the marker budget $M$ shrinks from 256 to 16. A few dozen to a few hundred tokens recover
+most of the full-gene accuracy. Bottom row: mean over all @@N_TOTAL@@ datasets.}
+\label{tab:token}
+\end{table}
 
-\draw[loop] (shared.south east) .. controls ++(0,-9mm) and ++(0,-9mm) .. (shared.south west)
-  node[midway, below=0.5mm, font=\scriptsize\bfseries, text=accentB, align=center]
-  {$\times K$, weight-shared\\[-1pt]{\scriptsize\textcolor{subcap}{$+$ refinement gate}}};
-
-\draw[flow] (mtok.south) -- ++(0,-9mm) coordinate (cdrop) -| ([xshift=-8mm]shared.west) -- (shared.west);
-\node[font=\scriptsize, text=subcap, below, fill=white, inner sep=1pt] at ([xshift=-24mm]cdrop) {marker tokens};
-
-\begin{scope}[on background layer]
-\node[panel, fill=panelA, fit=(inp)(mtok)(gint)] (pA){};
-\node[panel, fill=panelB, fit=(shared)(coh)] (pB){};
-\end{scope}
-\node[ptab=accentA, anchor=west] at ([xshift=2mm]pA.north west)
-  {A\; $\cdot$\; Marker Selection (Q-Former router)};
-\node[ptab=accentB, anchor=west] at ([xshift=2mm]pB.north west)
-  {B\; $\cdot$\; Biology-Informed Recursive Routing \& Classification};
-
-\end{tikzpicture}%
-}
-\caption{\textbf{System overview.} \textbf{Panel A:} the expression vector is embedded
-gene-by-gene, then $M$ learnable query slots cross-attend over \emph{all} $N$ genes
-(temperature annealed soft$\to$peaked) to select interpretable marker tokens.
-\textbf{Panel B:} a \emph{single} weight-shared block $f_\theta$ is applied up to $K$
-times (loop-back arrow) with a per-marker refinement gate between passes; a
-Mixture-of-Recursions router funnels capacity so each marker gets an \emph{adaptive}
-depth $d_m$. \textbf{Gene-graph routing (our best result):} a gene-gene graph -- either a
-\emph{fixed} co-expression / Reactome graph or, decisively, a \emph{learned} low-rank
-graph -- \emph{smooths} the input expression before marker selection (denoising, curved
-dashed arrow) and additionally primes the depth router via a centrality prior
-$\beta_t\pi_m$ (lower dashed arrow). The learned graph is the win; the fixed prior does
-not beat a random-graph control. Tokens are mean-pooled and classified; the \emph{same}
-pipeline serves both single-cell and multi-omics data.}
-\label{fig:overview}
-\end{figure*}
 
 \begin{figure*}[t]
 \centering
