@@ -991,28 +991,19 @@ sharply reduces NLL for every configuration at no accuracy cost.}
 \end{table}
 
 \section{Discussion and Limitations}
-SMART shows that biological inductive bias and parameter-efficient recursion can be
-co-designed: the same mechanism that makes the model small (weight sharing,
-compression) also makes it interpretable (markers, recursion depth), and a label-free
-gene-gene interaction prior can be folded directly into the routing decision without
-leaking labels or adding parameters. We scope the claims to what the evidence supports.
-(i) \emph{The routing prior is evaluated honestly.} A benefit is credited only where a
-graph separates from a degree-matched random-graph control (Sec.~\ref{sec:interaction});
-the \emph{learned} graph does so, the \emph{fixed} biology prior does not, and we report
-that comparison as the runs deliver it. (ii) \emph{Learned beats hand-built.} A fixed
-centrality prior injects no usable structure once the router can learn its own graph, and
-even hurts on some suites; biology helps routing only when the graph is learned from data.
-(iii) \emph{Adaptive routing buys compute, not accuracy.} Across the suite the routing
-and sharing variants cluster within run-to-run noise, so the architecture's benefit is
-efficiency and the interpretable depth signal rather than an accuracy gain from depth
-itself. (iv) \emph{Calibration needs a separate fix.} No routing variant improves probability
-calibration, and the accuracy-winning learned graph is no better calibrated than a
-vanilla transformer; calibration is an orthogonal axis, and a standard post-hoc
-temperature scaling restores it at no accuracy cost (Table~\ref{tab:uq}). (v)
-\emph{Richer priors and broader data.} Pathway-membership or regulatory-network priors,
-the optional logit-Laplacian smoothing of Appendix~\ref{app:theory}, and larger
-single-cell atlases are the natural next steps to test where a learned graph bites
-hardest.
+SMART shows biological inductive bias and parameter-efficient recursion can be co-designed:
+the mechanisms that make the model small (weight sharing, marker compression) also make it
+interpretable, and a label-free gene-gene prior folds into routing without leaking labels or
+adding parameters. We scope claims to the evidence. A benefit is credited only where a graph
+separates from a degree-matched random control: the \emph{learned} graph does, the
+\emph{fixed} biology prior does not (and even hurts on some suites), so biology helps only
+when the graph is learned from data. Adaptive routing and sharing cluster within run-to-run
+noise on accuracy, so their benefit is efficiency and the interpretable depth signal, not an
+accuracy gain from depth. Calibration is orthogonal -- no routing variant improves it, but a
+standard post-hoc temperature scaling restores it at no accuracy cost (Table~\ref{tab:uq}).
+On the engineered single-cell features a linear pipeline remains stronger; richer
+regulatory-network priors and larger atlases are natural next steps to test where a learned
+graph bites hardest.
 
 \section{Conclusion}
 We presented SMART, a recursive marker-guided transformer whose central novelty is a
