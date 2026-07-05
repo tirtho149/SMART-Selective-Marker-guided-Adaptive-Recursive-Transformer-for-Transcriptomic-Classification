@@ -338,6 +338,15 @@ class RecursiveMarkerTransformer(nn.Module):
             for _ in range(max(1, self._bio_hops)):
                 xs = (1.0 - lam) * xs + lam * (xs @ self.bio_operator)
             x = xs
+        elif self._bio_prop and self._bio_have_graph and x.dim() == 3:
+            # Multi-modal (B,G,C): smooth EACH omics channel along the same gene-gene
+            # graph, so mutation and copy-number both denoise along the biological network
+            # (this is what lets a fixed aggregated network act as a prior on P-NET too).
+            lam = torch.sigmoid(self.bio_prop_logit)
+            xs = x
+            for _ in range(max(1, self._bio_hops)):
+                xs = (1.0 - lam) * xs + lam * torch.einsum("bgc,gh->bhc", xs, self.bio_operator)
+            x = xs
         # DATA-DRIVEN alternative (bio_learned_graph): propagate x along the LEARNED
         # low-rank synthetic-correlation graph A = E~ E~^T. Computed as (x E~) E~^T so
         # it never materialises the G x G matrix. Magnitude is renormalised per sample

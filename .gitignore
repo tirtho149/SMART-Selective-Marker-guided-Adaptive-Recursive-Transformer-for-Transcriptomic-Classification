@@ -8,6 +8,11 @@ data/
 *.npy
 2507.10524v1.pdf
 
+# ---- aggregated bio-network raw downloads (STRING links/info, KEGG dumps) ----
+# regenerated on demand by recursive_marker_transformer/bio_network.py.
+# the small BUILT per-cohort adjacencies (bio_networks/*.npz) are kept.
+bio_networks/raw/
+
 # ---- third-party genomap clone (external package; has its own large .mat + .git) ----
 genomap/
 

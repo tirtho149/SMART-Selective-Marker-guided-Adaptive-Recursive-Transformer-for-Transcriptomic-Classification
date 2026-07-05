@@ -141,6 +141,9 @@ class RMTConfig:
     # linearly to 0 over training; the bio init is also given a larger footprint than the
     # random baseline (bio_init_scale vs bio_init_rand). Degenerate (NaN) graphs disable
     # the anchor and fall back to the plain random-init learned graph.
+    aggnet_species: str = "human"                # species for the aggregated STRING+KEGG+Reactome
+                                                 # gene-gene network (gene_interaction="aggnet"):
+                                                 # "human" (P-NET) | "mouse" (Tcell single-cell)
     bio_learned_anchor: bool = False             # enable the annealed bio-graph anchor penalty
     bio_anchor_lambda: float = 0.5               # lambda_0; annealed toward lambda_0*floor over epochs
     bio_anchor_floor: float = 0.0                # persistent fraction of lambda_0 kept at end of

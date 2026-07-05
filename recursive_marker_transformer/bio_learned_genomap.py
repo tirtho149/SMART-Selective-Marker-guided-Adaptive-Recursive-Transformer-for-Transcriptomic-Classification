@@ -73,13 +73,31 @@ def load_genomap(dataset: str):
     return X, y
 
 
+def load_gene_symbols(dataset: str):
+    """Gene symbols for `dataset` if the source stored them, else None. Only Tcell (mouse)
+    ships a gene-name array; the pancreas/ischaemic suites are anonymized (no symbols), so
+    an external gene network cannot be mapped onto them."""
+    kind, rel = DATASETS[dataset]
+    d = GD / rel
+    p = d / "tcell_gene_names.npy"
+    if kind == "tcell" and p.exists():
+        names = np.load(p, allow_pickle=True)
+        # the data matrix is HVG-subset; align the full gene-name list to the kept columns
+        hvg = d / "tcell_hvg_idx.npy"
+        if hvg.exists():
+            idx = np.load(hvg)
+            names = names[idx]
+        return [str(g) for g in names]
+    return None
+
+
 def _cfg(mode: str, K: int, seed: int, epochs: int, n_markers: int = 128) -> RMTConfig:
     base = dict(
         heads=(HEAD,), n_hvg=None, batch_size=128, d_model=96, d_ff=192,
         n_markers=n_markers, marker_mode="router", recursion_mode="expert",
         recursion_depth=K, share_weights=True, seed=seed, epochs=epochs,
         patience=12, lr=1e-3, weight_decay=1e-5, device="cuda",
-        gene_interaction=(mode if mode in ("coexpr", "random") else "none"),
+        gene_interaction=(mode if mode in ("coexpr", "random", "aggnet") else "none"),
     )
     cfg = RMTConfig(**base)
     if mode in ("coexpr", "random"):
@@ -87,9 +105,25 @@ def _cfg(mode: str, K: int, seed: int, epochs: int, n_markers: int = 128) -> RMT
         cfg.bio_prior_gate = True; cfg.bio_prior_learnable = True; cfg.bio_beta_init = 0.5
         cfg.bio_depth_laplacian = 0.01; cfg.bio_centrality = "ppr"
         cfg.router_prior_anneal = False
+    elif mode == "aggnet":
+        # aggregated external network (STRING+KEGG[+Reactome]) smoothing prior; needs
+        # gene symbols (Tcell only). Same smoothing knobs as coexpr for a fair comparison.
+        cfg.bio_graph_prop = True; cfg.bio_prop_lambda_init = 0.3; cfg.bio_prop_hops = 1
+        cfg.aggnet_species = "mouse"
     elif mode == "learned":
         cfg.bio_learned_graph = True; cfg.bio_learned_rank = 16
         cfg.bio_prop_lambda_init = 0.2; cfg.bio_prop_hops = 1
+    elif mode == "learned_aggnet":
+        # learned graph warm-started AND annealed-anchored to the AGGREGATED external
+        # network (STRING+KEGG[+Reactome]) instead of noisy co-expression: clean biology
+        # as the starting structure + a standing pull, refined end-to-end. The strongest
+        # honest test of "biology helps if you give the learned graph a real network."
+        cfg.bio_learned_graph = True; cfg.bio_learned_rank = 16
+        cfg.bio_prop_lambda_init = 0.2; cfg.bio_prop_hops = 1
+        cfg.bio_learned_init = "bio"
+        cfg.bio_init_scale = 0.05; cfg.bio_init_rand = 0.005
+        cfg.bio_learned_anchor = True; cfg.bio_anchor_lambda = 0.5; cfg.bio_anchor_floor = 0.2
+        cfg.aggnet_species = "mouse"
     # --- C1 confound factorial: isolate input SMOOTHING from depth ROUTING ---
     elif mode in ("smooth_coexpr", "smooth_random"):
         # SMOOTHING ONLY: propagate x along the fixed graph; NO routing prior.
@@ -149,13 +183,25 @@ def run_cell(X, y, dataset, mode, K, seed, epochs, device, n_markers=128, overri
     cfg = _cfg(mode, K, seed, epochs, n_markers=n_markers); cfg.n_markers = min(cfg.n_markers, F)
     for k, v in (overrides or {}).items():        # tuning-sweep hyperparameter overrides
         setattr(cfg, k, v)
-    yt, yp, model = _fit_eval(X.astype(np.float32), y, tr, va, te, cfg, F, C, device)
+    need_symbols = getattr(cfg, "gene_interaction", None) == "aggnet" or mode == "learned_aggnet"
+    gene_symbols = load_gene_symbols(dataset) if need_symbols else None
+    bio_op = None
+    if mode == "learned_aggnet":
+        if gene_symbols is not None and len(gene_symbols) == F:
+            from .bio_network import load_aggregated_adjacency
+            bio_op = load_aggregated_adjacency(
+                list(gene_symbols), species=getattr(cfg, "aggnet_species", "mouse")).astype(np.float32)
+            print(f"  [learned_aggnet] warm-start/anchor from aggregated network ({F} genes)", flush=True)
+        else:
+            print(f"  [learned_aggnet] no gene symbols for {dataset} -> random init (no biology)", flush=True)
+    yt, yp, model = _fit_eval(X.astype(np.float32), y, tr, va, te, cfg, F, C, device,
+                              bio_op=bio_op, gene_symbols=gene_symbols)
     out = {"dataset": dataset, "mode": mode, "K": K, "seed": seed, "n_markers": cfg.n_markers,
            "test_macro_f1": 100 * f1_score(yt, yp, average="macro"),
            "test_accuracy": 100 * accuracy_score(yt, yp),
            "val_macro_f1": getattr(model, "_val_f1", None),   # for validation-based config selection
            "n_features": F, "n_classes": C, "n_samples": int(len(y))}
-    if mode in ("learned", "learned_bio", "learned_anchor", "learned_bigbio", "learned_fused", "learned_fused_rand"):
+    if mode in ("learned", "learned_bio", "learned_anchor", "learned_aggnet", "learned_bigbio", "learned_fused", "learned_fused_rand"):
         with torch.no_grad():
             out["learned_lambda"] = float(torch.sigmoid(model.bio_prop_logit))
             out["bio_anchor_have"] = bool(getattr(model, "_bio_anchor_have", False))

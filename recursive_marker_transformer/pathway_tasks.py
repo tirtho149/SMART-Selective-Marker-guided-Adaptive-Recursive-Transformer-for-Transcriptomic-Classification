@@ -123,6 +123,18 @@ def _fit_eval(task, coh, X, y, tr, va, te, cfg, G, K, dtypes, device, init_block
     # curated Reactome pathway-hierarchy prior on the depth router (per token)
     if cfg.gene_interaction == "reactome" and cfg.marker_mode == "pathway":
         model.set_token_prior(torch.from_numpy(coh.centrality))
+    # AGGREGATED external network (STRING+KEGG+Reactome): install as a fixed gene-gene
+    # SMOOTHING operator over the cohort's HUGO symbols (multi-modal-aware), a real
+    # biological prior rather than a data-derived co-expression graph.
+    if cfg.gene_interaction == "aggnet":
+        from .bio_network import load_aggregated_adjacency
+        from .interaction import build_interaction_v2
+        A = load_aggregated_adjacency(list(coh.genes), species=getattr(cfg, "aggnet_species", "human"))
+        inter = build_interaction_v2(A, G, mode="aggnet", knn=cfg.interaction_knn)
+        model.set_bio_graph(inter.operator, inter.laplacian)      # enables smoothing
+        model._bio_prop = True; model._bio_hops = max(1, int(getattr(cfg, "bio_prop_hops", 1)))
+        print(f"  [aggnet] installed aggregated gene-gene smoothing over {G} genes "
+              f"(knn={cfg.interaction_knn})", flush=True)
     # Reactome pathway->pathway hierarchy as an attention bias between pathway tokens
     if getattr(cfg, "pathway_attn_bias", False) and cfg.marker_mode == "pathway":
         model.set_pathway_adjacency(torch.from_numpy(coh.adjacency))
@@ -246,7 +258,7 @@ def main():
     ap.add_argument("--pathway_pool", type=str, default="mean", choices=["mean", "sum"],
                     help="'sum' (burden) for sparse binary mutation, 'mean' for dense assays")
     ap.add_argument("--gene_interaction", type=str, default="reactome",
-                    choices=["reactome", "none", "coexpr", "random"])
+                    choices=["reactome", "none", "coexpr", "random", "aggnet"])
     ap.add_argument("--recursion_mode", type=str, default="expert",
                     choices=["expert", "token", "fixed"])
     ap.add_argument("--pathway_attn_bias", action="store_true",

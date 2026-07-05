@@ -98,7 +98,7 @@ class _DictLoader:
         return len(self.dl)
 
 
-def _fit_eval(Xs_full, y, tr, va, te, cfg, F, K, device, inter="auto", bio_op=None):
+def _fit_eval(Xs_full, y, tr, va, te, cfg, F, K, device, inter="auto", bio_op=None, gene_symbols=None):
     """Train on `tr` (z-scored on its own stats), early-stop on `va`, eval on `te`.
     Returns (y_true, y_pred, model). Shared by the single-split and CV paths.
 
@@ -132,6 +132,23 @@ def _fit_eval(Xs_full, y, tr, va, te, cfg, F, K, device, inter="auto", bio_op=No
     # prior on the train split (expression only, label-free -> leakage-safe) and
     # install it on the depth router. coexpr = genomap correlation graph; random =
     # degree-matched control; none = original SMART router.
+    elif getattr(cfg, "gene_interaction", None) == "aggnet":
+        # AGGREGATED external network (STRING+KEGG[+Reactome]) as a gene-gene smoothing
+        # prior on symbol-bearing single-cell data (e.g. Tcell, mouse). Needs gene symbols
+        # -- anonymized suites (pancreas/ischaemic) cannot use it and stay on none/learned.
+        if gene_symbols is None or len(gene_symbols) != F:
+            print(f"  [aggnet] no usable gene symbols (have {0 if gene_symbols is None else len(gene_symbols)}, "
+                  f"need {F}) -> falling back to no external prior", flush=True)
+        else:
+            from .bio_network import load_aggregated_adjacency
+            from .interaction import build_interaction_v2
+            A = load_aggregated_adjacency(list(gene_symbols), species=getattr(cfg, "aggnet_species", "mouse"))
+            inter = build_interaction_v2(A, F, mode="aggnet", knn=cfg.interaction_knn)
+            model.set_gene_interaction(inter.centrality)
+            model.set_bio_graph(inter.operator, inter.laplacian)
+            model._bio_prop = True; model._bio_hops = max(1, int(getattr(cfg, "bio_prop_hops", 1)))
+            print(f"  [aggnet] installed aggregated gene-gene smoothing over {F} genes "
+                  f"(knn={cfg.interaction_knn}, species={getattr(cfg,'aggnet_species','mouse')})", flush=True)
     elif getattr(cfg, "gene_interaction", None) not in (None, "none"):
         # Redesign (BIO_ROUTER_REDESIGN.txt): if any Fix flag is on, build the v2
         # graph (de-confounded/precision + seeded PPR) and also install the

@@ -389,7 +389,13 @@ def build_interaction_v2(source, n_genes: int, mode: str = "coexpr", knn: int = 
         else:
             d = genomap_interaction(X)
             aff = np.abs(1.0 - d).astype(np.float32)
-    W = _sparse_affinity(aff, n_genes, mode, knn, seed)
+    elif mode == "aggnet":
+        # `source` IS the pre-built aggregated (G,G) gene-gene adjacency (STRING + KEGG +
+        # Reactome, mapped by gene symbol via bio_network). Use it directly as the affinity
+        # -- a curated external network, not a data-derived co-expression graph.
+        A = source if isinstance(source, np.ndarray) else np.asarray(source)
+        aff = np.asarray(A, dtype=np.float32)
+    W = _sparse_affinity(aff, n_genes, "coexpr" if mode == "aggnet" else mode, knn, seed)
     if centrality == "ppr" and mode == "coexpr":           # Fix C3 (needs a real graph)
         var = np.asarray(X).var(0)
         seeds = np.argsort(-var)[: max(5, n_genes // 20)]  # top-variance genes as label-free seeds
