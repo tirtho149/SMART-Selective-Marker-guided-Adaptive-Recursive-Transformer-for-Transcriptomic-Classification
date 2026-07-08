@@ -58,11 +58,11 @@ symmetric positive-semidefinite (PSD) Gram matrix with
 
 * unit diagonal $A_{gg}=\lVert\tilde E_g\rVert^2 = 1$ (a correlation-type matrix),
 * off-diagonals $A_{gh}=\cos(\tilde E_g,\tilde E_h)\in[-1,1]$,
-* $\operatorname{rank}(A)\le r$ and eigenvalues $\mu_1\ge\dots\ge\mu_r\ge 0$, $\sum_i\mu_i=\operatorname{tr}(A)=G$.
+* $\mathrm{rank}(A)\le r$ and eigenvalues $\mu_1\ge\dots\ge\mu_r\ge 0$, $\sum_i\mu_i=\mathrm{tr}(A)=G$.
 
 Crucially, **$\tilde E$ is a free parameter trained by the task loss**, so the
 eigenvectors $v_1,\dots,v_r$ of $A$ **and** the eigenvalues $\mu_i$ are learnable
-(subject only to $A\succeq 0$, $\operatorname{rank}\le r$). This is the single
+(subject only to $A\succeq 0$, $\mathrm{rank}\le r$). This is the single
 fact that separates $B_2$ from $B_1$ below.
 
 ---
@@ -83,7 +83,7 @@ $\Sigma=\mathbb{E}[zz^\top]=\sum_{k=1}^{G}s_k\,u_k u_k^\top$, eigenvalues
 $s_1\ge s_2\ge\dots\ge 0$, orthonormal eigenvectors $\{u_k\}$. Biologically, the
 $u_k$ are co-regulated gene modules; $s_k$ decays fast (low-rank structure), so
 the signal energy concentrates in a top-$r$ subspace
-$\mathcal U_r=\operatorname{span}\{u_1,\dots,u_r\}$.
+$\mathcal U_r=\mathrm{span}\{u_1,\dots,u_r\}$.
 
 **(A3) Non-degeneracy.** At least one $s_k>0$ (there is signal), and the top-$r$
 SNRs $\{s_i/\sigma^2\}_{i\le r}$ are not all $0$ and not all $+\infty$. (Real
@@ -105,7 +105,7 @@ All three regimes are the **same** operator (1) with different admissible $A$:
 |---|---|---|
 | $B_0$ **no propagation** | $T=I$ | $\lambda=0$ |
 | $B_1$ **scalar shrink, no graph** | $T=(1-\lambda)I$ | $A=0,\ \lambda\in[0,1]$ |
-| $B_2$ **learned bio-graph** | $T=(1-\lambda)I+\lambda A$ | $A\succeq0,\ \operatorname{rank}\le r,\ \lambda\in[0,1]$ |
+| $B_2$ **learned bio-graph** | $T=(1-\lambda)I+\lambda A$ | $A\succeq0,\ \mathrm{rank}\le r,\ \lambda\in[0,1]$ |
 
 Note the **nesting** $\{B_0\}\subseteq\mathcal T_{B_1}\subseteq\mathcal T_{B_2}$:
 $B_0$ is $B_1$ at $\lambda=0$, and $B_1$ is $B_2$ at $A=0$. Since $R(B_j)$ is a
@@ -142,8 +142,8 @@ $$R(T)=\sum_{k=1}^{G}\Bigl[(1-f_k)^2\,s_k+f_k^{2}\,\sigma^{2}\Bigr]. \qquad(5)$$
 **Proof.** Expand (2): $R(T)=\mathbb E\lVert T(z+\varepsilon)-z\rVert^2=\mathbb E\lVert (T-I)z\rVert^2 + \mathbb E\lVert T\varepsilon\rVert^2$
 (the cross term vanishes since $\varepsilon\perp z$, $\mathbb E\varepsilon=0$).
 Using cyclicity of trace,
-$\mathbb E\lVert(T-I)z\rVert^2=\operatorname{tr}\!\big((T-I)\Sigma(T-I)^\top\big)$
-and $\mathbb E\lVert T\varepsilon\rVert^2=\sigma^2\operatorname{tr}(TT^\top)$.
+$\mathbb E\lVert(T-I)z\rVert^2=\mathrm{tr}\!\big((T-I)\Sigma(T-I)^\top\big)$
+and $\mathbb E\lVert T\varepsilon\rVert^2=\sigma^2\mathrm{tr}(TT^\top)$.
 In the shared eigenbasis $T-I=\sum_k(f_k-1)u_ku_k^\top$,
 $\Sigma=\sum_k s_k u_ku_k^\top$, so the first trace is $\sum_k(f_k-1)^2 s_k$ and
 the second is $\sigma^2\sum_k f_k^2$. Summing gives (5). ∎
@@ -202,7 +202,7 @@ On the orthogonal complement $A=0$, so $T_\lambda=(1-\lambda)I$ there, which onl
 *further* shrinks pure-noise directions ($s_k\approx0,\ k>r$) toward their own
 optimum $f_k^\star\approx0$ — never increasing (5). ∎
 
-(The learned row-normalization forces unit diagonal, i.e. $\operatorname{tr}A=G$;
+(The learned row-normalization forces unit diagonal, i.e. $\mathrm{tr}A=G$;
 this rescales the achievable $\mu_i$ by a positive constant, absorbed into
 $\lambda$ and into the learnable magnitude of $\tilde E$ before normalization —
 see Remark R1. It does not shrink the *set of achievable per-direction $f_i$*
@@ -254,7 +254,7 @@ $R^\star(B_1)>R^\star(B_2)$ strictly.
 
 **Proof.** $B_1$ forces a **single scalar** $f_k\equiv f=1-\lambda$ on *all*
 directions (since $A=0$). Minimizing (5) over one scalar $f$ gives the constrained
-optimum $\hat f=\operatorname{tr}\Sigma/(\operatorname{tr}\Sigma+G\sigma^2)$, a
+optimum $\hat f=\mathrm{tr}\Sigma/(\mathrm{tr}\Sigma+G\sigma^2)$, a
 compromise. But (6) shows the *unconstrained* per-direction optima $f_i^\star$
 differ across directions precisely when the $s_i$ differ. A convex function
 minimized subject to an equality constraint ("all coordinates equal") attains a
@@ -326,7 +326,7 @@ sets; monotonicity of $\min$ over set inclusion gives the claim. ∎
 annealed anchor loss (model.py:239–264)
 $\lambda(t)\lVert \tilde E\tilde E^\top - BB^\top\rVert_F^2$ with
 $\lambda(t)\!\downarrow\!0$ initializes the learnable eigenvectors near the
-biological subspace $\operatorname{col}(B)$, then releases them. Since the
+biological subspace $\mathrm{col}(B)$, then releases them. Since the
 asymptotic ($t\to$ end) feasible set is unchanged, the anchor **cannot raise**
 $R^\star(B_2)$; it only improves the chance the optimizer reaches the global
 minimizer (4) — a reduction of *optimization* error, complementary to the
