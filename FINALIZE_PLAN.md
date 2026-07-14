@@ -97,4 +97,4 @@ best config); the bio-on-SC null and the Geneformer-prostate closeness reported 
 - FM: `results_fm_pnet/<coh>/{Geneformer,scGPT}_s<seed>.json`
 - M-budget: `results_learnedM/M{256,512,1024,2048}/<DS>/learned_s*.json`
 - Anchor: `results_anchor/` (round-0), `results_anchor_tune/{base,cfgA,cfgB,cfgC}/` (round-1)
-- Paper builder: `recursive_marker_transformer/make_paper.py` → `paper/genomicrecursiveformer.pdf`
+- Paper builder: `recursive_marker_transformer/make_paper.py` → `paper/main.pdf`

@@ -1053,7 +1053,7 @@ def main():
     args = ap.parse_args()
     args.outdir.mkdir(parents=True, exist_ok=True)
     doc = build_tex()
-    (args.outdir / "genomicrecursiveformer.tex").write_text(doc)
+    (args.outdir / "main.tex").write_text(doc)
     (args.outdir / "refs.bib").write_text(_BIB)
     for s in ("aaai.sty", "aaai.bst", "fixbib.sty"):
         srcs = _TEMPLATE_DIR / s
@@ -1061,8 +1061,8 @@ def main():
             (args.outdir / s).write_text(srcs.read_text())
     import re
     unresolved = sorted(set(re.findall(r"@@[A-Z0-9_]+@@",
-                        (args.outdir / "genomicrecursiveformer.tex").read_text())))
-    print(f"[make_paper] wrote {args.outdir}/genomicrecursiveformer.tex (13-dataset build)")
+                        (args.outdir / "main.tex").read_text())))
+    print(f"[make_paper] wrote {args.outdir}/main.tex (13-dataset build)")
     if unresolved:
         print(f"[make_paper] WARNING unresolved tokens: {unresolved}")
     else:

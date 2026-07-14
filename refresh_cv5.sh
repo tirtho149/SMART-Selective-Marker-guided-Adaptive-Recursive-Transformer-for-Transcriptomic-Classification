@@ -10,8 +10,8 @@ $PY build_cv5_scaling_figure.py
 $PY build_cv5_ablation_table.py
 # real-time paper: re-embed the freshly rendered CV5 figures (symlinked into paper/figs)
 if command -v pdflatex >/dev/null 2>&1; then
-  ( cd paper && pdflatex -interaction=nonstopmode genomicrecursiveformer.tex >/tmp/cv5_paper.log 2>&1 ) \
-    && echo "  [paper] recompiled genomicrecursiveformer.pdf" || echo "  [paper] compile skipped/failed (see /tmp/cv5_paper.log)"
+  ( cd paper && pdflatex -interaction=nonstopmode main.tex >/tmp/cv5_paper.log 2>&1 ) \
+    && echo "  [paper] recompiled main.pdf" || echo "  [paper] compile skipped/failed (see /tmp/cv5_paper.log)"
 fi
 echo "---- results_cv5 progress ----"
 echo "  sc(gen)     : $(ls results_cv5/sc/*/*.json 2>/dev/null | wc -l) / 64"

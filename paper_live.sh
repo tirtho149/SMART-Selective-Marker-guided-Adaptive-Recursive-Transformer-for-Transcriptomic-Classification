@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Real-time table + paper updater (CPU). Every ~3 min: regenerate the native LaTeX
-# table fragments from results_cv5/ and recompile genomicrecursiveformer.pdf. Runs the
+# table fragments from results_cv5/ and recompile main.pdf. Runs the
 # FULL walltime regardless of queue state (does NOT exit on a momentarily-empty queue),
 # so the tables/PDF stay live for the whole rerun. Meant to run as a SLURM CPU job.
 PROJ=/work/mech-ai-scratch/tirtho/RecusrsiveQFormer
@@ -16,7 +16,7 @@ for i in $(seq 1 480); do          # 480 * 180s ~= 24h
   $PY build_cv5_scaling_figure.py>> logs/cv5_tex_build.log 2>&1 || true
   $PY build_cv5_ablation_table.py>> logs/cv5_tex_build.log 2>&1 || true
   # 3) recompile the paper
-  ( cd paper && pdflatex -interaction=nonstopmode genomicrecursiveformer.tex >/tmp/cv5_paperlive_tex.log 2>&1 ) \
+  ( cd paper && pdflatex -interaction=nonstopmode main.tex >/tmp/cv5_paperlive_tex.log 2>&1 ) \
     && ok="PDF ok" || ok="PDF FAIL"
   # 4) progress line
   sc=$(ls results_cv5/sc/*/*.json 2>/dev/null|wc -l)

@@ -32,8 +32,8 @@
 # Steps: (1) param-efficiency table     -> results_sc/param_efficiency.json
 #        (2) biology-informed router     -> results_sc_interaction/ (headline)
 #        (3) architecture ablation       -> results_singlecell_arch/
-#        (4) generate paper              -> paper/genomicrecursiveformer.tex + refs.bib
-#        (5) compile PDF                 -> paper/genomicrecursiveformer.pdf
+#        (4) generate paper              -> paper/main.tex + refs.bib
+#        (5) compile PDF                 -> paper/main.pdf
 # ---------------------------------------------------------------------------
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -101,11 +101,11 @@ $PY -m recursive_marker_transformer.make_paper --outdir "$PAPER"
 echo "[run_all] step 5/5: compile PDF"
 if command -v pdflatex >/dev/null 2>&1; then
   ( cd "$PAPER"
-    pdflatex -interaction=nonstopmode genomicrecursiveformer.tex >/dev/null 2>&1 || true
-    if command -v bibtex >/dev/null 2>&1; then bibtex genomicrecursiveformer >/dev/null 2>&1 || true; fi
-    pdflatex -interaction=nonstopmode genomicrecursiveformer.tex >/dev/null 2>&1 || true
-    pdflatex -interaction=nonstopmode genomicrecursiveformer.tex >/dev/null 2>&1 || true )
-  echo "[run_all] DONE -> $PAPER/genomicrecursiveformer.pdf"
+    pdflatex -interaction=nonstopmode main.tex >/dev/null 2>&1 || true
+    if command -v bibtex >/dev/null 2>&1; then bibtex main >/dev/null 2>&1 || true; fi
+    pdflatex -interaction=nonstopmode main.tex >/dev/null 2>&1 || true
+    pdflatex -interaction=nonstopmode main.tex >/dev/null 2>&1 || true )
+  echo "[run_all] DONE -> $PAPER/main.pdf"
 else
-  echo "[run_all] pdflatex not found; wrote $PAPER/genomicrecursiveformer.tex (compile elsewhere)."
+  echo "[run_all] pdflatex not found; wrote $PAPER/main.tex (compile elsewhere)."
 fi

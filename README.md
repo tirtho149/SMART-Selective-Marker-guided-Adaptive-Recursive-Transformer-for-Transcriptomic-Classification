@@ -388,13 +388,13 @@ After any run, regenerate the paper `.tex` (every metric injected from `results*
 
 ```bash
 python -m recursive_marker_transformer.make_paper --results results --outdir paper
-cd paper && pdflatex -interaction=nonstopmode genomicrecursiveformer.tex \
-  && bibtex genomicrecursiveformer \
-  && pdflatex -interaction=nonstopmode genomicrecursiveformer.tex \
-  && pdflatex -interaction=nonstopmode genomicrecursiveformer.tex
+cd paper && pdflatex -interaction=nonstopmode main.tex \
+  && bibtex main \
+  && pdflatex -interaction=nonstopmode main.tex \
+  && pdflatex -interaction=nonstopmode main.tex
 ```
 
-The compiled PDF (`paper/genomicrecursiveformer.pdf`, 15 pp) contains the full main-results,
+The compiled PDF (`paper/main.pdf`, 15 pp) contains the full main-results,
 per-cohort, parameter-efficiency, ablation, single-cell, baseline, and routing-prior tables,
 plus the two TikZ figures rendered above.
 

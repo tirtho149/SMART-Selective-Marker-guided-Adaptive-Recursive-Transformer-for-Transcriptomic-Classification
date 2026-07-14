@@ -60,7 +60,7 @@ P-NET: swap `panmeta_subtype → brca` in sbatch/uq (module already supports `--
 
 ## Paper generation facts (make_paper.py)
 - `python -m recursive_marker_transformer.make_paper --outdir paper` writes EVERYTHING:
-  `build_tex()` fills a template with `@@TOKEN@@` placeholders -> `genomicrecursiveformer.tex`;
+  `build_tex()` fills a template with `@@TOKEN@@` placeholders -> `main.tex`;
   it also (re)writes consolidated_table.tex, param_table.tex, token_table.tex, uq_table.tex and
   copies mor_tables.tex. A post-check greps for unresolved `@@...@@` tokens -> fix in make_paper.py.
 - So: edit the TEMPLATE + table-builder fns in make_paper.py (main_sc_table etc.) and the

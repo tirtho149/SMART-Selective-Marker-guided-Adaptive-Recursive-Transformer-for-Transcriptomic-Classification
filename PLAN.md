@@ -43,7 +43,7 @@ recursive_marker_transformer/
   losses.py        task + marker + diversity + compression
   train.py         run(cfg) -> results dict; per-class report for EVERY head
   experiments.py   runs SUITE + exact param-efficiency table -> results/*.json
-  make_paper.py    reads results/*.json -> paper/genomicrecursiveformer.tex + refs.bib
+  make_paper.py    reads results/*.json -> paper/main.tex + refs.bib
   bio_enrichment.py Reactome enrichment of learned markers (Ablation 9)
   ablate.py        ad-hoc ablation presets
 run_all.sh         one command: experiments -> paper -> PDF
@@ -89,7 +89,7 @@ Lopez'18 (scVI), Weinstein'13 (TCGA). = 28.
 1. resolve `.venv` python (py3.11 + torch 2.2.2 + numpy<2 on this Intel Mac).
 2. `python -m ...experiments` (configurable scale) → `results/`.
 3. `python -m ...make_paper` → `paper/`.
-4. `pdflatex → bibtex → pdflatex×2` → `paper/genomicrecursiveformer.pdf`.
+4. `pdflatex → bibtex → pdflatex×2` → `paper/main.pdf`.
 
 ## Reproducibility notes
 - Env: Intel macOS → torch's last wheel is 2.2.2, requires `numpy<2`; default
