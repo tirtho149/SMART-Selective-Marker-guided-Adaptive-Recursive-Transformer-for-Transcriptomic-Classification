@@ -8,34 +8,72 @@
 \begin{table*}[t]
 \centering
 \IfFileExists{cv5_main_table.tex}{\input{cv5_main_table.tex}}{\emph{(main-results table renders here as 5-fold CV runs land)}}
-\caption{\textbf{Main results — bioMoR efficiency ladder (5-fold cross-validation).}
-Macro-F1 mean$\pm$SD over 5 identical folds (\textsc{StratifiedKFold}, seed~42; 20\% test /
-80\% train per fold, 10\% of train held out as validation; fresh training at max-epoch~100,
-early-stop patience~15) for every variant across the 8 single-cell datasets and 5 multi-omics
-tasks (Pro/BL/ST core + PM/PC). Folds are identical across all variants (paired); \textbf{bold}
-= best per column; Avg = mean over the 11 core datasets. \emph{Auto-populates from
-\texttt{results\_cv5/}; ``run\ldots'' = fold still training.}}
+\caption{\textbf{Our main results: the efficiency ladder under 5-fold cross-validation.}
+We report macro-F1 (mean$\pm$SD over $5$ paired folds) across the $8$ single-cell and $5$
+multi-omics tasks; \textbf{bold} marks the best per column and Avg is the mean over the $11$
+core datasets (the pan-cancer PM/PC cohorts are shown separately). Weight sharing removes
+the $4\times$ parameter cost and adaptive routing cuts FLOPs at matched accuracy; the
+learned graph supplies the accuracy gain.}
 \label{tab:main_cv5}\label{tab:learned}\label{tab:ladder}
 \end{table*}
 
 \begin{table}[t]
 \centering
-\IfFileExists{cv5_scaling_table.tex}{\input{cv5_scaling_table.tex}}{\emph{(scaling table renders here as runs land)}}
-\caption{\textbf{Model-size scaling (5-fold cross-validation).} Macro-F1 mean$\pm$SD across a
-width sweep ($d_{\mathrm{model}}\in\{96,136,192,272,352\}$) for Vanilla, MoR-general, and
-bioMoR, on single-cell (mean over 8 datasets) and multi-omics (mean over 3 P-NET cohorts),
-under the identical 5-fold protocol. Vanilla stacks $N_R{=}4$ independent blocks ($4\times$
-parameters); MoR-general and bioMoR reuse one shared block. \emph{Auto-populates as runs land.}}
-\label{fig:scaling_cv5}
+\IfFileExists{cv5_posf1_table.tex}{\input{cv5_posf1_table.tex}}{\emph{(positive-class F1 table renders here as runs land)}}
+\caption{\textbf{PATH-comparable positive-class F1 on the multi-omics cohorts.} Each
+cell is the threshold-calibrated positive-class (progression: metastatic / late-stage)
+F1, mean\,$\pm$\,SD over the $10$ folds (\%), for the full efficiency ladder --- the
+positive-class counterpart of the macro-F1 Table~\ref{tab:ladder}. Following the
+PATH protocol, the operating threshold is tuned on validation to maximise positive-class
+F1 and applied to the held-out test fold, with AUROC-based model selection; all other
+settings match Table~\ref{tab:ladder} (5-fold $\times$ 2-seed, $d{=}128$). PM/PC are the
+pan-cancer mutation+CNV and expression cohorts.}
+\label{tab:posf1}
 \end{table}
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figs/biorouter_bars.pdf}{\includegraphics[width=\columnwidth]{figs/biorouter_bars.pdf}}{\emph{(bio-router ablation bar chart renders here)}}
+\caption{\textbf{Where biology should enter the router.} We ablate the depth router under
+the same 5-fold CV on Baron (single-cell) and Prostate (multi-omics), comparing a fixed
+\emph{biology-only} graph, a \emph{data-only} learned graph, and their combination
+(\emph{biology $+$ data}, bioMoR). The data-only learned graph already matches or beats the
+fixed biology-only graph, and combining the two is best---biological structure helps only
+when it is learned jointly with the data, not imposed.}
+\label{fig:biorouter}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figs/baron_loss.pdf}{\includegraphics[width=0.49\columnwidth]{figs/baron_loss.pdf}}{}%
+\hfill
+\IfFileExists{figs/baron_val_f1.pdf}{\includegraphics[width=0.49\columnwidth]{figs/baron_val_f1.pdf}}{}%
+\caption{\textbf{bioMoR training dynamics on Baron:} (left) per-epoch training loss and
+(right) validation macro-F1 versus epoch, for the Table~\ref{tab:ladder} learned-graph
+$K{=}4$ configuration on fold~0 of the shared 5-fold split.}
+\label{fig:baron_curves}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figs/pareto_efficiency.pdf}{\includegraphics[width=\columnwidth]{figs/pareto_efficiency.pdf}}{\emph{(accuracy-vs-compute Pareto figure renders here as runs land)}}
+\caption{\textbf{Accuracy--compute trade-off on Baron.} Macro-F1 versus relative
+per-forward-pass compute (FLOPs, normalized to Vanilla) for every ladder configuration;
+marker size $\propto$ parameters (Vanilla $300$K vs.\ $75$K weight-shared). bioMoR occupies
+the Pareto frontier (dashed): it attains the highest macro-F1 at a fraction of the compute,
+while the Vanilla stack---at $4\times$ the recursion-stack parameters and full compute---is
+dominated.}
+\label{fig:pareto}
+\end{figure}
+
+% Model-size scaling table (tab:scaling / fig:scaling_cv5) moved to the supplementary.
 
 \begin{table}[t]
 \centering
 \IfFileExists{cv5_ablation_table.tex}{\input{cv5_ablation_table.tex}}{\emph{(ablation table renders here as runs land)}}
-\caption{\textbf{Component ablations (5-fold cross-validation).} Six families — (1)~biological
-graph source, (2)~routing internals, (3)~marker selection / token budget, (4)~recursion depth,
-(5)~learned-graph refinement, (6)~input modality — each under the identical 5-fold protocol.
-SC = mean macro-F1 over 8 single-cell datasets, MO = mean over 3 P-NET cohorts; $\Delta$ = change
-vs.\ the italic family baseline (green $+$, red $-$). \emph{Auto-populates as runs land.}}
+\caption{\textbf{Component ablations.} Six families: graph source, routing internals, marker
+selection/budget, recursion depth, learned-graph refinement, and input modality. SC and MO
+are mean macro-F1 over the $8$ single-cell and $3$ P-NET suites; $\Delta$ is the change vs.\
+the italic family baseline (green $+$, red $-$).}
 \label{tab:ablation_cv5}\label{tab:confound}
 \end{table}

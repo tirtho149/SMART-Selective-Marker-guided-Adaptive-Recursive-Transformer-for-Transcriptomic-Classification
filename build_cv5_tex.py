@@ -7,7 +7,7 @@ import numpy as np
 
 ROOT = "/work/mech-ai-scratch/tirtho/RecusrsiveQFormer"
 PAP = os.path.join(ROOT, "paper")
-SC = ['baron','lung','muraro','oesophagus','segerstolpe','spleen','tcell','xin']
+SC = ['segerstolpe','lung','oesophagus','baron','muraro','tcell','spleen','xin']
 SCdir = {'baron':'Baron','lung':'Lung','muraro':'Muraro','oesophagus':'Oesophagus',
          'segerstolpe':'Segerstolpe','spleen':'Spleen','tcell':'Tcell','xin':'Xin'}
 PN = ['prostate','blca','stad']
@@ -34,17 +34,34 @@ def sc_biotok(ds): return _read(f"results_cv5/biomor_sc_token/{SCdir[ds]}/learne
 def mo_gen(v,t):   return _read(f"results_cv5/mo/{v}/{t}__*_cv.json")
 def mo_bio(c,K):   return _read(f"results_cv5/biomor_mo/k{K}/pnet/{c}__response/learned_cv.json")
 def mo_biotok(c):  return _read(f"results_cv5/biomor_mo_token/pnet/{c}__response/learned_cv.json")
+def sc_biotok_k(ds,K): return _read(f"results_cv5/biomor_sc_token_k{K}/{SCdir[ds]}/learned_cv.json")
+def mo_biotok_k(c,K):  return _read(f"results_cv5/biomor_mo_token_k{K}/pnet/{c}__response/learned_cv.json")
 LPW = {2:'expert_k2',3:'expert_k3',4:'shared'}
 
-def row_vals(kind, variant, K):
+def mo_3m(mode, K):
+    """Tri-modal (mut+CNV+expr) pan-cancer macro-F1 from the 3M ladder. Same reuse as the
+    other pancan cols: every row (MoR and bioMoR) maps to its mode/depth ladder arm."""
+    arm = 'vanilla' if mode == 'independent' else f'{mode}_k{K}'
+    f = f"{ROOT}/results_repro/ladder/pan_meta_pri_3modal_{arm}/pan_meta_pri_3modal__{arm}.json"
+    if not os.path.exists(f): return None
+    try:
+        d = json.load(open(f)); m = d["macro_f1"]
+        return (float(m[0])*100, float(m[1])*100)   # ladder stores fractions -> percent
+    except Exception:
+        return None
+
+def row_vals(kind, variant, K, mode):
     if kind=='biomor_head':
         sc=[sc_bio(d,4) for d in SC]; pn=[mo_bio(c,4) for c in PN]; pan=[mo_gen('shared',c) for c in PANCAN]
     elif kind=='biomor_ladder':
         sc=[sc_bio(d,K) for d in SC]; pn=[mo_bio(c,K) for c in PN]; pan=[mo_gen(LPW[K],c) for c in PANCAN]
     elif kind=='biomor_token':
         sc=[sc_biotok(d) for d in SC]; pn=[mo_biotok(c) for c in PN]; pan=[mo_gen('token',c) for c in PANCAN]
+    elif kind=='biomor_tokenk':
+        sc=[sc_biotok_k(d,K) for d in SC]; pn=[mo_biotok_k(c,K) for c in PN]; pan=[mo_gen(f'token_k{K}',c) for c in PANCAN]
     else:
         sc=[sc_gen(variant,d) for d in SC]; pn=[mo_gen(variant,c) for c in PN]; pan=[mo_gen(variant,c) for c in PANCAN]
+    pan = pan + [mo_3m(mode, K)]      # append tri-modal 3M column
     return sc, pn, pan
 
 def flops_rel(mode,K):
@@ -63,31 +80,36 @@ SPECS=[  # (label,variant,mode,K,type,param,kind)
  ("MoR (general)",'expert_k2','expert',2,"Expert","75K",'std'),
  ("",'expert_k3','expert',3,"Expert","75K",'std'),
  ("",'shared','expert',4,"Expert","75K",'std'),
+ ("",'token_k2','token',2,"Token","75K",'std'),
+ ("",'token_k3','token',3,"Token","75K",'std'),
  ("",'token','token',4,"Token","75K",'std'),None,
  ("bioMoR",None,'expert',2,"Expert","75K",'biomor_ladder'),
  ("",None,'expert',3,"Expert","75K",'biomor_ladder'),
  ("",None,'expert',4,"Expert","75K",'biomor_head'),
+ ("\\quad + Token ($N_R{=}2$)",None,'token',2,"Token","75K",'biomor_tokenk'),
+ ("\\quad + Token ($N_R{=}3$)",None,'token',3,"Token","75K",'biomor_tokenk'),
  ("\\quad + Token choice",None,'token',4,"Token","75K",'biomor_token'),
 ]
 
 def emit_main():
-    DS = ['Bar','Lun','Mur','Oes','Seg','Spl','Tce','Xin','Pro','BL','ST','PM','PC']
+    DS = ['Seg','Lun','Oes','Bar','Mur','Tce','Spl','Xin','Pro','BL','ST','PM','PC','3M']
+    NC = len(DS)   # 14 data columns (8 single-cell + 6 multi-omics incl. tri-modal 3M)
     # best (max mean) per data column for bolding
     grid=[]
     for s in SPECS:
         if s is None: grid.append(None); continue
         label,variant,mode,K,typ,param,kind=s
-        sc,pn,pan=row_vals(kind,variant,K); grid.append((s, sc+pn+pan))
-    best=[None]*13
-    for i in range(13):
+        sc,pn,pan=row_vals(kind,variant,K,mode); grid.append((s, sc+pn+pan))
+    best=[None]*NC
+    for i in range(NC):
         vals=[g[1][i][0] for g in grid if g and g[1][i] is not None]
         best[i]=max(vals) if vals else None
     L=[]
     L.append(r"\resizebox{\textwidth}{!}{%")
-    L.append(r"\begin{tabular}{l l c c c " + "c "*8 + "c "*5 + "c}")
+    L.append(r"\begin{tabular}{l l c c c " + "c "*8 + "c "*6 + "c}")
     L.append(r"\toprule")
-    L.append(r" & & & & & \multicolumn{8}{c}{Single-cell macro-F1 $\uparrow$} & \multicolumn{5}{c}{Multi-omics macro-F1 $\uparrow$} & \\")
-    L.append(r"\cmidrule(lr){6-13}\cmidrule(lr){14-18}")
+    L.append(r" & & & & & \multicolumn{8}{c}{Single-cell macro-F1 $\uparrow$} & \multicolumn{6}{c}{Multi-omics macro-F1 $\uparrow$} & \\")
+    L.append(r"\cmidrule(lr){6-13}\cmidrule(lr){14-19}")
     L.append(r"Model & Type & $N_R$ & Param & FLOPs & " + " & ".join(DS) + r" & Avg \\")
     L.append(r"\midrule")
     for g in grid:
@@ -96,7 +118,7 @@ def emit_main():
         fl=flops_rel(mode,K); flx=f"{fl:.2f}$\\times$" if fl is not None else "--"
         core=[v for v in allv[:11] if v is not None]
         avg = f"{np.mean([v[0] for v in core]):.1f}{{\\scriptsize$\\pm${np.mean([v[1] for v in core]):.1f}}}" if len(core)==11 else (f"{np.mean([v[0] for v in core]):.1f}*" if core else RUN)
-        cells=[cell(allv[i], bold=(allv[i] is not None and best[i] is not None and abs(allv[i][0]-best[i])<1e-9)) for i in range(13)]
+        cells=[cell(allv[i], bold=(allv[i] is not None and best[i] is not None and abs(allv[i][0]-best[i])<1e-9)) for i in range(NC)]
         head = kind.startswith('biomor')
         lab = f"\\textbf{{{label}}}" if (label and (label.startswith('bioMoR') or label.startswith('MoR') or '+' in label)) else label
         L.append(" & ".join([lab, typ, str(K), param, flx]+cells+[avg]) + r" \\")
@@ -198,13 +220,14 @@ def emit_ablation():
     open(os.path.join(PAP,"cv5_ablation_table.tex"),"w").write("\n".join(L)+"\n")
 
 # ---------- Table 5: bioMoR vs non-transformer baselines (native) ----------
-BL_SC = [('Baron','Baron'),('Lung','Lung'),('Muraro','Muraro'),('Oesophagus','Oes.'),
-         ('Segerstolpe','Seger.'),('Spleen','Spleen'),('Tcell','T-cell'),('Xin','Xin')]
-BL_MO = [('prostate','Prostate'),('blca','BLCA'),('stad','STAD')]
+BL_SC = [('Lung','Lung','sc')]
+BL_MO = [('pan_meta_pri','Pan-cancer (PM)','pancan')]
 def _base(ds, meth): return _read(f"results_cv5/baselines/{ds}/{meth}_cv.json")
-def _biomor_ds(ds, is_sc):
-    return (_read(f"results_cv5/biomor_sc/k4/{ds}/learned_cv.json") if is_sc
-            else _read(f"results_cv5/biomor_mo/k4/pnet/{ds}__response/learned_cv.json"))
+def _biomor_ds(ds, kind):
+    # headline bioMoR = token-choice (matches the main-table Avg of 69.8 and the abstract)
+    if kind=='sc':   return _read(f"results_cv5/biomor_sc_token/{ds}/learned_cv.json")
+    if kind=='pnet': return _read(f"results_cv5/biomor_mo_token/pnet/{ds}__response/learned_cv.json")
+    return _read(f"results_cv5/mo/token/{ds}__*_cv.json")   # pancan token-choice
 
 def emit_baselines():
     L=[r"\resizebox{\columnwidth}{!}{%",
@@ -214,24 +237,45 @@ def emit_baselines():
        r"\midrule",
        r"\multicolumn{5}{l}{\emph{Single-cell (genomap)}} \\"]
     colmeans=[[],[],[],[]]
-    def row(ds,lab,is_sc):
-        cells=[_base(ds,'linear'),_base(ds,'random'),_base(ds,'nearestcentroid'),_biomor_ds(ds,is_sc)]
+    def row(ds,lab,kind):
+        cells=[_base(ds,'linear'),_base(ds,'random'),_base(ds,'nearestcentroid'),_biomor_ds(ds,kind)]
         for i,t in enumerate(cells):
             if t is not None: colmeans[i].append(t[0])
         vals=[c[0] for c in cells if c is not None]
         best=max(vals) if vals else None
         txt=[cell(t, bold=(t is not None and best is not None and abs(t[0]-best)<1e-9)) for t in cells]
         L.append(f"\\quad {lab} & "+" & ".join(txt)+r" \\")
-    for ds,lab in BL_SC: row(ds,lab,True)
+    for ds,lab,kind in BL_SC: row(ds,lab,kind)
     L.append(r"\midrule")
-    L.append(r"\multicolumn{5}{l}{\emph{Multi-omics (Reactome/P-NET)}} \\")
-    for ds,lab in BL_MO: row(ds,lab,False)
+    L.append(r"\multicolumn{5}{l}{\emph{Multi-omics (Reactome/P-NET \& pan-cancer)}} \\")
+    for ds,lab,kind in BL_MO: row(ds,lab,kind)
     L.append(r"\midrule")
     mean=[f"\\textbf{{{np.mean(c):.1f}}}" if c else RUN for c in colmeans]
     L.append(r"\textbf{Mean} & "+" & ".join(mean)+r" \\")
     L += [r"\bottomrule", r"\end{tabular}}"]
     open(os.path.join(PAP,"cv5_baselines_table.tex"),"w").write("\n".join(L)+"\n")
 
+# ---------- focused bio-router ablation: 4 datasets x 4 router variants ----------
+def _br_sc(ds,mode):  return _read(f"results_cv5/biorouter_ablation/{ds}/{mode}_cv.json")
+def _br_mo(coh,mode): return _read(f"results_cv5/biorouter_ablation/pnet/{coh}__response/{mode}_cv.json")
+def emit_biorouter():
+    L=[r"\resizebox{\columnwidth}{!}{%",
+       r"\begin{tabular}{l cccc}",
+       r"\toprule",
+       r"Dataset & Data-driven & Static biology & Learned graph & bioMoR \\",
+       r" & router only & only (fixed) & (end-to-end) & (data$+$bio) \\",
+       r"\midrule"]
+    rows=[("Baron",_br_sc,"Baron","coexpr"),("Segerstolpe",_br_sc,"Segerstolpe","coexpr"),
+          ("STAD",_br_mo,"stad","curated"),("BLCA",_br_mo,"blca","curated")]
+    for lab,fn,key,statmode in rows:
+        cells=[fn(key,"none"),fn(key,statmode),fn(key,"learned"),fn(key,"learned_bio")]
+        vals=[c[0] for c in cells if c is not None]
+        best=max(vals) if vals else None
+        txt=[cell(c,bold=(c is not None and best is not None and abs(c[0]-best)<1e-9)) for c in cells]
+        L.append(f"{lab} & "+" & ".join(txt)+r" \\")
+    L += [r"\bottomrule",r"\end{tabular}}"]
+    open(os.path.join(PAP,"biorouter_ablation_table.tex"),"w").write("\n".join(L)+"\n")
+
 if __name__ == "__main__":
-    emit_main(); emit_scaling(); emit_ablation(); emit_baselines()
-    print("wrote paper/cv5_{main,scaling,ablation,baselines}_table.tex")
+    emit_main(); emit_scaling(); emit_ablation(); emit_baselines(); emit_biorouter()
+    print("wrote paper/cv5_{main,scaling,ablation,baselines}_table.tex + biorouter_ablation_table.tex")

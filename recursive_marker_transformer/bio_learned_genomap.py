@@ -271,6 +271,10 @@ def main():
     ap.add_argument("--share_strategy", default=None, help="e.g. 'middle_cycle' for M-Cyc share")
     ap.add_argument("--patience", type=int, default=None, help="early-stop patience override")
     ap.add_argument("--d_model", type=int, default=None, help="width override (d_ff set to 2*d_model)")
+    ap.add_argument("--learned_rank", type=int, default=None,
+                    help="override low-rank r of the learned graph (cfg.bio_learned_rank)")
+    ap.add_argument("--prop_lambda_init", type=float, default=None,
+                    help="override smoothing trust-weight init lambda (cfg.bio_prop_lambda_init)")
     args = ap.parse_args()
     overrides = {}
     if args.recursion_mode: overrides["recursion_mode"] = args.recursion_mode
@@ -282,6 +286,8 @@ def main():
     if args.anchor_floor is not None: overrides["bio_anchor_floor"] = args.anchor_floor
     if args.anchor_rank is not None: overrides["bio_anchor_rank"] = args.anchor_rank
     if args.init_scale is not None: overrides["bio_init_scale"] = args.init_scale
+    if args.learned_rank is not None: overrides["bio_learned_rank"] = args.learned_rank
+    if args.prop_lambda_init is not None: overrides["bio_prop_lambda_init"] = args.prop_lambda_init
     device = resolve_device(args.device)
     X, y = load_genomap(args.dataset)
     out_dir = args.out / args.dataset; out_dir.mkdir(parents=True, exist_ok=True)

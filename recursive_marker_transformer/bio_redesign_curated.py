@@ -42,7 +42,8 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from sklearn.metrics import accuracy_score, f1_score
+from sklearn.metrics import (accuracy_score, f1_score,
+                             precision_recall_fscore_support, precision_recall_curve)
 
 from .config import RMTConfig
 from .interaction import _reactome_membership, build_reactome_falsification
@@ -253,7 +254,20 @@ def run_cell_cv(X, y, genes, classes, family, cohort, task, mode, K, epochs,
     cfg.n_markers = min(cfg.n_markers, F)
     Xf = X.astype(np.float32)
 
-    fold_f1, fold_acc = [], []
+    # z-scored probabilities of the positive class for a batch of row indices, using
+    # the trained model (for the PATH-comparable threshold-tuned positive-class F1).
+    def _pos_prob(model, Xz, idx, pos, bs=256):
+        model.eval(); out = []
+        with torch.no_grad():
+            for s in range(0, len(idx), bs):
+                xb = torch.from_numpy(Xz[idx[s:s + bs]]).to(device)
+                logit = model(xb)["logits"][HEAD]
+                out.append(torch.softmax(logit, -1)[:, pos].cpu().numpy())
+        return np.concatenate(out) if out else np.array([])
+
+    binary = len(classes) == 2
+    pos = 1                                        # progression class (metastatic / late-stage)
+    fold_f1, fold_acc, fold_pos = [], [], []
     for fi, (tr, va, te) in enumerate(cv_folds(y, n_folds=n_folds, seed=SEED, val_frac=VAL_FRAC)):
         inter, bio_op = None, None
         if mode in _NEEDS_GRAPH:
@@ -274,13 +288,30 @@ def run_cell_cv(X, y, genes, classes, family, cohort, task, mode, K, epochs,
                                   inter=inter, bio_op=bio_op)
         f1 = 100.0 * f1_score(yt, yp, average="macro")
         fold_f1.append(f1); fold_acc.append(100.0 * accuracy_score(yt, yp))
-        print(f"  fold {fi+1}/{n_folds}: macroF1={f1:.2f} (test {len(te)})", flush=True)
-    return {
+        msg = f"  fold {fi+1}/{n_folds}: macroF1={f1:.2f} (test {len(te)})"
+        if binary:
+            # PATH protocol: tune the decision threshold on validation to maximise
+            # positive-class F1, apply to test (same recipe as the general ladder).
+            mu = Xf[tr].mean(0, keepdims=True); sd = Xf[tr].std(0, keepdims=True) + 1e-6
+            Xz = (Xf - mu) / sd
+            vp = _pos_prob(model, Xz, va, pos); tp = _pos_prob(model, Xz, te, pos)
+            prec, rec, thr = precision_recall_curve(y[va], vp)
+            f1s = 2 * prec * rec / (prec + rec + 1e-12)
+            tau = thr[max(0, int(np.argmax(f1s)) - 1)] if len(thr) else 0.5
+            yp_thr = (tp >= tau).astype(int)
+            pf = 100.0 * precision_recall_fscore_support(
+                y[te], yp_thr, labels=[pos], average="macro", zero_division=0)[2]
+            fold_pos.append(pf); msg += f" posF1={pf:.2f}"
+        print(msg, flush=True)
+    out = {
         "family": family, "cohort": cohort, "task": task, "mode": mode, "K": K,
         "n_features": F, "n_classes": C, "n_samples": int(len(y)),
         "n_folds": n_folds, "seed": SEED, "val_frac": VAL_FRAC,
         "cv_macro_f1": summarize(fold_f1), "cv_accuracy": summarize(fold_acc),
     }
+    if fold_pos:
+        out["cv_pos_f1"] = summarize(fold_pos)
+    return out
 
 
 def main():

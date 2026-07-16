@@ -57,9 +57,22 @@ CHANNEL_SETS = {
     "mut":     ["mut"],
     "cnv":     ["cnv"],
     "mut_cnv": ["mut", "cnv"],
-    "expr":    ["expr"],      # pancancer-meta cohorts (expression joined from Xena)
+    "expr":    ["expr"],           # expression only (Xena-joined pancancer or 3-modal file)
+    "mut_cnv_expr": ["mut", "cnv", "expr"],   # tri-modal concat (pan_meta_pri_3modal)
 }
-_MODALITY_FILE = {"mut": "mutation_data.csv", "cnv": "cnv_data.csv"}
+# each modality's per-gene omics file; 3-modal cohorts additionally ship expression.
+_MODALITY_FILE = {"mut": "mutation_data.csv", "cnv": "cnv_data.csv",
+                  "expr": "expression_data.csv"}
+
+
+def _first_existing(root: Path, *names: str) -> Path:
+    """Resolve a file that may be named differently across cohort variants
+    (e.g. ``labels.csv`` vs ``patient_labels.csv``, ``pathways.csv`` vs
+    ``filtered_pathways.csv``). Returns the first that exists, else the first name."""
+    for n in names:
+        if (root / n).exists():
+            return root / n
+    return root / names[0]
 
 # Excel mangles a few gene symbols into dates: MARCH1 -> "1-Mar", SEPT10 ->
 # "10-Sep", DEC1 -> "1-Dec". Reverse the common month forms.
@@ -90,7 +103,11 @@ def _read_omics(path: Path) -> tuple[list, list, np.ndarray]:
     """Read a patient x gene matrix -> (patient_ids, fixed_gene_names, values)."""
     df = pd.read_csv(path, index_col=0)
     genes = [fix_symbol(g) for g in df.columns]
-    return df.index.astype(str).tolist(), genes, df.to_numpy(dtype=np.float32)
+    # Some per-gene matrices (notably the tri-modal expression file) ship sparse NaNs;
+    # zero-fill them to match the Xena expression path (np.nan_to_num, nan=0.0) so the
+    # model never sees NaN inputs (which propagate to NaN predictions -> roc_auc crash).
+    X = np.nan_to_num(df.to_numpy(dtype=np.float32), nan=0.0, posinf=0.0, neginf=0.0)
+    return df.index.astype(str).tolist(), genes, X
 
 
 def _eigenvector_centrality(W: np.ndarray, iters: int = 200) -> np.ndarray:
@@ -124,7 +141,7 @@ def _build_pathways(root: Path, genes: list, min_genes: int):
     the genes that land in >=1 kept pathway, the kept pathway ids, that gene
     sub-list, the (M, M) symmetric hierarchy graph and its (M,) centrality prior.
     Pathways with < ``min_genes`` present members are dropped."""
-    pw = pd.read_csv(root / "filtered_pathways.csv")
+    pw = pd.read_csv(_first_existing(root, "filtered_pathways.csv", "pathways.csv"))
     gidx = {g: i for i, g in enumerate(genes)}
     P_full = np.zeros((len(genes), len(pw)), dtype=np.float32)
     for j, gene_str in enumerate(pw["Genes"].fillna("")):
@@ -162,8 +179,14 @@ def load_cohort(cohort: str, channels: str = "mut_cnv", min_genes: int = 5,
         gene_sets.append(genes)
 
     # ---- labels ----
-    lab = pd.read_csv(root / "patient_labels.csv")
-    idcol, ycol = lab.columns[0], lab.columns[-1]
+    # data.md: column 1 = patient ID, column 2 = ``response`` (the classification
+    # target). Some cohorts (``pan_meta_pri``) carry extra descriptor columns
+    # (``sample_type``, ``primary_disease``) AFTER ``response`` -- selecting the
+    # last column there silently trains on the 32-class cancer type instead of the
+    # binary metastatic-vs-primary target, so pick ``response`` explicitly.
+    lab = pd.read_csv(_first_existing(root, "patient_labels.csv", "labels.csv"))
+    idcol = lab.columns[0]
+    ycol = "response" if "response" in lab.columns else lab.columns[1 if len(lab.columns) > 1 else -1]
     lab = lab.dropna(subset=[ycol])
     lab_map = dict(zip(lab[idcol].astype(str), lab[ycol]))
 

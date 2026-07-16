@@ -1,0 +1,20 @@
+{
+ "dataset": "panmeta_response",
+ "method": "Linear (ANOVA->PCA->LogReg)",
+ "n_folds": 5,
+ "seed": 42,
+ "n_features": 3000,
+ "n_classes": 2,
+ "n_samples": 8586,
+ "cv_macro_f1": {
+  "mean": 93.66938419504774,
+  "std": 1.1783377105656754,
+  "folds": [
+   94.75579975579976,
+   92.31595435220407,
+   95.35594503948934,
+   93.15745427011517,
+   92.76176755763038
+  ]
+ }
+}

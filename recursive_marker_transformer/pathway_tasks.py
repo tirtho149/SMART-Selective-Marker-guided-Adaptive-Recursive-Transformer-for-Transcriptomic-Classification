@@ -46,7 +46,8 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from sklearn.metrics import accuracy_score, classification_report, f1_score
+from sklearn.metrics import (accuracy_score, classification_report, f1_score,
+                             roc_auc_score, precision_recall_curve)
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -107,7 +108,23 @@ def _zscore_train(X: np.ndarray, tr: np.ndarray) -> np.ndarray:
     return (X - mu) / sd
 
 
-def _fit_eval(task, coh, X, y, tr, va, te, cfg, G, K, dtypes, device, init_block=None):
+def _proba(model, loader, device, task, pos):
+    """(y_true, prob[pos]) over a loader for the binary positive class ``pos``."""
+    model.eval(); ys, ps = [], []
+    with torch.no_grad():
+        for xb, yb in loader:
+            logit = model(xb.to(device))["logits"][task]
+            prob = torch.softmax(logit, -1)[:, pos].cpu()
+            ps.append(prob); ys.append(yb[task])
+    return torch.cat(ys).numpy(), torch.cat(ps).numpy()
+
+
+def _fit_eval(task, coh, X, y, tr, va, te, cfg, G, K, dtypes, device, init_block=None,
+              sel_pos=None, path_protocol=False):
+    """sel_pos: if given, select the best epoch on that class's F1 instead of macro-F1.
+    path_protocol (binary only): reproduce PATH's exact eval -- select the epoch on
+    validation AUROC, tune the decision threshold on validation to maximise positive-
+    class F1, and apply that threshold to the test set (instead of argmax@0.5)."""
     Xs = _zscore_train(X, tr)
     dl_tr = _DictLoader(Xs, y, tr, cfg.batch_size, True, task)
     dl_va = _DictLoader(Xs, y, va, cfg.batch_size, False, task)
@@ -151,6 +168,7 @@ def _fit_eval(task, coh, X, y, tr, va, te, cfg, G, K, dtypes, device, init_block
          torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max(1, cfg.epochs - _warm))],
         milestones=[_warm])
 
+    pp = path_protocol and K == 2 and sel_pos is not None
     best_f1, best_state, bad = -1.0, None, 0
     for ep in range(cfg.epochs):
         model.train()
@@ -164,10 +182,15 @@ def _fit_eval(task, coh, X, y, tr, va, te, cfg, G, K, dtypes, device, init_block
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
         sched.step()
-        yt, yp = evaluate(model, dl_va, device, dtypes)[task]
-        vf1 = f1_score(yt, yp, average="macro")
-        if vf1 > best_f1:
-            best_f1, bad = vf1, 0
+        if pp:                                    # PATH: select on validation AUROC
+            vy, vp = _proba(model, dl_va, device, task, sel_pos)
+            score = roc_auc_score(vy, vp) if len(set(vy)) > 1 else 0.0
+        else:
+            yt, yp = evaluate(model, dl_va, device, dtypes)[task]
+            score = (f1_score(yt, yp, labels=[sel_pos], average="macro")
+                     if sel_pos is not None else f1_score(yt, yp, average="macro"))
+        if score > best_f1:
+            best_f1, bad = score, 0
             best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
         else:
             bad += 1
@@ -175,6 +198,16 @@ def _fit_eval(task, coh, X, y, tr, va, te, cfg, G, K, dtypes, device, init_block
                 break
     if best_state is not None:
         model.load_state_dict(best_state)
+    if pp:
+        # tune the decision threshold on validation to maximise positive-class F1,
+        # then apply it to the test set (PATH's calibrated-threshold protocol).
+        vy, vp = _proba(model, dl_va, device, task, sel_pos)
+        prec, rec, thr = precision_recall_curve(vy, vp)
+        f1s = 2 * prec * rec / (prec + rec + 1e-12)
+        tau = thr[max(0, int(np.argmax(f1s)) - 1)] if len(thr) else 0.5
+        ty, tp = _proba(model, dl_te, device, task, sel_pos)
+        yp = np.where(tp >= tau, sel_pos, 1 - sel_pos)
+        return ty.astype(int), yp.astype(int), model, dl_te, best_f1
     yt, yp = evaluate(model, dl_te, device, dtypes)[task]
     return yt, yp, model, dl_te, best_f1
 
@@ -332,6 +365,10 @@ def main():
     ap.add_argument("--n_markers", type=int, default=256)
     ap.add_argument("--batch_size", type=int, default=64)
     ap.add_argument("--lr", type=float, default=3e-4)
+    ap.add_argument("--weight_decay", type=float, default=1e-2,
+                    help="AdamW weight decay (raise to fight overfit on small cohorts)")
+    ap.add_argument("--dropout", type=float, default=0.1,
+                    help="transformer dropout (raise to fight overfit on small cohorts)")
     ap.add_argument("--patience", type=int, default=8)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--device", type=str, default="auto")
@@ -354,6 +391,7 @@ def main():
         step_cache=args.step_cache, router_type=args.router_type,
         router_temp=args.router_temp, seed=args.seed, epochs=args.epochs,
         patience=args.patience, lr=args.lr, device=args.device,
+        weight_decay=args.weight_decay, dropout=args.dropout,
         gene_interaction=args.gene_interaction, pathway_pool=args.pathway_pool,
         pathway_attn_bias=args.pathway_attn_bias,
         pathway_attn_lambda=args.pathway_attn_lambda,

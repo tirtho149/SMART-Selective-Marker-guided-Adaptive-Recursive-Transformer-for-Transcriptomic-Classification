@@ -1,0 +1,20 @@
+{
+ "dataset": "pan_meta_pri_3modal",
+ "method": "Linear (ANOVA->PCA->LogReg)",
+ "n_folds": 5,
+ "seed": 42,
+ "n_features": 3000,
+ "n_classes": 2,
+ "n_samples": 8586,
+ "cv_macro_f1": {
+  "mean": 92.13269791870002,
+  "std": 0.7240045044637352,
+  "folds": [
+   90.91946975623163,
+   92.31595435220407,
+   92.31595435220407,
+   93.15745427011517,
+   91.9546568627451
+  ]
+ }
+}

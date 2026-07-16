@@ -59,10 +59,27 @@ def _methods(F, K):
     }
 
 
+# extra multi-omics cohorts for the extended baselines (Table 6): channel set fed to
+# the loader; multi-channel omics are flattened to (N, G*C) for the sklearn baselines.
+MO_EXTRA = {"pan_meta_pri": "mut_cnv", "panmeta_response": "expr",
+            "pan_meta_pri_3modal": "mut_cnv_expr", "brca": "mut"}
+
+
 def _load(name):
     if name in SC_DATASETS:
         X, y = load_genomap(name)
         return X.astype(np.float32), y.astype(int)
+    if name in MO_EXTRA:
+        from .pathway_data import load_cohort, load_pan_meta
+        if name == "panmeta_response":
+            coh = load_pan_meta(cohort="pancancer_meta_pri")
+        else:
+            coh = load_cohort(name, channels=MO_EXTRA[name])
+        X = coh.X
+        if X.ndim == 3:                      # (N, G, C) -> (N, G*C) flat feature vector
+            X = X.reshape(X.shape[0], -1)
+        X, _ = _cap_genes(X, [str(i) for i in range(X.shape[1])], 3000)
+        return X.astype(np.float32), coh.y.astype(int)
     X, y, genes, classes = load_pnet(name)
     X, _ = _cap_genes(X, genes, 3000)
     return X.astype(np.float32), y.astype(int)

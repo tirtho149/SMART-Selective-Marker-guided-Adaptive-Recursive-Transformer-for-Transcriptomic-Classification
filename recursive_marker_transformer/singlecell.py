@@ -41,6 +41,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import time
 import torch
 from sklearn.metrics import accuracy_score, classification_report, f1_score
 from sklearn.model_selection import train_test_split
@@ -230,9 +231,13 @@ def _fit_eval(Xs_full, y, tr, va, te, cfg, F, K, device, inter="auto", bio_op=No
         milestones=[warm])
 
     best_f1, best_state, bad = -1.0, None, 0
+    hist = []                                          # per-epoch (train_loss, val_f1, wall-sec) for curve/cost plots
+    if device == "cuda" and torch.cuda.is_available(): torch.cuda.synchronize()
+    _t0 = time.perf_counter()
     for ep in range(cfg.epochs):
         model.train()
         model.set_anneal(ep / max(cfg.epochs - 1, 1))
+        _lsum, _ln = 0.0, 0
         for xb, yb in dl_tr:
             xb = xb.to(device)
             yb = {h: v.to(device) for h, v in yb.items()}
@@ -245,9 +250,14 @@ def _fit_eval(Xs_full, y, tr, va, te, cfg, F, K, device, inter="auto", bio_op=No
                 continue
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
+            _lsum += float(loss.detach()); _ln += 1
         sched.step()
         yt, yp = evaluate(model, dl_va, device, _DTYPES)[HEAD]
         vf1 = f1_score(yt, yp, average="macro")
+        if device == "cuda" and torch.cuda.is_available(): torch.cuda.synchronize()
+        hist.append({"epoch": ep + 1, "train_loss": _lsum / max(_ln, 1),
+                     "val_f1": 100.0 * float(vf1), "sec": time.perf_counter() - _t0})
+        model._history = hist
         if vf1 > best_f1:
             best_f1, bad = vf1, 0
             best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}

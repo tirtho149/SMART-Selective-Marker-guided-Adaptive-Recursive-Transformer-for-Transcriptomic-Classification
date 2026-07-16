@@ -1,6 +1,9 @@
 data/pan_meta_pri/cnv_data.csv filter=lfs diff=lfs merge=lfs -text
 data/brca/cnv_data.csv filter=lfs diff=lfs merge=lfs -text
 data/pan_meta_pri/mutation_data.csv filter=lfs diff=lfs merge=lfs -text
+data/pan_meta_pri_3modal/cnv_data.csv filter=lfs diff=lfs merge=lfs -text
+data/pan_meta_pri_3modal/expression_data.csv filter=lfs diff=lfs merge=lfs -text
+data/pan_meta_pri_3modal/mutation_data.csv filter=lfs diff=lfs merge=lfs -text
 genomap_data/**/*.npy filter=lfs diff=lfs merge=lfs -text
 genomap_data/**/*.mat filter=lfs diff=lfs merge=lfs -text
 genomap_data/**/*.csv filter=lfs diff=lfs merge=lfs -text
