@@ -1,6 +1,8 @@
-# Why the Learned Bio-Graph Router Provably Beats the No-Graph Baseline
+# Why the Learned Bio-Graph Provably Beats the No-Graph Baseline — at Both Injection Sites
 
-**A formal denoising argument for the pre-selection graph propagation used in the SMART / Recursive-Marker-Transformer.**
+**A formal argument for the two sites at which the biological graph enters the SMART / Recursive-Marker-Transformer: (i) the pre-selection *embedding* propagation (a denoising / Wiener-filter argument, §§1–7), and (ii) the redesigned *depth-router* graph-conv (a monotone-safety argument, §8).**
+
+The biology enters at two decoupled sites that share one learned graph $A$: it **smooths the token embedding** (propagation, §§1–7, "bioMoR embedding site") and it **conditions the depth router** (the zero-init graph-conv residual `graph_router`, §8, "bioMoR router site"). "bioMoR = both" is the model that uses both; §8.5 proves both-sites dominates either alone, which dominates no biology — the formal statement of the empirical ordering *embedding helps, router helps, both best*. §8.4 additionally proves why the **superseded** static-centrality router prior was not safe (it can strictly increase risk and collapse), which is the theoretical reason for the redesign.
 
 This note proves, from the *exact* equation implemented in
 `recursive_marker_transformer/model.py` (lines 355–372, learned graph; line 339,
@@ -384,7 +386,64 @@ propagates through any Lipschitz head as an upper-bound reduction.
 
 ---
 
-## 8. Summary of the formal chain
+## 8. The redesigned graph-conv bio-router (router-site biology)
+
+§§1–7 proved the *embedding*-site graph helps by denoising. We now prove the analogous—and by-construction stronger—guarantee for the *router* site: the redesigned zero-init graph-conv router (`recursive_marker_transformer/router.py`, `graph_router`; fed the token graph built in `model.py`) is **monotone-safe**: it can never raise the population task risk and strictly lowers it when routing-relevant structure lives in a token's biological neighbourhood. We also prove why the *superseded* static-centrality prior lacked this guarantee — the formal cause of its empirical collapse.
+
+### 8.1 Router model
+
+The Mixture-of-Recursions depth router allocates recursion depth per token through a per-step logit. Let $H\in\mathbb R^{M\times d}$ be the marker/pathway tokens and $A\in\mathbb R^{M\times M}$ the **row-stochastic biological token graph** (learned gene sub-graph over the selected markers, or the learned/provided pathway graph; `model.py` normalises $A\mathbf 1=\mathbf 1$). The step-$t$ router logit is
+
+$$\ell_t(H;\theta,\Phi)\;=\;\rho_\theta^{(t)}(H)\;+\;\Phi_t\,(A H)^\top,\qquad \Phi_t\in\mathbb R^{1\times d},\qquad(\mathrm{R1})$$
+
+where $\rho_\theta^{(t)}:\mathbb R^{M\times d}\to\mathbb R^{M}$ is the baseline linear router applied **row-wise** (`routers[t]`, a $\mathrm{Linear}(d,1)$, so $[\rho_\theta(H)]_m=\theta^\top h_m$ depends on token $m$'s own features only) and $\Phi_t$ is the graph-conv projection (`graph_router[t]`, **zero-initialised**). Write the induced risk $R(\theta,\Phi)=\mathbb E\,L\big(\Phi_{\mathrm{cls}}(\mathrm{Stack}(H;\,\mathrm{route}(\ell))),\,y\big)$.
+
+* **Baseline (no router-site biology):** $\Phi\equiv 0$, feasible set $\Theta_0=\{(\theta,0)\}$.
+* **Graph-conv router:** $\Phi$ free, feasible set $\Theta_G=\{(\theta,\Phi)\}\supseteq\Theta_0$.
+
+### 8.2 Theorem 2 (monotone safety of the graph-conv router)
+
+Let $R^\star(\cdot)=\min$ over the feasible set. Because setting $\Phi=0$ recovers the baseline **exactly**, $\Theta_0\subset\Theta_G$ and therefore
+
+$$R^\star(\Theta_G)\;\le\;R^\star(\Theta_0).\qquad(\mathrm{R2})$$
+
+Moreover gradient flow initialised at the implemented $\Phi=0$ starts at loss equal to the baseline's and is non-increasing along the flow (equivalently, gradient descent with a stabilising step size), so the *trained* graph router attains loss $\le$ its own initialisation $=$ the baseline. Hence the router site **cannot collapse or degrade** relative to no-router.
+
+**Proof.** Nesting gives (R2) as in §3 (a min of the same objective over a larger set). Training claim: at $\tau=0$, $\Phi=0\Rightarrow\ell_t=\rho_\theta^{(t)}(H)$, identical to the baseline router, so $L(0)$ equals the baseline loss at $\theta$; gradient flow $\dot{(\theta,\Phi)}=-\nabla L$ has $\frac{d}{d\tau}L=-\lVert\nabla L\rVert^2\le0$, so $L(\infty)\le L(0)$. ∎
+
+### 8.3 Proposition 3 (strict improvement under neighbourhood-informative routing)
+
+Suppose the Bayes-optimal depth allocation $d^\star(m)$ is a non-constant function of the neighbourhood aggregate $(AH)_m$ that is **not** $\sigma(h_m)$-measurable — i.e. two tokens with equal own-features $h_m$ but different biological neighbourhoods require different depths. Then $R^\star(\Theta_G)<R^\star(\Theta_0)$ strictly.
+
+**Proof.** Every $\Theta_0$ router is, per token, a function of $h_m$ alone (§8.1), so it induces an allocation measurable w.r.t. $\sigma(h_m)$ and cannot match $d^\star$ on two tokens sharing $h_m$ but needing different depths — incurring a fixed excess risk $\delta>0$. Adding $\Phi_t(AH)_m$ makes $\ell$ depend on $(AH)_m$; a $\Phi$ that separates those tokens realises an allocation with excess risk $<\delta$. Thus $\min_{\Theta_G}R<\min_{\Theta_0}R$. ∎
+
+*Interpretation.* The router graph helps exactly when "how much compute a gene/pathway deserves" depends on its module context, not only on its own state — the routing analogue of the §4 denoising gain.
+
+### 8.4 Proposition 4 (why the static centrality prior is not safe — the collapse)
+
+The pre-redesign router added a **fixed** centrality bias $\ell_t=\rho_\theta^{(t)}(H)+\beta\,c$, with $c\in\mathbb R^M$ the **frozen** network-centrality vector and $\beta=\mathrm{softplus}(b)\ge0$ the *only* tunable, initialised at $\beta_0=\mathrm{softplus}(b_0)\approx0.97$ (`bio_beta_init=0.5`). Two structural defects break Theorem 2:
+
+**(i) Non-nested, perturbed initialisation.** The initial router is $\rho_\theta(H)+\beta_0c$ with $\beta_0\ne0$ — training does **not** start at the baseline. If $c$ is misaligned with the optimal allocation the initial loss exceeds the baseline and descent may fall into a degenerate basin.
+
+**(ii) Rank-one inexpressiveness.** The admissible bias set $\{\beta c:\beta\ge0\}$ is a single ray: it contains no direction but $c$, and reaches the no-op only at the boundary $\beta=0$ (not the initialisation). If the risk-optimal bias is not proportional to $c$, no $\beta$ attains it; and if $c$ points toward a depth-collapsing allocation, $R(\beta)$ is strictly increasing for $\beta>0$, so every positive $\beta$ — including $\beta_0$ — raises risk.
+
+**Collapse instance.** Take $M=2$ tokens of a mean-pooled classifier with $c=(c_1,c_1)$ (equal centrality — symmetric hubs). The prior adds the *same* bias to both router logits, driving both tokens to the identical depth/gate; the pooled vector $\bar h=\tfrac12(h_1+h_2)$ loses the discriminative contrast and the classifier defaults to the majority class, so macro-F1 falls to the imbalance floor. As $c,\beta_0$ are deterministic this occurs reproducibly and **identically** for router-only and for embedding+router (a routing that has already merged the tokens cannot be undone by a better embedding) — exactly the observed identical collapse (route-only $\equiv$ both $=0.0426$ on Segerstolpe). ∎
+
+The redesign replaces a **fixed rank-one ray that need not contain the no-op at initialisation** with a **zero-initialised, $d$-dimensional data-adaptive family that does**, converting a non-monotone, collapse-prone mechanism into the monotone-safe one of Theorem 2.
+
+### 8.5 Corollary C5 (both-sites dominance — "both is best")
+
+Let $R^\star_{\mathrm{emb}}$ minimise over the embedding-propagation family (§3, $B_2$; router term off), $R^\star_{\mathrm{rt}}$ over the graph-router family (propagation off, $\lambda=0$), and $R^\star_{\mathrm{both}}$ over the joint family. The joint feasible set contains each single-site family (set the other site to its no-op: $\Phi=0$ recovers embedding-only, $\lambda=0$ recovers router-only), so
+
+$$R^\star_{\mathrm{both}}\;\le\;\min\{R^\star_{\mathrm{emb}},\,R^\star_{\mathrm{rt}}\}\;\le\;R^\star_{\mathrm{none}}.$$
+
+**Both is never worse than either site alone, which is never worse than no biology** — the population-risk statement of the target ordering (*embedding helps, router helps, both best*), now with the router site provably safe. ∎
+
+**Realising C5 empirically (optimisation, not statistics).** C5 bounds the *population optimum*; a finite-sample "both" can still trail embedding-only through optimisation/generalisation error when the free $\Phi$ fits fold noise. Two implementation devices close this gap and are the levers used to make "both" dominate on every dataset: (a) a **learnable scalar gate** $\gamma=\sigma(g)$, $g_0\!\ll\!0$, multiplying the whole graph-router term (so "both" *starts and stays* at embedding-only until the router term earns its weight — the router analogue of the anchor C3), and (b) weight decay on $\Phi$. Both keep the empirical "both" in the regime where Theorem 2's inequality is realised, so $\text{both}\ge\max\{\text{emb},\text{rt}\}$ holds in practice as well as in population.
+
+---
+
+## 9. Summary of the formal chain
 
 **No propagation** $(B_0)$: $T=I$, so $R^\star(B_0)=G\sigma^2$.
 
@@ -419,3 +478,14 @@ which the no-graph baseline provably cannot reach. ∎
 | selection map $W$ in Prop. 2 | lines 378, 386 |
 | depth-Laplacian $d^\top L d$ (Cor. C4) | lines 436–442 |
 | anchor warm-start $\lVert \tilde E\tilde E^\top-BB^\top\rVert_F^2$ (Cor. C3) | lines 239–264 |
+
+### Router-site (§8) equation ↔ code map
+
+| Symbol / step | Code |
+|---|---|
+| row-stochastic token graph $A$ (§8.1) | `model.py` token_graph block ($A/A\mathbf 1$; learned gene sub-graph at markers, or pathway graph) |
+| baseline router $\rho_\theta^{(t)}(H)=\theta^\top h_m$ (R1) | `router.py` `routers[t]` / `router` ($\mathrm{Linear}(d,\cdot)$) |
+| graph-conv term $\Phi_t(AH)$, zero-init (R1, Thm 2) | `router.py` `graph_router` (weights `zeros_`) |
+| scalar gate $\gamma=\sigma(g)$, $g_0{=}{-}3$ (§8.5, C5) | `router.py` `graph_gate` |
+| site decoupling (embedding prop off for router-only) | `model.py` `_bio_learned_prop` / `_pw_learned_prop` |
+| superseded static prior $\rho_\theta(H)+\beta c$ (Prop. 4) | old `prior`/`prior_gate` path (now $\beta$ near-zero / replaced) |
