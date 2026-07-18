@@ -45,17 +45,17 @@ def sc_biotok_k(ds,K): return _read(f"results_cv5/biomor_ladder/token_k{K}/{SCdi
 def mo_biotok_k(c,K):  return _read(f"results_cv5/biomor_ladder_mo/token_k{K}/{c}__*_cv.json")
 LPW = {2:'expert_k2',3:'expert_k3',4:'shared'}
 
-def mo_3m(mode, K):
-    """Tri-modal (mut+CNV+expr) pan-cancer macro-F1 from the 3M ladder. Same reuse as the
-    other pancan cols: every row (MoR and bioMoR) maps to its mode/depth ladder arm."""
-    arm = 'vanilla' if mode == 'independent' else f'{mode}_k{K}'
-    f = f"{ROOT}/results_repro/ladder/pan_meta_pri_3modal_{arm}/pan_meta_pri_3modal__{arm}.json"
-    if not os.path.exists(f): return None
-    try:
-        d = json.load(open(f)); m = d["macro_f1"]
-        return (float(m[0])*100, float(m[1])*100)   # ladder stores fractions -> percent
-    except Exception:
-        return None
+def mo_3m(kind, variant, mode, K):
+    """Tri-modal (mut+CNV+expr) pan-cancer 3M macro-F1, read from the SAME unified 5-fold/
+    seed-42 results_cv5 trees as every other data column (was previously the 10-fold
+    reproduce_path.py protocol in results_repro/ -> not apple-to-apple). 3M is now treated
+    as an ordinary multi-omics cohort: baseline rows -> results_cv5/mo/<variant> (like
+    mo_gen); bioMoR rows -> inject_mo/both (K4) + biomor_ladder_mo/<mode>_k<K> (like mo_bio)."""
+    C = 'pan_meta_pri_3modal'
+    if kind and kind.startswith('biomor'):
+        if K == 4: return _read(f"results_cv5/inject_mo/both/{C}__*_cv.json")
+        return _read(f"results_cv5/biomor_ladder_mo/{mode}_k{K}/{C}__*_cv.json")
+    return _read(f"results_cv5/mo/{variant}/{C}__*_cv.json")
 
 def row_vals(kind, variant, K, mode):
     if kind=='biomor_head':
@@ -68,7 +68,7 @@ def row_vals(kind, variant, K, mode):
         sc=[sc_biotok_k(d,K) for d in SC]; pn=[mo_biotok_k(c,K) for c in PN]; pan=[mo_biotok_k(c,K) for c in PANCAN]
     else:
         sc=[sc_gen(variant,d) for d in SC]; pn=[mo_gen(variant,c) for c in PN]; pan=[mo_gen(variant,c) for c in PANCAN]
-    pan = pan + [mo_3m(mode, K)]      # append tri-modal 3M column
+    pan = pan + [mo_3m(kind, variant, mode, K)]      # append tri-modal 3M column (unified 5-fold)
     return sc, pn, pan
 
 def flops_rel(mode,K):

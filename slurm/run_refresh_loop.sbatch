@@ -18,7 +18,7 @@ PROJ=/work/mech-ai-scratch/tirtho/RecusrsiveQFormer
 cd "$PROJ"; source /work/mech-ai-scratch/tirtho/.venv/bin/activate 2>/dev/null || true
 for i in $(seq 1 400); do
   bash refresh_cv5.sh >> logs/tex_refresh.log 2>&1 || echo "[refresh $(date +%H:%M:%S)] refresh_cv5 error" >> logs/tex_refresh.log
-  n=$(squeue -u tirtho -h -o "%j" 2>/dev/null | grep -c -E 'canon-biomor|inject-sc|inject-mo|bmboth')
+  n=$(squeue -u tirtho -h -o "%j" 2>/dev/null | grep -c -E 'canon-biomor|inject-sc|inject-mo|bmboth|3m-cv5')
   echo "[refresh $(date +%H:%M:%S)] regenerated .tex; $n training jobs left" >> logs/tex_refresh.log
   [ "$n" -eq 0 ] && { bash refresh_cv5.sh >> logs/tex_refresh.log 2>&1; echo "[refresh] ALL DONE" >> logs/tex_refresh.log; break; }
   sleep 90
