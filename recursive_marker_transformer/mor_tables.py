@@ -1,6 +1,6 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
-# Reproduction of ALL 14 Mixture-of-Recursions (Bae et al. 2025) tables with SMART
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
+# Reproduction of ALL 14 Mixture-of-Recursions (Bae et al. 2025) tables with bioMoR
 # on the genomap dataset suite (Islam & Xing 2023). NO TCGA.
 #
 # Each table is rendered from the result directories produced by the run_*.sbatch
@@ -192,7 +192,7 @@ def t4_router_ablation():
 def t3_arch_scaling(key="macro_f1"):
     """T3/T7: MoR vs Recursive vs Vanilla across model sizes (results_scaling)."""
     archs = [("vanilla", "Vanilla (independent)"), ("recursive", "Recursive (shared)"),
-             ("mor", "MoR (SMART)")]
+             ("mor", "MoR (bioMoR)")]
     # shared size rungs: single-cell d in {48,96,192,384}, the larger cohorts in
     # {64,128,256} (no cohort xlarge run). One row per (arch, rung); each column reads
     # its own modality's d for that rung.
@@ -369,7 +369,7 @@ PENDING = {}
 
 
 # Story-named tables (title, one-line caption, builder, label). No "T1/T2/T3" -- each
-# table is a result of the paper, ordered to tell the SMART story: token reduction ->
+# table is a result of the paper, ordered to tell the bioMoR story: token reduction ->
 # adaptive recursion -> parameter sharing -> compute allocation -> transfer.
 SECTIONS = [
     # Only design dimensions NOT already in the main-paper tables (which now report
@@ -378,7 +378,7 @@ SECTIONS = [
      "macro-F1 as the number of marker tokens $M$ is reduced (token reduction)",
      t_token_reduction, "tab:tokens"),
     ("Recursion versus independent layers across model sizes",
-     "macro-F1 of independent layers (Vanilla), one weight-shared block (Recursive), and adaptive routing (SMART)",
+     "macro-F1 of independent layers (Vanilla), one weight-shared block (Recursive), and adaptive routing (bioMoR)",
      t3_arch_scaling, "tab:scaling"),
     ("Weight-sharing schemes",
      "Cycle, Sequence, Middle-Cycle and Middle-Sequence sharing between the fully-shared and fully-independent extremes",
@@ -400,7 +400,7 @@ SECTIONS = [
 # Story description paragraph per table (keyed by title). Prose, not "MoR table N".
 DESC = {
     "How few tokens suffice":
-        "Token reduction. SMART keeps only $M$ interpretable tokens, so attention costs "
+        "Token reduction. bioMoR keeps only $M$ interpretable tokens, so attention costs "
         "$O(M^2)$ rather than $O(N^2)$ in the number of genes. Accuracy is reported as $M$ "
         "shrinks; a few dozen to a few hundred tokens recover most of the full-gene signal.",
     "Routing and marker-token selection":
@@ -408,7 +408,7 @@ DESC = {
         "allocate depth differently; and learning which genes are markers (the cross-attention "
         "router) is compared against fixed random and variance-ranked panels.",
     "Biology-informed routing":
-        "SMART's headline component: a label-free prior from the gene-gene co-expression "
+        "bioMoR's headline component: a label-free prior from the gene-gene co-expression "
         "graph (network centrality) is added to the recursion-depth router, nudging "
         "co-expression hubs to recurse deeper. We compare it against no prior and a "
         "degree-matched random-graph control across all datasets; gains are small and "
@@ -419,7 +419,7 @@ DESC = {
         "quantify the funnel -- uninformative tokens exit early while accuracy tracks fixed depth.",
     "Recursion versus independent layers across model sizes":
         "Recursion vs independent depth across model sizes: independent layers (Vanilla), one "
-        "weight-shared block applied $K$ times (Recursive), and adaptive routing (SMART). "
+        "weight-shared block applied $K$ times (Recursive), and adaptive routing (bioMoR). "
         "Recursive matches independent at a fraction of the parameters.",
     "Parameter reduction from weight sharing":
         "The parameter-reduction result. Applying one block recursively uses $1/K$ of the "
@@ -446,7 +446,7 @@ DESC = {
 
 FIGURES = [
     ("fig_scaling.png", "Macro-F1 versus model size for independent (Vanilla), weight-shared "
-                        "(Recursive) and adaptively-routed (SMART) stacks on each dataset.", "fig:scaling"),
+                        "(Recursive) and adaptively-routed (bioMoR) stacks on each dataset.", "fig:scaling"),
     ("fig_depth.png", "Adaptive recursion depth across the genomap datasets: macro-F1 under "
                       "no recursion (K=1), fixed depth, and adaptive routed depth.", "fig:depth"),
     ("fig_param_efficiency.png", "Accuracy versus transformer parameters for weight-shared "
@@ -465,7 +465,7 @@ def main():
         return [(t, c, fn(), lab) for t, c, fn, lab in SECTIONS]
 
     # ---- markdown ----
-    md = ["# SMART: experiments behind the three claims (genomap + pathway, no TCGA)\n",
+    md = ["# bioMoR: experiments behind the three claims (genomap + pathway, no TCGA)\n",
           "macro-F1 (mean±std); `--` = job still running.\n"]
     for t, c, body, lab in render("md"):
         md.append(f"## {t} — {c}\n{body}\n")

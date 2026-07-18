@@ -1,6 +1,6 @@
 # ============================================================================
-# SMART -- curated-net falsification aggregator.
-# Copyright (c) 2026 The SMART Authors. PROPRIETARY AND CONFIDENTIAL. See LICENSE.
+# bioMoR -- curated-net falsification aggregator.
+# Copyright (c) 2026 The bioMoR Authors. PROPRIETARY AND CONFIDENTIAL. See LICENSE.
 # ============================================================================
 
 """Aggregate results_bio_curated/ into the pre-registered falsification verdict.

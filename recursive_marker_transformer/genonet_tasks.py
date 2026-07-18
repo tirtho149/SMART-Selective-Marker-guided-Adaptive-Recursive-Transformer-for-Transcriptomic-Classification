@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #        for Transcriptomic Classification
 #
 # Authors:
@@ -8,7 +8,7 @@
 #   Md Tauhidul Islam  - Stanford University
 #   Wei Le             - Iowa State University
 #
-# Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+# Copyright (c) 2026 The bioMoR Authors. All Rights Reserved.
 #
 # PROPRIETARY AND CONFIDENTIAL. Unauthorized use, copying, modification, or
 # distribution of this file, in whole or in part, without the express written
@@ -16,12 +16,12 @@
 # the fullest extent permitted by law. See the LICENSE file for full terms.
 # ============================================================================
 
-"""Run SMART (MoR) on the genomap genoNet classification tasks.
+"""Run bioMoR (MoR) on the genomap genoNet classification tasks.
 
 genomap's genoNet is a small CNN that classifies samples from constructed
 genomap images. This module keeps the *tasks* (the BIO5 phenotype labels in
 ``data/tcga/unified_bio5.csv``: 2738 samples x 20530 genes) but swaps genoNet
-for the headline SMART configuration (cross-attention marker router + expert
+for the headline bioMoR configuration (cross-attention marker router + expert
 choice Mixture-of-Recursions), run directly on the raw, full gene-expression
 vector (all 20530 genes -- "all data"). One results JSON is written per task.
 
@@ -340,7 +340,7 @@ def main():
             h = r["heads"][task]
             summary.append((task, r["n_classes"], h["accuracy"], 0.0, h["macro_f1"], 0.0))
     tag = f"{args.cv_folds}-fold CV (mean+/-std)" if args.cv_folds > 0 else "single split"
-    print(f"\n==== SMART on genoNet tasks [{tag}] ====", flush=True)
+    print(f"\n==== bioMoR on genoNet tasks [{tag}] ====", flush=True)
     print(f"  {'task':18s} {'K':>2s}  {'acc':>13s} {'macroF1':>13s}")
     for n, k, a, asd, f, fsd in summary:
         print(f"  {n:18s} {k:2d}  {a*100:5.1f}+/-{asd*100:3.1f}  {f*100:5.1f}+/-{fsd*100:3.1f}")

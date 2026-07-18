@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #        for Transcriptomic Classification
 #
 # Authors:
@@ -8,7 +8,7 @@
 #   Md Tauhidul Islam  - Stanford University
 #   Wei Le             - Iowa State University
 #
-# Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+# Copyright (c) 2026 The bioMoR Authors. All Rights Reserved.
 #
 # PROPRIETARY AND CONFIDENTIAL. Unauthorized use, copying, modification, or
 # distribution of this file, in whole or in part, without the express written
@@ -16,7 +16,7 @@
 # the fullest extent permitted by law. See the LICENSE file for full terms.
 # ============================================================================
 
-"""Aggregated biological gene-gene network prior for SMART.
+"""Aggregated biological gene-gene network prior for bioMoR.
 
 Builds a single ``(G, G)`` symmetric weighted adjacency over a caller-supplied
 list of gene *symbols* by taking the confidence-weighted UNION of three curated

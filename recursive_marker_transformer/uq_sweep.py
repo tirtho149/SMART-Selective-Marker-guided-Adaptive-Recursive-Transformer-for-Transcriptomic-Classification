@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART -- UQ sweep: train each of the six configurations and record the log-prob /
+# bioMoR -- UQ sweep: train each of the six configurations and record the log-prob /
 # calibration uncertainty metrics (uq.py) on the test set, so the consolidated UQ
 # table can ask whether the biological prior or adaptive depth improve uncertainty
 # over a vanilla transformer. Multi-seed. One array task per configuration.

@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #        for Transcriptomic Classification
 #
 # Authors:
@@ -8,7 +8,7 @@
 #   Md Tauhidul Islam  - Stanford University
 #   Wei Le             - Iowa State University
 #
-# Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+# Copyright (c) 2026 The bioMoR Authors. All Rights Reserved.
 #
 # PROPRIETARY AND CONFIDENTIAL. Unauthorized use, copying, modification, or
 # distribution of this file, in whole or in part, without the express written
@@ -54,7 +54,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _cfg(mode: str, K: int, seed: int, epochs: int, prop: bool = True) -> RMTConfig:
-    """Base SMART config (matches the k4 arch sweep) + the redesign fixes when a
+    """Base bioMoR config (matches the k4 arch sweep) + the redesign fixes when a
     biological graph is used. `none` = plain router (all fixes off). `prop=False`
     turns OFF Fix A (graph propagation) to isolate the router-side biology
     (Fixes B/C/D/E) -- the over-smoothing ablation."""

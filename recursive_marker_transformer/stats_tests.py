@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART -- statistical validation of the two headline mechanisms.
+# bioMoR -- statistical validation of the two headline mechanisms.
 #
 # Reviewers (rightly) ask whether the biology-informed router and the adaptive
 # recursion depth are doing anything beyond noise. This module runs the proper

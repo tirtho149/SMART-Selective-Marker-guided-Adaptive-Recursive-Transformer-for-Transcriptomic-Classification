@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #        for Transcriptomic Classification
 #
 # Authors:
@@ -8,7 +8,7 @@
 #   Md Tauhidul Islam  - Stanford University
 #   Wei Le             - Iowa State University
 #
-# Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+# Copyright (c) 2026 The bioMoR Authors. All Rights Reserved.
 #
 # PROPRIETARY AND CONFIDENTIAL. Unauthorized use, copying, modification, or
 # distribution of this file, in whole or in part, without the express written
@@ -25,7 +25,7 @@ prior on the recursion depth-router change cell-type recognition, and is it the
 (random)?  We sweep the prior over three modes per dataset across several seeds
 and report accuracy / macro-F1 mean +/- std.
 
-    none    -- original SMART router (no prior)
+    none    -- original bioMoR router (no prior)
     coexpr  -- genomap correlation-graph eigenvector-centrality prior (proposed)
     random  -- degree-matched random-graph control (same sparsity, shuffled edges)
 

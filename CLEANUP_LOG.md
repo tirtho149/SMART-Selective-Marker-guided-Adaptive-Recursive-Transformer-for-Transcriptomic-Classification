@@ -12,7 +12,7 @@ Status legend: ⬜ todo · 🔄 in progress · ✅ done
 - ✅ Classify every top-level file / dir as KEEP (paper pipeline) vs ARCHIVE (legacy)
 
 ### VERIFIED FACTS (2026-07-18)
-- Current paper = `paper/main.tex` + `paper/supplementary.tex` (bioMoR / 5-fold CV). README.md is STALE (documents old SMART "EXP 1-11").
+- Current paper = `paper/main.tex` + `paper/supplementary.tex` (bioMoR / 5-fold CV). README.md is STALE (documents old bioMoR "EXP 1-11").
 - Only THREE result dirs are read by paper build scripts: `results_cv5/` (most), `results_repro/` (posf1 appendix table), `results_depth/` (fig2_depth). ALL other `results_*` dirs are legacy → ARCHIVE.
 - Paper build scripts (KEEP): build_cv5_tex.py, build_injection_table.py, build_posf1_table.py, make_biorouter_bars.py, make_baron_epoch_figs.py (+make_baron_cost.py data), make_fig2_depth.py (+prostate_depth_panels.py data), pareto_prototype.py, ablate_cv5.py, reproduce_path.py; orchestrated by refresh_cv5.sh. Aux PNG previews: build_cv5_table.py, build_cv5_scaling_figure.py, build_cv5_ablation_table.py.
 - Package `recursive_marker_transformer/` KEEP whole; import-reachable core = cv, singlecell, pathway_tasks, pathway_data, pathway_warmstart, depth_sweep, depth_viz, baselines11, bio_learned_genomap, bio_redesign_curated, bio_network, config, data, embedding, interaction, losses, marker, model, recursion, router, train. (make_paper.py etc are legacy/dead but harmless.)

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # MoR Table 14 / Fig 5: per-marker recursion-depth export. results/depth/<ds>.json
-#SBATCH --job-name=smart-depth
+#SBATCH --job-name=biomor-depth
 #SBATCH --account=mech-ai-scavenger
 #SBATCH --qos=scavenger
 #SBATCH --partition=scavenger

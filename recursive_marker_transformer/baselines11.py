@@ -1,9 +1,9 @@
 # ============================================================================
-# SMART -- external / classical baselines on the 11-dataset roster.
-# Copyright (c) 2026 The SMART Authors. PROPRIETARY AND CONFIDENTIAL. See LICENSE.
+# bioMoR -- external / classical baselines on the 11-dataset roster.
+# Copyright (c) 2026 The bioMoR Authors. PROPRIETARY AND CONFIDENTIAL. See LICENSE.
 # ============================================================================
-"""Strong non-transformer baselines on the SAME 11 splits SMART uses, to calibrate the
-magnitude of SMART's gains (reviewer request; cf. simple linear pipelines rivalling
+"""Strong non-transformer baselines on the SAME 11 splits bioMoR uses, to calibrate the
+magnitude of bioMoR's gains (reviewer request; cf. simple linear pipelines rivalling
 foundation models). Methods: a linear ANOVA->PCA->logistic pipeline, Random Forest, and a
 NearestCentroid marker-style classifier -- all on each dataset's stratified train/test
 split, multi-seed.
@@ -110,7 +110,7 @@ def run_dataset(name, seeds, out):
 
 
 def run_dataset_cv(name, out, n_folds=5):
-    """5-fold CV baselines on the SAME shared folds as SMART/bioMoR (cv.cv_folds,
+    """5-fold CV baselines on the SAME shared folds as bioMoR (cv.cv_folds,
     seed 42). Baselines need no validation slice, so train on train+val. Writes
     <method>_cv.json with cv_macro_f1 (mean+/-SD over folds, percent)."""
     from .cv import cv_folds, summarize, SEED, VAL_FRAC

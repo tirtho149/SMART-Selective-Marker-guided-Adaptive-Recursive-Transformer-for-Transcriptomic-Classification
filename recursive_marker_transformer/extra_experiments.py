@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #        for Transcriptomic Classification
 #
 # Authors:
@@ -8,7 +8,7 @@
 #   Md Tauhidul Islam  - Stanford University
 #   Wei Le             - Iowa State University
 #
-# Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+# Copyright (c) 2026 The bioMoR Authors. All Rights Reserved.
 #
 # PROPRIETARY AND CONFIDENTIAL. Unauthorized use, copying, modification, or
 # distribution of this file, in whole or in part, without the express written
@@ -18,7 +18,7 @@
 
 """Reviewer-requested extras on the main 4-cohort cancer-type task:
 
-  multiseed : the headline SMART config over 5 seeds -> mean +/- std on the
+  multiseed : the headline bioMoR config over 5 seeds -> mean +/- std on the
               primary task (reviewer asked for variance on the main result).
   init_anneal : isolates the two router design choices the paper argues for --
               peaked initialisation and temperature annealing -- as a 2x2 grid

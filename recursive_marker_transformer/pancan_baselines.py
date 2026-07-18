@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #        for Transcriptomic Classification
 #
 # Authors:
@@ -8,7 +8,7 @@
 #   Md Tauhidul Islam  - Stanford University
 #   Wei Le             - Iowa State University
 #
-# Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+# Copyright (c) 2026 The bioMoR Authors. All Rights Reserved.
 #
 # PROPRIETARY AND CONFIDENTIAL. Unauthorized use, copying, modification, or
 # distribution of this file, in whole or in part, without the express written
@@ -20,9 +20,9 @@
 
 Same battery of 10 nonlinear tabular learners as ``baselines.py``, run on the
 identical PANCAN sample set, gene set, and seeded stratified split as
-``pancan_tasks.py`` so the numbers drop into the same tables next to SMART. For
+``pancan_tasks.py`` so the numbers drop into the same tables next to bioMoR. For
 a multimodal channel set the per-gene channels are concatenated into one feature
-vector, which is the fair flat-feature baseline for the SMART fusion runs.
+vector, which is the fair flat-feature baseline for the bioMoR fusion runs.
 
 Usage:
     python -m recursive_marker_transformer.pancan_baselines \

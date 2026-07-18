@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=smart-depthcoh
+#SBATCH --job-name=biomor-depthcoh
 #SBATCH --account=mech-ai-scavenger
 #SBATCH --qos=scavenger
 #SBATCH --partition=scavenger

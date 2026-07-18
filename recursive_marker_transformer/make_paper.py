@@ -553,13 +553,13 @@ _FM_COLS = [("bioMoR (mut+CNV)", "bioMoR"), ("Geneformer", "Geneformer"), ("scGP
 # bioMoR's config for the FM head-to-head: its best MULTI-MODAL (mut+CNV) setting --
 # pathway markers + MoR + Reactome routing. The MoR arm (token vs expert) is chosen by
 # VALIDATION macro-F1, not test: token wins validation (63.8 vs 55.1), so token is used.
-_FM_SMART_ARM = "token"
+_FM_bioMoR_ARM = "token"
 
 
 def _fm_pn(coh, method):
     """FM macro-F1 values (percent) for one method on one P-NET cohort."""
     if method == "bioMoR":
-        return [r["macro_f1"] * 100 for f in _g("results_smart_pnet_best", _FM_SMART_ARM, "s*", f"{coh}__*.json")
+        return [r["macro_f1"] * 100 for f in _g("results_biomor_pnet_best", _FM_bioMoR_ARM, "s*", f"{coh}__*.json")
                 if (r := _J(f)) is not None]
     return [r["test_macro_f1"] for f in _g("results_fm_pnet", coh, f"{method}_s*.json")
             if (r := _J(f)) is not None]
@@ -750,7 +750,7 @@ def table5() -> str:
 #   bioMoR is cheaper on both axes (4x fewer unique params, ~38% fewer FLOPs) AND
 #   more accurate via learned routing -- shown for every dataset, not just the mean.
 # ---------------------------------------------------------------------------
-def _smart_f1(ds, is_sc):
+def _biomor_f1(ds, is_sc):
     """bioMoR macro-F1 (percent) for one dataset. Single-cell: learned-graph model.
     Multi-omics: bioMoR's best MULTI-MODAL config (pathway+MoR+Reactome, val-selected arm)
     -- the same headline config used in the foundation-model comparison, so every
@@ -760,13 +760,13 @@ def _smart_f1(ds, is_sc):
 
 def table_effacc() -> str:
     fl = _flops_ratios()
-    smart_flops = fl["expert"]                       # MoR expert-choice funnel
-    saved = round((1.0 - smart_flops) * 100)
+    biomor_flops = fl["expert"]                       # MoR expert-choice funnel
+    saved = round((1.0 - biomor_flops) * 100)
 
-    def _row(disp, van, smart):
-        v, s = _mean(van), _mean(smart)
+    def _row(disp, van, biomor):
+        v, s = _mean(van), _mean(biomor)
         if v is None or s is None:
-            return f"\\quad {disp} & {_ms_pp(van)} & {_ms_pp(smart)} & -- \\\\"
+            return f"\\quad {disp} & {_ms_pp(van)} & {_ms_pp(biomor)} & -- \\\\"
         d = s - v
         dtx = f"$+{d:.1f}$" if d >= 0 else f"${d:.1f}$"
         return f"\\quad {disp} & {v:.1f} & {s:.1f} & {dtx} \\\\"
@@ -774,28 +774,28 @@ def table_effacc() -> str:
     lines = ["\\begin{tabular}{lccc}", "\\toprule",
              "Dataset & Vanilla & bioMoR & $\\Delta$F1 \\\\",
              "& \\footnotesize{$4\\times$ params, $1.00\\times$} & "
-             "\\footnotesize{$1\\times$, $" + f"{smart_flops:.2f}" + "\\times$} & \\\\",
+             "\\footnotesize{$1\\times$, $" + f"{biomor_flops:.2f}" + "\\times$} & \\\\",
              "\\midrule",
              "\\multicolumn{4}{l}{\\emph{Single-cell (genomap)}} \\\\"]
     for ds in _SC:
         lines.append(_row(_SC_DISP[ds], _arch_vals(ds, True, "independent", "macro_f1"),
-                          _smart_f1(ds, True)))
+                          _biomor_f1(ds, True)))
     lines.append("\\midrule")
     lines.append("\\multicolumn{4}{l}{\\emph{Multi-omics (Reactome/P-NET)}} \\\\")
     for coh in _PN:
         lines.append(_row(_PN_DISP[coh], _arch_vals(coh, False, "independent", "macro_f1"),
-                          _smart_f1(coh, False)))
+                          _biomor_f1(coh, False)))
     lines.append("\\midrule")
     vm = _mean([_mean(_arch_vals(ds, True, "independent", "macro_f1")) for ds in _SC] +
                [_mean(_arch_vals(c, False, "independent", "macro_f1")) for c in _PN])
-    sm = _mean([_mean(_smart_f1(ds, True)) for ds in _SC] +
-               [_mean(_smart_f1(c, False)) for c in _PN])
+    sm = _mean([_mean(_biomor_f1(ds, True)) for ds in _SC] +
+               [_mean(_biomor_f1(c, False)) for c in _PN])
     dm = (sm - vm) if (vm is not None and sm is not None) else None
     dtx = "--" if dm is None else (f"$+{dm:.1f}$" if dm >= 0 else f"${dm:.1f}$")
     lines.append(f"\\textbf{{Mean macro-F1}} & \\textbf{{{vm:.1f}}} & \\textbf{{{sm:.1f}}} & \\textbf{{{dtx}}} \\\\")
     lines.append("\\midrule")
     lines.append("Params (unique) & $4\\times$ & $\\mathbf{1\\times}$ & \\\\")
-    lines.append(f"FLOPs (rel.) & $1.00\\times$ & $\\mathbf{{{smart_flops:.2f}\\times}}$ & \\\\")
+    lines.append(f"FLOPs (rel.) & $1.00\\times$ & $\\mathbf{{{biomor_flops:.2f}\\times}}$ & \\\\")
     lines.append(f"Compute saved & -- & \\textbf{{{saved}\\%}} & \\\\")
     lines += ["\\bottomrule", "\\end{tabular}"]
     return "\n".join(lines)
@@ -907,9 +907,9 @@ def _scalars() -> dict:
     # efficiency+accuracy headline: bioMoR (MoR + learned routing) vs Vanilla, suite mean.
     ea_van = _mean([_mean(_arch_vals(ds, True, "independent", "macro_f1")) for ds in _SC] +
                    [_mean(_arch_vals(c, False, "independent", "macro_f1")) for c in _PN])
-    ea_smart = _mean([_mean(_smart_f1(ds, True)) for ds in _SC] +
-                     [_mean(_smart_f1(c, False)) for c in _PN])
-    ea_delta = (ea_smart - ea_van) if (ea_van is not None and ea_smart is not None) else None
+    ea_biomor = _mean([_mean(_biomor_f1(ds, True)) for ds in _SC] +
+                     [_mean(_biomor_f1(c, False)) for c in _PN])
+    ea_delta = (ea_biomor - ea_van) if (ea_van is not None and ea_biomor is not None) else None
 
     # marker-budget headroom: learned-graph bioMoR at the smallest vs the largest budget
     # actually on disk, against the full-feature linear baseline (single-cell mean).
@@ -947,7 +947,7 @@ def _scalars() -> dict:
                           "co-expression graph neither adds nor destroys signal")
 
     # foundation models on the P-NET cohorts (mean macro-F1 over the 3 cohorts).
-    fm_smart = _mean([_mean(_fm_pn(c, "bioMoR")) for c in _PN])
+    fm_biomor = _mean([_mean(_fm_pn(c, "bioMoR")) for c in _PN])
     fm_gene = _mean([_mean(_fm_pn(c, "Geneformer")) for c in _PN])
     fm_scgpt = _mean([_mean(_fm_pn(c, "scGPT")) for c in _PN])
     if fm_gene is None and fm_scgpt is None:
@@ -956,11 +956,11 @@ def _scalars() -> dict:
         # Efficiency-parity framing: bioMoR matches the strong FM within seed noise while
         # being orders of magnitude smaller, natively multi-modal, and decisively ahead of
         # the weaker FM. Honest -- no strict-accuracy-win claim over Geneformer.
-        gap = (fm_smart - fm_gene) if (fm_smart is not None and fm_gene is not None) else None
+        gap = (fm_biomor - fm_gene) if (fm_biomor is not None and fm_gene is not None) else None
         parity = "matches" if (gap is not None and abs(gap) <= 2.0) else \
                  ("edges ahead of" if (gap is not None and gap > 0) else "trails")
         fm_verdict = (f"bioMoR {parity} the far larger, cancer-pretrained Geneformer on mean "
-                      f"macro-F1 ({p1(fm_smart)}\\% vs.\\ {p1(fm_gene)}\\%, within seed-to-seed "
+                      f"macro-F1 ({p1(fm_biomor)}\\% vs.\\ {p1(fm_gene)}\\%, within seed-to-seed "
                       "noise) at a tiny fraction of the parameters and while natively consuming "
                       "\\emph{both} the mutation and copy-number modalities, and it is far ahead "
                       f"of scGPT ({p1(fm_scgpt)}\\%); the gene-vocabulary models are, moreover, "
@@ -1011,12 +1011,12 @@ def _scalars() -> dict:
         "@@ANCHOR_ANCH@@": p1(a_anch),
         "@@ANCHOR_GAIN@@": p1(a_gain),
         "@@ANCHOR_VERDICT@@": anchor_verdict,
-        "@@FM_SMART@@": p1(fm_smart),
+        "@@FM_bioMoR@@": p1(fm_biomor),
         "@@FM_GENE@@": p1(fm_gene),
         "@@FM_SCGPT@@": p1(fm_scgpt),
         "@@FM_VERDICT@@": fm_verdict,
         "@@EA_VAN@@": p1(ea_van),
-        "@@EA_SMART@@": p1(ea_smart),
+        "@@EA_bioMoR@@": p1(ea_biomor),
         "@@EA_DELTA@@": p1(ea_delta),
         "@@EA_SAVED@@": str(compute_save),
     }
@@ -1657,7 +1657,7 @@ Putting the two effects together gives the headline picture (Table~\ref{tab:effa
 against a vanilla transformer, bioMoR -- the MoR architecture \emph{with} the learned
 routing graph -- uses $@@PARAMRATIO@@\times$ fewer unique parameters and
 $\sim$@@EA_SAVED@@\% fewer FLOPs while \emph{raising} mean macro-F1 from @@EA_VAN@@\% to
-@@EA_SMART@@\% ($+$@@EA_DELTA@@ points), and it is more accurate on nearly every dataset,
+@@EA_bioMoR@@\% ($+$@@EA_DELTA@@ points), and it is more accurate on nearly every dataset,
 not just in the mean. Lower computation and higher accuracy are therefore achieved together:
 the efficiency comes from weight-shared adaptive recursion and the accuracy from routing on
 the learned gene graph.

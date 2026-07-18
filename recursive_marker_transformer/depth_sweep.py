@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART -- formal recursion-depth selection ("early-stopping over depth").
+# bioMoR -- formal recursion-depth selection ("early-stopping over depth").
 #
 # We sweep the (fixed) recursion depth K over a grid up to 100 and select the best
 # depth the way early stopping selects training length: by a held-out VALIDATION

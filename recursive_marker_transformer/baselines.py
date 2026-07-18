@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #        for Transcriptomic Classification
 #
 # Authors:
@@ -8,7 +8,7 @@
 #   Md Tauhidul Islam  - Stanford University
 #   Wei Le             - Iowa State University
 #
-# Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+# Copyright (c) 2026 The bioMoR Authors. All Rights Reserved.
 #
 # PROPRIETARY AND CONFIDENTIAL. Unauthorized use, copying, modification, or
 # distribution of this file, in whole or in part, without the express written
@@ -20,7 +20,7 @@
 
 Runs a battery of external baselines on the SAME data and SAME train/test split
 as ``genonet_tasks.py`` (unified_bio5.csv, all 20530 genes), so the numbers are
-directly comparable to SMART. One JSON per task is written to ``results_baselines/``
+directly comparable to bioMoR. One JSON per task is written to ``results_baselines/``
 holding every baseline's accuracy / macro-F1 / weighted-F1.
 
 Baselines (10) -- strong NONLINEAR / gradient-boosted tabular learners, the

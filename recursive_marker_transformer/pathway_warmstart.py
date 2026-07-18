@@ -1,11 +1,11 @@
 # ============================================================================
-# SMART -- MoR Table 9 analogue (WARM-START / uptraining) on the pathway/P-NET
+# bioMoR -- MoR Table 9 analogue (WARM-START / uptraining) on the pathway/P-NET
 # multi-omics cohorts. The single-cell version lives in warmstart.py; this is the
 # bulk-omics twin so the warm-start table reports the P-NET cohorts alongside the
 # genomap single-cell datasets.
 #
-# Protocol (mirrors warmstart.py): train a fixed-depth SMART, initialise the shared
-# recursive block of an expert-choice MoR SMART from those weights and continue-train
+# Protocol (mirrors warmstart.py): train a fixed-depth bioMoR, initialise the shared
+# recursive block of an expert-choice MoR bioMoR from those weights and continue-train
 # -- vs training the MoR model from scratch. Reports the uptraining gain.
 #     python -m recursive_marker_transformer.pathway_warmstart --tasks prostate blca stad panmeta_subtype
 # ============================================================================

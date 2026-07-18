@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #        for Transcriptomic Classification
 #
 # Authors:
@@ -8,7 +8,7 @@
 #   Md Tauhidul Islam  - Stanford University
 #   Wei Le             - Iowa State University
 #
-# Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+# Copyright (c) 2026 The bioMoR Authors. All Rights Reserved.
 #
 # PROPRIETARY AND CONFIDENTIAL. Unauthorized use, copying, modification, or
 # distribution of this file, in whole or in part, without the express written
@@ -22,7 +22,7 @@ Each gene becomes a token whose embedding combines a learned gene-identity
 vector (indexed by gene position) with a projection of the per-gene value
 channels -- the standard scGPT / Geneformer gene+value scheme, generalised to
 ``n_channels`` aligned assays. With ``n_channels == 1`` the channel is the scalar
-expression value (the original SMART input); with ``n_channels > 1`` the channels
+expression value (the original bioMoR input); with ``n_channels > 1`` the channels
 are the gene-aligned multimodal measurements (expression, copy-number, mutation),
 fused by a single shared value projection so every modality of a gene lands on
 the same token. Cost is O(N), so it runs over all genes before any compression.

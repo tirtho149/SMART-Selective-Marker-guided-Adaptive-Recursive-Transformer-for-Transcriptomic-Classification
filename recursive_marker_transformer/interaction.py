@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #        for Transcriptomic Classification
 #
 # Authors:
@@ -8,7 +8,7 @@
 #   Md Tauhidul Islam  - Stanford University
 #   Wei Le             - Iowa State University
 #
-# Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+# Copyright (c) 2026 The bioMoR Authors. All Rights Reserved.
 #
 # PROPRIETARY AND CONFIDENTIAL. Unauthorized use, copying, modification, or
 # distribution of this file, in whole or in part, without the express written
@@ -48,7 +48,7 @@ curated-marker prior. Two controls make the ablation honest:
 * ``mode="coexpr"`` -- the real genomap correlation graph (the proposed component).
 * ``mode="random"`` -- a degree-matched random graph (same sparsity, shuffled
   edges); if co-expression structure matters, ``coexpr`` must beat ``random``.
-* ``mode="none"``   -- no prior (the original SMART router).
+* ``mode="none"``   -- no prior (the original bioMoR router).
 
 Correlation is accumulated by streaming sufficient statistics over the loader, so no
 full expression matrix is materialised -- only the ``N x N`` accumulators.

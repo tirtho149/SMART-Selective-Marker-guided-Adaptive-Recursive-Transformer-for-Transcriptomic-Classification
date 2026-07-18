@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART -- figures for the MoR-table reproduction on the genomap suite.
+# bioMoR -- figures for the MoR-table reproduction on the genomap suite.
 # Generates the genomap analogues of MoR Figures 3 (scaling) and 5 (recursion-depth
 # / token-count analysis), plus a parameter-efficiency panel, into paper/figs/.
 #     python -m recursive_marker_transformer.mor_figures
@@ -20,7 +20,7 @@ GENOMAP = ["tabula_muris", "pancreas", "common_class", "prototype", "baron", "se
 SIZES = [48, 96, 192, 384]
 # MoR-paper palette (Bae et al. 2025, Fig. 3): Vanilla=green, Recursive=blue, MoR=orange
 COL = {"vanilla": "#2CA02C", "recursive": "#1F77B4", "mor": "#FF7F0E"}
-ARCHS = [("vanilla", "Vanilla"), ("recursive", "Recursive"), ("mor", "MoR (SMART)")]
+ARCHS = [("vanilla", "Vanilla"), ("recursive", "Recursive"), ("mor", "MoR (bioMoR)")]
 plt.rcParams.update({"font.size": 10, "axes.facecolor": "white",
                      "axes.edgecolor": "#444444", "axes.grid": True,
                      "grid.color": "#DDDDDD", "grid.linewidth": 0.6})

@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #
 # Shared cross-validation split — ONE definition of the protocol so every
 # training entry point (single-cell, bioMoR, multi-omics pathway, bioMoR-pnet)

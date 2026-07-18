@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #        for Transcriptomic Classification
 #
 # Authors:
@@ -8,7 +8,7 @@
 #   Md Tauhidul Islam  - Stanford University
 #   Wei Le             - Iowa State University
 #
-# Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+# Copyright (c) 2026 The bioMoR Authors. All Rights Reserved.
 #
 # PROPRIETARY AND CONFIDENTIAL. Unauthorized use, copying, modification, or
 # distribution of this file, in whole or in part, without the express written
@@ -16,9 +16,9 @@
 # the fullest extent permitted by law. See the LICENSE file for full terms.
 # ============================================================================
 
-"""Hyperparameter tuning of SMART on the hard genoNet clinical tasks.
+"""Hyperparameter tuning of bioMoR on the hard genoNet clinical tasks.
 
-Grid-searches a small set of SMART hyperparameters (model width, marker count,
+Grid-searches a small set of bioMoR hyperparameters (model width, marker count,
 recursion depth, learning rate) on each clinical task and selects the configuration
 by VALIDATION macro-F1 (never test), then the selected config's TEST macro-F1 is the
 tuned number reported in the paper. This is a fair, standard tuning protocol: the
@@ -91,7 +91,7 @@ def main():
                   f"test={r['macro_f1']*100:.1f}", flush=True)
 
     # report best-by-validation per task
-    print("\n==== tuned SMART (selected by val macro-F1) ====", flush=True)
+    print("\n==== tuned bioMoR (selected by val macro-F1) ====", flush=True)
     for task in args.tasks:
         runs = [json.loads(p.read_text()) for p in args.out.glob(f"{task}__*.json")]
         if not runs:

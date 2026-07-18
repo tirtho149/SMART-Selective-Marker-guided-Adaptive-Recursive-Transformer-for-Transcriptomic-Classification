@@ -1,8 +1,8 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #        for Transcriptomic Classification
 #
-# Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+# Copyright (c) 2026 The bioMoR Authors. All Rights Reserved.
 # PROPRIETARY AND CONFIDENTIAL. See LICENSE.
 # ============================================================================
 
@@ -19,7 +19,7 @@ beta / Fix E Laplacian, label-aware PPR centrality) on:
   * ``curated`` -- the real Reactome gene-gene graph;
   * ``random``  -- that graph under a random gene RELABELLING (degree/weight/
      spectrum identical, biological identity destroyed -- the exact FACT-B control);
-  * ``none``    -- no graph (plain SMART router).
+  * ``none``    -- no graph (plain bioMoR router).
 
 Cohorts (need gene symbols; single-cell sets are anonymised):
   * P-NET  : prostate / blca / stad / brca  (Reactome-native, mutation channel);

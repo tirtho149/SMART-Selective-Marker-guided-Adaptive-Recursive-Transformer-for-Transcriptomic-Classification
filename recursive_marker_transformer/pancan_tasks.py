@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #        for Transcriptomic Classification
 #
 # Authors:
@@ -8,7 +8,7 @@
 #   Md Tauhidul Islam  - Stanford University
 #   Wei Le             - Iowa State University
 #
-# Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+# Copyright (c) 2026 The bioMoR Authors. All Rights Reserved.
 #
 # PROPRIETARY AND CONFIDENTIAL. Unauthorized use, copying, modification, or
 # distribution of this file, in whole or in part, without the express written
@@ -16,7 +16,7 @@
 # the fullest extent permitted by law. See the LICENSE file for full terms.
 # ============================================================================
 
-"""SMART on the TCGA PANCAN multimodal / molecular-subtype benchmark.
+"""bioMoR on the TCGA PANCAN multimodal / molecular-subtype benchmark.
 
 Two new pan-cancer evaluations built from the UCSC Xena PANCAN release
 (``data/pancan/``, produced by ``new data/build_pancan.py``):
@@ -25,7 +25,7 @@ Two new pan-cancer evaluations built from the UCSC Xena PANCAN release
     (6 classes) and the curated TCGA molecular subtype (``Subtype_Selected``,
     long tail trimmed) from gene expression alone; and
 
-  * multimodal fusion -- the same headline SMART configuration fed an increasing
+  * multimodal fusion -- the same headline bioMoR configuration fed an increasing
     set of gene-aligned assays (expression -> +copy-number -> +mutation), where
     each gene token fuses its C channels at the value projection. The
     expression-only run is the clean ablation baseline for the fused runs.

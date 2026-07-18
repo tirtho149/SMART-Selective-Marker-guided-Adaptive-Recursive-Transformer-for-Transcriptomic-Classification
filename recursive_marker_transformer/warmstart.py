@@ -1,9 +1,9 @@
 # ============================================================================
-# SMART -- MoR Table 9 analogue: WARM-START (uptraining).
-# MoR's Table 9 uptrains a pretrained *vanilla* model into a recursive one. SMART
+# bioMoR -- MoR Table 9 analogue: WARM-START (uptraining).
+# MoR's Table 9 uptrains a pretrained *vanilla* model into a recursive one. bioMoR
 # has no pretrained-LLM checkpoint, so the faithful set-classifier analogue is:
-# train a fixed-depth (Recursive) SMART, then INITIALISE the shared recursive block
-# of an expert-choice MoR SMART from those weights and continue-train -- vs training
+# train a fixed-depth (Recursive) bioMoR, then INITIALISE the shared recursive block
+# of an expert-choice MoR bioMoR from those weights and continue-train -- vs training
 # the MoR model from scratch. Reports both so the uptraining gain is visible.
 #     python -m recursive_marker_transformer.warmstart --datasets tabula_muris pancreas
 # ============================================================================

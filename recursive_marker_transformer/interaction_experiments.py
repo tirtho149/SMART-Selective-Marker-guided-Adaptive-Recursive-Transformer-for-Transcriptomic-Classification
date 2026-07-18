@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #        for Transcriptomic Classification
 #
 # Authors:
@@ -8,7 +8,7 @@
 #   Md Tauhidul Islam  - Stanford University
 #   Wei Le             - Iowa State University
 #
-# Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+# Copyright (c) 2026 The bioMoR Authors. All Rights Reserved.
 #
 # PROPRIETARY AND CONFIDENTIAL. Unauthorized use, copying, modification, or
 # distribution of this file, in whole or in part, without the express written
@@ -20,7 +20,7 @@
 on the depth router help, and is it the *real* co-expression structure that matters?
 
 For each task we sweep the routing prior over three modes -- ``none`` (baseline
-SMART router), ``coexpr`` (genomap correlation-graph centrality prior), and
+bioMoR router), ``coexpr`` (genomap correlation-graph centrality prior), and
 ``random`` (degree-matched random-graph control) -- across several seeds, and report
 macro-F1 mean+/-std. ``coexpr`` beating ``random`` (which approximates ``none``) is
 the evidence that biological co-expression structure, not "any bias", drives any

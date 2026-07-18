@@ -1,7 +1,7 @@
 # ============================================================================
-# SMART -- MoR Table 14 / Figure 5 analogue: per-marker-token recursion depth.
+# bioMoR -- MoR Table 14 / Figure 5 analogue: per-marker-token recursion depth.
 # MoR Table 14 colours each subword token by how many recursions it received.
-# SMART's expert-choice router assigns each MARKER TOKEN a survival depth; this
+# bioMoR's expert-choice router assigns each MARKER TOKEN a survival depth; this
 # script trains an expert-MoR model per genomap dataset and exports, over the test
 # set, the mean recursion depth of each marker token and the fraction of tokens
 # still active at each recursion step (Fig-5 token-count analysis).

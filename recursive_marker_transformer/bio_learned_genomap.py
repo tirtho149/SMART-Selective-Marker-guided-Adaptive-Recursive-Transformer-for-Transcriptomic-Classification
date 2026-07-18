@@ -1,6 +1,6 @@
 # ============================================================================
-# SMART -- learned-graph bio-router on the genomap single-cell suite.
-# Copyright (c) 2026 The SMART Authors. PROPRIETARY AND CONFIDENTIAL. See LICENSE.
+# bioMoR -- learned-graph bio-router on the genomap single-cell suite.
+# Copyright (c) 2026 The bioMoR Authors. PROPRIETARY AND CONFIDENTIAL. See LICENSE.
 # ============================================================================
 
 """Run the bio-router modes (none / coexpr / random / LEARNED) on the collaborator

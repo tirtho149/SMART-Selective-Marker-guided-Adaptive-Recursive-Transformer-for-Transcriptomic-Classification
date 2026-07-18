@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #        for Transcriptomic Classification
 #
 # Authors:
@@ -8,7 +8,7 @@
 #   Md Tauhidul Islam  - Stanford University
 #   Wei Le             - Iowa State University
 #
-# Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+# Copyright (c) 2026 The bioMoR Authors. All Rights Reserved.
 #
 # PROPRIETARY AND CONFIDENTIAL. Unauthorized use, copying, modification, or
 # distribution of this file, in whole or in part, without the express written
@@ -16,11 +16,11 @@
 # the fullest extent permitted by law. See the LICENSE file for full terms.
 # ============================================================================
 
-"""Run SMART on the converted single-cell datasets (genomap capsule 6967747).
+"""Run bioMoR on the converted single-cell datasets (genomap capsule 6967747).
 
 Each dataset lives in ``data/singlecell/<name>/`` as produced by
 ``tools/convert_capsule_to_csv.py`` (expression.csv.gz + labels.csv + optional
-split.csv). This module trains the headline SMART configuration (cross-attention
+split.csv). This module trains the headline bioMoR configuration (cross-attention
 marker router + expert-choice Mixture-of-Recursions) on every dataset and writes
 one results JSON per dataset, which ``make_paper.py`` renders into the single-cell
 generalisation table.
@@ -132,7 +132,7 @@ def _fit_eval(Xs_full, y, tr, va, te, cfg, F, K, device, inter="auto", bio_op=No
     # Biology-informed router: build the genomap gene-gene-interaction centrality
     # prior on the train split (expression only, label-free -> leakage-safe) and
     # install it on the depth router. coexpr = genomap correlation graph; random =
-    # degree-matched control; none = original SMART router.
+    # degree-matched control; none = original bioMoR router.
     elif getattr(cfg, "gene_interaction", None) == "aggnet":
         # AGGREGATED external network (STRING+KEGG[+Reactome]) as a gene-gene smoothing
         # prior on symbol-bearing single-cell data (e.g. Tcell, mouse). Needs gene symbols
@@ -440,7 +440,7 @@ def main():
             h = r["heads"][HEAD]
             summary.append((name, h["accuracy"], 0.0, h["macro_f1"], 0.0))
     tag = f"{args.cv_folds}-fold CV (mean+/-std)" if args.cv_folds > 0 else "single split"
-    print(f"\n==== SMART single-cell summary [{tag}] ====")
+    print(f"\n==== bioMoR single-cell summary [{tag}] ====")
     for n, a, asd, f, fsd in summary:
         print(f"  {n:14s} acc={a*100:5.1f}+/-{asd*100:3.1f}  macroF1={f*100:5.1f}+/-{fsd*100:3.1f}")
 

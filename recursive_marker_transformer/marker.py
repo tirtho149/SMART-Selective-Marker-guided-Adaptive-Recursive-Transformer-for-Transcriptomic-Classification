@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #        for Transcriptomic Classification
 #
 # Authors:
@@ -8,7 +8,7 @@
 #   Md Tauhidul Islam  - Stanford University
 #   Wei Le             - Iowa State University
 #
-# Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+# Copyright (c) 2026 The bioMoR Authors. All Rights Reserved.
 #
 # PROPRIETARY AND CONFIDENTIAL. Unauthorized use, copying, modification, or
 # distribution of this file, in whole or in part, without the express written
@@ -175,7 +175,7 @@ class PathwayPooler(nn.Module):
     binary mutation, where mean-pooling washes the per-pathway signal to a near
     constant and the model collapses). A learnable per-pathway gate
     ``sigmoid(g_m)`` lets the model down-weight uninformative pathways -- the
-    'selective' property of SMART, now at pathway granularity. The membership is
+    'selective' property of bioMoR, now at pathway granularity. The membership is
     fixed (biology, not learned); only the gate trains.
     """
 

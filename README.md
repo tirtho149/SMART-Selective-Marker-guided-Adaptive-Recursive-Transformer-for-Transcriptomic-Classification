@@ -1,6 +1,6 @@
 <div align="center">
 
-# SMART / bioMoR — Biology-guided Adaptive Recursive Transformer for Transcriptomic Classification
+# bioMoR — Biology-guided Adaptive Recursive Transformer for Transcriptomic Classification
 
 **Koushik Howlader¹ · Tirtho Roy¹ · Md Tauhidul Islam² · Wei Le¹**
 
@@ -136,7 +136,7 @@ After the relevant jobs land, rerun `bash scripts/refresh_cv5.sh` to rebuild the
 > **Status:** manuscript **under review** — not yet accepted or published.
 
 ```bibtex
-@unpublished{howlader2026smart,
+@unpublished{howlader2026biomor,
   title  = {Biology-guided Adaptive Recursive Transformer for Transcriptomic Classification},
   author = {Howlader, Koushik and Roy, Tirtho and Islam, Md Tauhidul and Le, Wei},
   note   = {Manuscript under review},

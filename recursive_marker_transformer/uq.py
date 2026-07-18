@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART -- log-probability-driven uncertainty quantification (UQ).
+# bioMoR -- log-probability-driven uncertainty quantification (UQ).
 #
 # From the model's test-set softmax probabilities we compute the standard
 # calibration / log-prob UQ metrics: negative log-likelihood (NLL), expected

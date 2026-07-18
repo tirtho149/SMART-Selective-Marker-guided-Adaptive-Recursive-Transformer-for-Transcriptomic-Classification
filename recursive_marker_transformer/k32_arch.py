@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART -- one-off: Vanilla vs Recursive vs MoR at a FIXED depth on ONE dataset.
+# bioMoR -- one-off: Vanilla vs Recursive vs MoR at a FIXED depth on ONE dataset.
 # Everything held fixed (dataset, d_model=96, n_markers=128, epochs, K) except the
 # architecture knob, so the ONLY change between rows is independent-layers vs
 # weight-shared vs adaptive-routed. Records accuracy, macro-F1, transformer/total

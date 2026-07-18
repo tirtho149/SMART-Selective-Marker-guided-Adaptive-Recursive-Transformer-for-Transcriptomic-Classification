@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART -- ONE consolidated, standalone results table + statistical-significance
+# bioMoR -- ONE consolidated, standalone results table + statistical-significance
 # panel. Six configurations x every dataset (10 genomap single-cell + 4 P-NET
 # cohorts), accuracy / macro-F1, mean over seeds, with the significance verdicts
 # for the two contested mechanisms (biological prior, adaptive depth) printed
@@ -152,7 +152,7 @@ def to_md():
     rows = build_rows()
     head = "| Dataset | " + " | ".join(CONFIG_LABEL[c] for c in CONFIGS) + " |"
     sep = "|" + "---|" * (len(CONFIGS) + 1)
-    out = ["# SMART -- consolidated results (one table)",
+    out = ["# bioMoR -- consolidated results (one table)",
            "",
            "Each cell is **accuracy / macro-F1±std** (%, mean over seeds). "
            "Single-cell: 3 seeds. Cohorts: multi-seed where available, else single-seed.",
@@ -182,7 +182,7 @@ def to_tex():
          r"\pagestyle{empty}",
          r"\begin{document}",
          r"\begin{center}",
-         r"{\large\textbf{SMART: Consolidated Results}}\\[2pt]",
+         r"{\large\textbf{bioMoR: Consolidated Results}}\\[2pt]",
          r"\footnotesize Each cell: accuracy / macro-F1$\pm$std (\%). All numbers are "
          r"multi-seed (mean over 3 seeds; single-cell and P-NET cohorts alike). The two "
          r"router columns for cohorts use the Reactome pathway prior as the biological-prior "

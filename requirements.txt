@@ -1,4 +1,4 @@
-# SMART — runtime dependencies (versions from the working CPU env).
+# bioMoR — runtime dependencies (versions from the working CPU env).
 # On the GPU machine install the CUDA build of torch for your CUDA version
 # (see https://pytorch.org/get-started/locally/), then the rest pinned below.
 torch==2.2.2          # use the +cuXXX CUDA wheel on the GPU box

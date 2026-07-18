@@ -1,5 +1,5 @@
 # ============================================================================
-# SMART: Selective Marker-guided Adaptive Recursive Transformer
+# bioMoR: Selective Marker-guided Adaptive Recursive Transformer
 #        for Transcriptomic Classification
 #
 # Authors:
@@ -8,7 +8,7 @@
 #   Md Tauhidul Islam  - Stanford University
 #   Wei Le             - Iowa State University
 #
-# Copyright (c) 2026 The SMART Authors. All Rights Reserved.
+# Copyright (c) 2026 The bioMoR Authors. All Rights Reserved.
 #
 # PROPRIETARY AND CONFIDENTIAL. Unauthorized use, copying, modification, or
 # distribution of this file, in whole or in part, without the express written
@@ -16,7 +16,7 @@
 # the fullest extent permitted by law. See the LICENSE file for full terms.
 # ============================================================================
 
-"""Token Reduction Validation for SMART.
+"""Token Reduction Validation for bioMoR.
 
 Quantifies (and qualitatively validates) how effectively the learned marker
 router shrinks the input token space (the ~N gene tokens) to the M marker tokens
@@ -261,7 +261,7 @@ def build_validation(results: dict, internals: dict, top: int = 50) -> tuple[dic
 # main
 # --------------------------------------------------------------------------- #
 def main():
-    ap = argparse.ArgumentParser(description="Token Reduction Validation for SMART")
+    ap = argparse.ArgumentParser(description="Token Reduction Validation for bioMoR")
     ap.add_argument("--config", default="results/main.json",
                     help="headline result JSON to read the exact config from "
                          "(falls back to the built-in headline config)")
