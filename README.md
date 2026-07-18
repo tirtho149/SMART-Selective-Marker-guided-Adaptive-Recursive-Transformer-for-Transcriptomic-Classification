@@ -84,8 +84,7 @@ Or run each piece individually. **Every table/figure in the paper maps to exactl
 | Paper artifact (`paper/…`)            | Regenerate with                         | Reads from `results/` |
 |---------------------------------------|-----------------------------------------|-----------------------|
 | `cv5_main_table.tex` — Table 2 (efficiency ladder) | `$PY scripts/build_cv5_tex.py`          | `cv5/{sc,mo,biomor_canonical,biomor_ladder,inject_mo,biomor_ladder_mo}` |
-| `cv5_ablation_table.tex` — Table 4 (component ablations) | `$PY scripts/build_cv5_tex.py`          | `cv5/ablation` |
-| `cv5_baselines_table.tex` — Table 5 (vs classical) | `$PY scripts/build_cv5_tex.py`          | `cv5/baselines` |
+| `cv5_baselines_table.tex` — Table 4 (vs classical) | `$PY scripts/build_cv5_tex.py`          | `cv5/baselines` |
 | `cv5_scaling_table.tex` — supp. scaling | `$PY scripts/build_cv5_tex.py`          | `cv5/scaling_*` |
 | `cv5_injection_table.tex` — **Table 3** (where should biology enter) | `$PY scripts/build_injection_table.py`  | `cv5/{biomor_canonical,inject_mo}` |
 | `cv5_posf1_table.tex` — supp. positive-class F1 | `$PY scripts/build_posf1_table.py`      | `repro/ladder` |
@@ -95,7 +94,7 @@ Or run each piece individually. **Every table/figure in the paper maps to exactl
 | `figs/pareto_efficiency.pdf` — Fig. accuracy–compute Pareto | `$PY scripts/pareto_prototype.py`       | `cv5/` (ladder, analytic FLOPs) |
 | `figs/overview.pdf` — Fig. 1 schematic | *static asset* (hand-made, no generator) | — |
 
-`build_cv5_tex.py` writes four fragments at once (`cv5_{main,scaling,ablation,baselines}_table.tex`);
+`build_cv5_tex.py` writes three fragments at once (`cv5_{main,scaling,baselines}_table.tex`);
 `build_injection_table.py` and `build_posf1_table.py` write one each. Missing/partial cells render
 as `run…` placeholders, so the paper always compiles.
 
@@ -121,8 +120,7 @@ table/figure reads. Submit from the repo root; `*_nova.sbatch` twins are the sam
 | `cv5/biomor_canonical{,_mo}`           | `slurm/run_canonical_biomor_{sc,mo}.sbatch`           |
 | `cv5/biomor_ladder{,_mo}`              | `slurm/run_biomorboth_ladder_{sc,mo,mo_pancan}.sbatch`, `slurm/run_cv5_tokenk.sbatch` |
 | `cv5/inject_mo` (Table 3)              | `slurm/run_injection_{ablation_sc,mo,pancan,3m}.sbatch`, `slurm/run_3m_cv5_appletoapple_*.sbatch` |
-| `cv5/ablation` (Table 4)               | `slurm/run_cv5_ablation.sbatch` → `scripts/ablate_cv5.py --index N` (array) |
-| `cv5/baselines` (Table 5)              | `slurm/run_cv5_baselines.sbatch`, `slurm/run_baselines_newmo.sbatch` |
+| `cv5/baselines` (Table 4)              | `slurm/run_cv5_baselines.sbatch`, `slurm/run_baselines_newmo.sbatch` |
 | `cv5/scaling_*` (supp. scaling)        | `slurm/run_cv5_scale_{sc_gen,sc_biomor,mo_gen,mo_biomor}.sbatch` |
 | `cv5/biorouter_ablation` (fig)         | `slurm/run_biorouter_{ablation,prostate}.sbatch`      |
 | `cv5/curves` (baron dynamics fig)      | `slurm/run_baron_cost.sbatch` → `scripts/make_baron_cost.py` |

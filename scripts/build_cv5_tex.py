@@ -289,5 +289,5 @@ def emit_biorouter():
     open(os.path.join(PAP,"biorouter_ablation_table.tex"),"w").write("\n".join(L)+"\n")
 
 if __name__ == "__main__":
-    emit_main(); emit_scaling(); emit_ablation(); emit_baselines()
-    print("wrote paper/cv5_{main,scaling,ablation,baselines}_table.tex")
+    emit_main(); emit_scaling(); emit_baselines()  # emit_ablation() dropped: ablation table removed from the paper
+    print("wrote paper/cv5_{main,scaling,baselines}_table.tex")

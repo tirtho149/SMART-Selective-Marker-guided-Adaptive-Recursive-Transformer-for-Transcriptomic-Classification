@@ -339,8 +339,7 @@ same learned graph but \emph{warm-started} from the biological graph (top-$r$
 eigenvectors of the co-expression / Reactome operator) and then refined end-to-end. Note
 the learned graph is not ``biology-free'': it discovers gene-gene structure from the
 biological data itself; what it lacks is an \emph{externally supplied} biological prior.
-Table~\ref{tab:ablation_cv5} (graph-source family) reports test macro-F1 for these settings,
-and Fig.~\ref{fig:biorouter} contrasts fixed-biology, data-only, and biology$+$data routing
+Fig.~\ref{fig:biorouter} contrasts fixed-biology, data-only, and biology$+$data routing
 on Baron and Prostate.
 
 The learned graph is the clear winner: it lifts mean single-cell macro-F1 to
@@ -390,7 +389,7 @@ residual, each with a random and a fixed-biology control (supplementary material
 
 Two findings emerge. \textbf{First, a rigid prior does not belong in the router:} a
 fixed-centrality routing prior sits at or below the no-graph baseline (mirroring the
-graph-source family of Table~\ref{tab:ablation_cv5}, where a fixed curated graph \emph{hurts},
+graph-source ablation, where a fixed curated graph \emph{hurts},
 $-24.0$). This motivates our redesigned router, which message-passes over a \emph{learned}
 graph through a zero-initialised graph-convolution residual rather than an imposed centrality
 scalar. \textbf{Second, the interaction graph must be \emph{learned}, not imposed:} a
@@ -419,7 +418,7 @@ bioMoR's compressed $M{=}128$-marker read-out, so we do not claim uniform state-
 The comparison nonetheless shows bioMoR is a strong classifier, not merely an efficient one.
 Its distinctive contributions are (i) the mechanistic result that a \emph{learned} interaction
 graph injected at \emph{both} the embedding and routing sites drives the gain, whereas fixed
-hand-built priors do not (Tables~\ref{tab:injection},~\ref{tab:ablation_cv5}); (ii) parameter,
+hand-built priors do not (Table~\ref{tab:injection}); (ii) parameter,
 token and FLOP efficiency that is architectural (Table~\ref{tab:main_cv5}); and (iii) an
 interpretable marker panel and compute-allocated recursion depth that the classical baselines
 do not provide.
