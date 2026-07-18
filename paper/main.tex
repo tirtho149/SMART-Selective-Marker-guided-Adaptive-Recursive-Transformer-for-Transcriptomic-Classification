@@ -126,7 +126,7 @@ Our contributions are summarized as follows:
 
     \item We introduce a \textbf{Bio Router} together with a \emph{learned} low-rank gene--gene graph that smooths the input before token selection, and study both carefully with degree-matched random-graph controls and warm-start stress tests.
 
-    \item Through this controlled study we identify \emph{learned gene-graph smoothing}---not a fixed biological routing prior---as the decisive driver of the accuracy gains, an honest negative-and-positive result that clarifies where biological structure helps.
+    \item Through this controlled study we identify a \emph{learned} interaction graph---not a fixed biological prior---as the decisive driver, and show it helps at \emph{both} the embedding and routing sites, an honest negative-and-positive result that clarifies where biological structure helps.
 
     \item On fourteen genomic benchmarks under a unified 5-fold cross-validation protocol, bioMoR improves average predictive performance over Vanilla Transformers, Recursive Transformers, and biology-agnostic MoR while substantially reducing parameters and FLOPs, and we report an honest comparison against strong classical baselines.
 \end{itemize}
@@ -378,7 +378,7 @@ end-to-end training already recovers (supplementary material).
 
 
 
-\subsection{Is the Gain Smoothing or Routing? A Confound Factorial}
+\subsection{Smoothing, Routing, or Both? A Confound Factorial}
 \label{sec:confound}
 The gene graph enters bioMoR in two distinct ways: it \emph{smooths} the input expression
 before marker selection ($x\leftarrow(1-\lambda)x+\lambda\,\text{(graph)}\,x$, a
@@ -490,15 +490,17 @@ fixed panels cannot provide.
 \section{Discussion and Limitations}
 bioMoR shows biological inductive bias and parameter-efficient recursion can be co-designed:
 weight sharing and marker compression make the model small \emph{and} interpretable, and a
-label-free gene--gene graph folds in without leaking labels or adding parameters. We credit a
+label-free interaction graph folds in without leaking labels or adding parameters. We credit a
 benefit only where a graph separates from a degree-matched random control: the \emph{learned}
-graph does (primarily as \emph{input smoothing}), the \emph{fixed} biology prior does not and
-can hurt. Adaptive routing and sharing cluster within noise on accuracy, so their benefit is
-efficiency and the interpretable depth signal, not an accuracy gain from depth.
+graph does---helping at both the embedding and routing sites, and best when injected at
+both---whereas the \emph{fixed} biology prior does not and can hurt. Adaptive routing and
+sharing cluster within noise on accuracy, so their benefit is efficiency and the interpretable
+depth signal, not an accuracy gain from depth.
 
-\paragraph{Limitations.} (i)~On engineered single-cell features a linear pipeline remains
-stronger, and on P-NET cohorts classical baselines stay competitive, so we do not claim
-state-of-the-art accuracy. (ii)~Efficiency claims are \emph{analytical} (parameters and
+\paragraph{Limitations.} (i)~On some near-linearly separable single-cell suites a
+full-feature linear pipeline stays competitive with bioMoR's compressed marker read-out, so
+we do not claim uniform state-of-the-art accuracy; the gain is clearest on the un-engineered
+multi-omics cohorts. (ii)~Efficiency claims are \emph{analytical} (parameters and
 stack-level FLOPs), not yet matched-hardware wall-clock. (iii)~We do not compare head-to-head
 against PATH \cite{howlader2026graph} or scBiGNN \cite{scbignn2023}/gene-vocabulary foundation
 models on named-gene data (the anonymised genomap features do not expose gene identities);
