@@ -108,10 +108,30 @@ class ExpertChoiceRouter(nn.Module):
             self.prior_gate = nn.Sequential(
                 nn.Linear(d_model, d_model // 2), nn.GELU(),
                 nn.Linear(d_model // 2, 1))
+        # REDESIGNED bio-router: a zero-initialised graph-conv residual on the routing
+        # logits. Instead of a static centrality scalar (a weak, often-harmful signal),
+        # the router sees each token's biological NEIGHBOURHOOD (A @ H) through a learned
+        # projection that starts at 0 -> identical to the no-bio router at init, so it can
+        # only LEARN to help. One projection per recursion step.
+        # LEVER 2 (complementary router): a nonlinear MLP over BOTH the neighbourhood mean
+        # (A H, low-frequency -- what the embedding already smooths) AND the neighbourhood
+        # CONTRAST (H - A H, high-frequency -- what smoothing discards). Feeding the router
+        # the high-frequency part it cannot get from the (low-pass) embedding makes the two
+        # sites complementary, so "both" strictly beats embedding-only, not merely ties it.
+        # The OUTPUT layer is zero-initialised, so the term is still a no-op at init (safe).
+        self.graph_router = nn.ModuleList([
+            nn.Sequential(nn.Linear(2 * d_model, d_model), nn.GELU(),
+                          nn.Linear(d_model, 1)) for _ in range(depth)])
+        for mlp in self.graph_router:
+            nn.init.zeros_(mlp[-1].weight); nn.init.zeros_(mlp[-1].bias)
+        # Learnable scalar gate per step (init sigma(-3)~0.05): both starts at embedding-only
+        # and the now-complementary router earns weight where it helps (proof §8.5).
+        self.graph_gate = nn.Parameter(torch.full((depth,), -3.0))
 
     def forward(self, tokens: torch.Tensor, block_fn: BlockFn,
                 refine_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
                 prior: Optional[torch.Tensor] = None, prior_weight: float = 0.0,
+                token_graph: Optional[torch.Tensor] = None,
                 ) -> Tuple[torch.Tensor, RouteInfo]:
         B, M, _ = tokens.shape
         device = tokens.device
@@ -129,6 +149,13 @@ class ExpertChoiceRouter(nn.Module):
             k = max(1, k)
 
             logits = self.routers[t](tokens / self.temp).squeeze(-1)   # (B, M)
+            # REDESIGNED bio-router: add a zero-init graph-conv residual so routing depth
+            # for token m can depend on its biological neighbourhood (A @ H)[m]. Starts at
+            # 0 (no-op) and learns to help; bounded because it is just extra router logits.
+            if token_graph is not None:
+                ah = torch.matmul(token_graph, tokens)                 # (B,M,d) neighbour mean (low-freq)
+                msg = torch.cat([ah, tokens - ah], dim=-1)             # + contrast (high-freq, complementary)
+                logits = logits + torch.sigmoid(self.graph_gate[t]) * self.graph_router[t](msg).squeeze(-1)
             # Biology-informed routing. OLD: fixed annealed additive bias
             # (sample-independent, provably ties the random control). REDESIGN:
             # the prior enters through a FiLM gate g_phi(h_m) (Fix B, sample- and
@@ -187,13 +214,25 @@ class TokenChoiceRouter(nn.Module):
         self.alpha = alpha
         self.temp = temp
         self.router = _make_router(router_type, d_model, depth)
+        # LEVER 2 complementary router (see ExpertChoiceRouter): nonlinear MLP over
+        # [neighbour-mean, contrast], zero-init output -> safe, complementary to embedding.
+        self.graph_router = nn.Sequential(
+            nn.Linear(2 * d_model, d_model), nn.GELU(), nn.Linear(d_model, depth))
+        nn.init.zeros_(self.graph_router[-1].weight); nn.init.zeros_(self.graph_router[-1].bias)
+        self.graph_gate = nn.Parameter(torch.tensor(-3.0))   # gate: both starts=embedding
 
     def forward(self, tokens: torch.Tensor, block_fn: BlockFn,
                 refine_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
                 prior: Optional[torch.Tensor] = None, prior_weight: float = 0.0,
+                token_graph: Optional[torch.Tensor] = None,
                 ) -> Tuple[torch.Tensor, RouteInfo]:
         B, M, _ = tokens.shape
         logits = self.router(tokens / self.temp)                       # (B, M, depth)
+        # REDESIGNED bio-router: zero-init graph-conv residual over the biological graph.
+        if token_graph is not None:
+            ah = torch.matmul(token_graph, tokens)                     # (B,M,d) neighbour mean
+            msg = torch.cat([ah, tokens - ah], dim=-1)                 # + contrast (complementary)
+            logits = logits + torch.sigmoid(self.graph_gate) * self.graph_router(msg)
         # Biology-informed routing: bias every depth logit by the per-marker prior.
         if prior is not None and prior_weight != 0.0:
             logits = logits + prior_weight * prior.view(1, M, 1)

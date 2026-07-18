@@ -132,10 +132,14 @@ def _cfg(mode: str, K: int, seed: int, epochs: int, n_markers: int = 128) -> RMT
         cfg.bio_prior_gate = False; cfg.router_prior_beta = 0.0
         cfg.bio_depth_laplacian = 0.0; cfg.bio_centrality = "ppr"; cfg.router_prior_anneal = False
     elif mode in ("route_coexpr", "route_random"):
-        # ROUTING ONLY: fixed centrality prior on the depth router; NO input smoothing.
+        # ROUTING ONLY: centrality prior on the depth router; NO input smoothing.
+        # STABILITY FIX: start the prior NEAR ZERO (bio_beta_init=-4 -> softplus~0.018)
+        # and let the model grow it only where it helps. A fixed strong prior
+        # (bio_beta_init=0.5 -> ~0.97) deterministically dominates routing on some
+        # datasets (Segerstolpe/Xin) and collapses macro-F1 to ~0.04.
         cfg.gene_interaction = "coexpr" if mode == "route_coexpr" else "random"
         cfg.bio_graph_prop = False; cfg.bio_prior_gate = True; cfg.bio_prior_learnable = True
-        cfg.bio_beta_init = 0.5; cfg.bio_depth_laplacian = 0.0
+        cfg.bio_beta_init = -4.0; cfg.bio_depth_laplacian = 0.0
         cfg.bio_centrality = "ppr"; cfg.router_prior_anneal = False
     elif mode == "learned_bio":
         # learned graph, IDENTICAL to `learned` except gene_embed is warm-started from
@@ -144,6 +148,36 @@ def _cfg(mode: str, K: int, seed: int, epochs: int, n_markers: int = 128) -> RMT
         cfg.bio_prop_lambda_init = 0.2; cfg.bio_prop_hops = 1
         cfg.bio_learned_init = "bio"
         cfg.bio_init_scale = 0.01; cfg.bio_init_rand = 0.01   # original weak warm-start (unchanged)
+    elif mode == "route_graph":
+        # ROUTER-ONLY (REDESIGNED): the learned gene graph (warm-started from co-expression)
+        # feeds ONLY the zero-init graph-conv router; its input smoothing is OFF, so biology
+        # enters at the router site alone. Pairs with learned_bio (embedding-only) and
+        # bio_both (both) for the clean 3-way injection ablation where all three can help.
+        cfg.gene_interaction = "none"
+        cfg.bio_learned_graph = True; cfg.bio_learned_rank = 16
+        cfg.bio_learned_init = "bio"; cfg.bio_init_scale = 0.01; cfg.bio_init_rand = 0.01
+        cfg.bio_learned_prop = False        # embedding smoothing OFF -> router site only
+        cfg.bio_graph_router = True
+    elif mode == "bio_both":
+        # INJECTION-SITE ablation (bar C = "both / bioMoR"): the co-expression
+        # interaction matrix enters BOTH sites at once --
+        #   (1) gene-EMBEDDING space: learned graph gene_embed warm-started from the
+        #       co-expression operator (same as `learned_bio`), and
+        #   (2) depth ROUTER: fixed co-expression centrality prior (same as
+        #       `route_coexpr`).
+        # Pairs with `learned_bio` (embedding-only) and `route_coexpr` (router-only)
+        # for the clean 2-site factorial. Smoothing rides the LEARNED graph, so the
+        # fixed-graph input smoothing (bio_graph_prop) stays OFF to avoid double-prop.
+        # EMBEDDING site: learned gene graph warm-started from co-expression (as learned_bio).
+        cfg.gene_interaction = "none"       # NO static centrality prior (it collapses routing)
+        cfg.bio_learned_graph = True; cfg.bio_learned_rank = 16
+        cfg.bio_learned_init = "bio"; cfg.bio_init_scale = 0.01; cfg.bio_init_rand = 0.01
+        cfg.bio_prop_lambda_init = 0.2; cfg.bio_prop_hops = 1
+        cfg.bio_graph_prop = False          # smoothing via learned graph, not fixed
+        # ROUTER site (REDESIGNED): zero-init graph-conv residual over the learned gene
+        # graph, so routing depth can learn to use biological neighbourhood structure --
+        # bounded, starts as a no-op, cannot collapse (replaces the harmful centrality prior).
+        cfg.bio_graph_router = True
     elif mode == "learned_anchor":
         # learned graph, warm-started from biology AND held near it early by an annealed
         # ||A_learned - A_bio||^2 penalty (lambda: 0.5 -> 0 over training), with a larger
@@ -201,7 +235,7 @@ def run_cell(X, y, dataset, mode, K, seed, epochs, device, n_markers=128, overri
            "test_accuracy": 100 * accuracy_score(yt, yp),
            "val_macro_f1": getattr(model, "_val_f1", None),   # for validation-based config selection
            "n_features": F, "n_classes": C, "n_samples": int(len(y))}
-    if mode in ("learned", "learned_bio", "learned_anchor", "learned_aggnet", "learned_bigbio", "learned_fused", "learned_fused_rand"):
+    if mode in ("learned", "learned_bio", "bio_both", "learned_anchor", "learned_aggnet", "learned_bigbio", "learned_fused", "learned_fused_rand"):
         with torch.no_grad():
             out["learned_lambda"] = float(torch.sigmoid(model.bio_prop_logit))
             out["bio_anchor_have"] = bool(getattr(model, "_bio_anchor_have", False))

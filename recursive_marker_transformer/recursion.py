@@ -195,6 +195,7 @@ class RecursiveStack(nn.Module):
         prior: Optional[torch.Tensor] = None,               # (M,) biological prior
         prior_weight: float = 0.0,                          # beta_t (annealed)
         attn_bias: Optional[torch.Tensor] = None,           # (M,M) hierarchy bias
+        token_graph: Optional[torch.Tensor] = None,         # (M,M) graph for the bio-router
     ) -> Tuple[torch.Tensor, Dict[str, object]]:
         if self.router is not None:
             # Pass the step-indexed block picker: _block(t) is the shared block
@@ -213,7 +214,8 @@ class RecursiveStack(nn.Module):
             kv0 = tokens if self.step_cache else None
             block = (lambda t, x: self._block(t)(x, attn_bias, kv0))
             return self.router(tokens, block, refine_fn,
-                               prior=prior, prior_weight=prior_weight)
+                               prior=prior, prior_weight=prior_weight,
+                               token_graph=token_graph)
 
         remaining = torch.ones(tokens.shape[:2], device=tokens.device)  # (B, M)
         kv0 = tokens if self.step_cache else None                       # step-0 cache

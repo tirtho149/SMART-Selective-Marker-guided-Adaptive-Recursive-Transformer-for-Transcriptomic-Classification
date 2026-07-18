@@ -63,7 +63,8 @@ PANMETA = {
     "panmeta_response": ("pancancer_meta_pri", "response"),         # primary vs metastatic
     "panmeta_subtype":  ("pancancer_meta_pri", "primary_disease"),  # 32-class cancer type
 }
-TASKS = ["prostate", "blca", "stad", "brca", "pan_meta_pri"] + list(PANMETA)
+TASKS = ["prostate", "blca", "stad", "brca", "pan_meta_pri",
+         "pan_meta_pri_3modal"] + list(PANMETA)   # 3M = tri-modal mut+CNV+expr (channels mut_cnv_expr)
 
 
 class _DictLoader:
@@ -155,6 +156,13 @@ def _fit_eval(task, coh, X, y, tr, va, te, cfg, G, K, dtypes, device, init_block
     # Reactome pathway->pathway hierarchy as an attention bias between pathway tokens
     if getattr(cfg, "pathway_attn_bias", False) and cfg.marker_mode == "pathway":
         model.set_pathway_adjacency(torch.from_numpy(coh.adjacency))
+    # PATHWAY-SPACE learned graph: warm-start + propagation + fuse from the PROVIDED
+    # adjacency_matrix.csv (single-cell mechanism in pathway space, provided graph).
+    if getattr(cfg, "pathway_learned_graph", False) and cfg.marker_mode == "pathway":
+        ok = model.set_pathway_graph(torch.from_numpy(coh.adjacency))
+        print(f"  [pathway-learned] pathway_embed "
+              f"{'warm-started from adjacency_matrix.csv (+prop/fuse)' if ok else 'FALLBACK (disabled)'}",
+              flush=True)
 
     cw = _class_weights(torch.from_numpy(y[tr]), K).to(device)
     criterion = RMTLoss(cfg, dtypes, {task: cw})
@@ -349,6 +357,22 @@ def main():
                     help="bias attention by the Reactome pathway hierarchy "
                          "(forces recursion_mode=token, the full-token regime)")
     ap.add_argument("--pathway_attn_lambda", type=float, default=2.0)
+    # ---- PATHWAY-SPACE learned graph from the PROVIDED adjacency_matrix.csv ----
+    ap.add_argument("--pathway_learned_graph", action="store_true",
+                    help="warm-start + propagate + fuse a learned pathway graph from the "
+                         "PROVIDED Reactome adjacency_matrix.csv (single-cell mechanism in "
+                         "pathway space; never a co-expression graph on the sparse omics)")
+    ap.add_argument("--pathway_learned_rank", type=int, default=16)
+    ap.add_argument("--pathway_prop_lambda_init", type=float, default=0.03,
+                    help="pathway-token smoothing starts near-zero -> embed >= none (gated); "
+                         "the learnable lambda opens only where propagation helps")
+    ap.add_argument("--pathway_learned_fuse", action="store_true",
+                    help="also fuse the fixed provided adjacency alongside the learned graph")
+    ap.add_argument("--bio_graph_router", action="store_true",
+                    help="REDESIGNED router-site biology: zero-init graph-conv residual on the "
+                         "depth-router logits over the pathway graph (learns to help, cannot collapse)")
+    ap.add_argument("--no_pathway_prop", dest="pathway_learned_prop", action="store_false",
+                    default=True, help="turn OFF pathway-token smoothing (router-only condition)")
     # ---- 14-table mechanisms (mirror singlecell.py) ----
     ap.add_argument("--recursion_depth", type=int, default=4)
     ap.add_argument("--no_share_weights", dest="share_weights", action="store_false",
@@ -395,6 +419,12 @@ def main():
         gene_interaction=args.gene_interaction, pathway_pool=args.pathway_pool,
         pathway_attn_bias=args.pathway_attn_bias,
         pathway_attn_lambda=args.pathway_attn_lambda,
+        pathway_learned_graph=args.pathway_learned_graph,
+        pathway_learned_rank=args.pathway_learned_rank,
+        pathway_prop_lambda_init=args.pathway_prop_lambda_init,
+        pathway_learned_fuse=args.pathway_learned_fuse,
+        bio_graph_router=args.bio_graph_router,
+        pathway_learned_prop=args.pathway_learned_prop,
     )
 
     for cs in args.channels:

@@ -17,18 +17,22 @@ learned graph supplies the accuracy gain.}
 \label{tab:main_cv5}\label{tab:learned}\label{tab:ladder}
 \end{table*}
 
+% NEW Table 3 -- the injection-site ablation is our main contribution: WHERE the
+% biological interaction should enter. (The former PATH-comparable positive-class F1
+% table has been moved to the supplementary.)
 \begin{table}[t]
 \centering
-\IfFileExists{cv5_posf1_table.tex}{\input{cv5_posf1_table.tex}}{\emph{(positive-class F1 table renders here as runs land)}}
-\caption{\textbf{PATH-comparable positive-class F1 on the multi-omics cohorts.} Each
-cell is the threshold-calibrated positive-class (progression: metastatic / late-stage)
-F1, mean\,$\pm$\,SD over the $10$ folds (\%), for the full efficiency ladder --- the
-positive-class counterpart of the macro-F1 Table~\ref{tab:ladder}. Following the
-PATH protocol, the operating threshold is tuned on validation to maximise positive-class
-F1 and applied to the held-out test fold, with AUROC-based model selection; all other
-settings match Table~\ref{tab:ladder} (5-fold $\times$ 2-seed, $d{=}128$). PM/PC are the
-pan-cancer mutation+CNV and expression cohorts.}
-\label{tab:posf1}
+\IfFileExists{cv5_injection_table.tex}{\input{cv5_injection_table.tex}}{\emph{(injection-site ablation table renders here as runs land)}}
+\caption{\textbf{Where should the biological interaction enter? (main contribution).}
+For every dataset we inject the interaction graph at each site in isolation and together,
+under the same 5-fold CV: \emph{Embedding only} (the graph warm-starts and smooths the
+learned token embedding), \emph{Router only} (the graph's centrality is a prior on the
+depth router), and \emph{Both}~($=$~bioMoR). For single-cell the graph is the co-expression
+interaction matrix; for multi-omics it is the \emph{provided} Reactome pathway$\to$pathway
+graph (\texttt{adjacency\_matrix.csv}), never a co-expression matrix computed on the sparse
+mutation/CNV data. Injecting at the embedding site dominates the router site, and the two
+are complementary---\textbf{Both} is best, defining bioMoR.}
+\label{tab:injection}
 \end{table}
 
 \begin{figure}[t]

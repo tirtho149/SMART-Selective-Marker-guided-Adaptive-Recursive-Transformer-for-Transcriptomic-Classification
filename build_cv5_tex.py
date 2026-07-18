@@ -29,13 +29,20 @@ def cell(t, bold=False):
 
 # ---------- main ladder ----------
 def sc_gen(v,ds):  return _read(f"results_cv5/sc/{v}/{ds}.json")
-def sc_bio(ds,K):  return _read(f"results_cv5/biomor_sc/k{K}/{SCdir[ds]}/learned_cv.json")
-def sc_biotok(ds): return _read(f"results_cv5/biomor_sc_token/{SCdir[ds]}/learned_cv.json")
+# CANONICAL bioMoR = bio_both (interaction at BOTH sites). K4-expert headline lives in
+# biomor_canonical/; the rest of the ladder in biomor_ladder/<cfg>/. Multi-omics bioMoR
+# uses the PROVIDED Reactome pathway graph (inject_mo/both = K4, biomor_ladder_mo/<cfg>).
+def sc_bio(ds,K):
+    if K == 4: return _read(f"results_cv5/biomor_canonical/{SCdir[ds]}/bio_both_cv.json")
+    return _read(f"results_cv5/biomor_ladder/expert_k{K}/{SCdir[ds]}/bio_both_cv.json")
+def sc_biotok(ds): return _read(f"results_cv5/biomor_ladder/token_k4/{SCdir[ds]}/bio_both_cv.json")
 def mo_gen(v,t):   return _read(f"results_cv5/mo/{v}/{t}__*_cv.json")
-def mo_bio(c,K):   return _read(f"results_cv5/biomor_mo/k{K}/pnet/{c}__response/learned_cv.json")
-def mo_biotok(c):  return _read(f"results_cv5/biomor_mo_token/pnet/{c}__response/learned_cv.json")
-def sc_biotok_k(ds,K): return _read(f"results_cv5/biomor_sc_token_k{K}/{SCdir[ds]}/learned_cv.json")
-def mo_biotok_k(c,K):  return _read(f"results_cv5/biomor_mo_token_k{K}/pnet/{c}__response/learned_cv.json")
+def mo_bio(c,K):
+    if K == 4: return _read(f"results_cv5/inject_mo/both/{c}__*_cv.json")
+    return _read(f"results_cv5/biomor_ladder_mo/expert_k{K}/{c}__*_cv.json")
+def mo_biotok(c):  return _read(f"results_cv5/biomor_ladder_mo/token_k4/{c}__*_cv.json")
+def sc_biotok_k(ds,K): return _read(f"results_cv5/biomor_ladder/token_k{K}/{SCdir[ds]}/bio_both_cv.json")
+def mo_biotok_k(c,K):  return _read(f"results_cv5/biomor_ladder_mo/token_k{K}/{c}__*_cv.json")
 LPW = {2:'expert_k2',3:'expert_k3',4:'shared'}
 
 def mo_3m(mode, K):
@@ -52,13 +59,13 @@ def mo_3m(mode, K):
 
 def row_vals(kind, variant, K, mode):
     if kind=='biomor_head':
-        sc=[sc_bio(d,4) for d in SC]; pn=[mo_bio(c,4) for c in PN]; pan=[mo_gen('shared',c) for c in PANCAN]
+        sc=[sc_bio(d,4) for d in SC]; pn=[mo_bio(c,4) for c in PN]; pan=[mo_bio(c,4) for c in PANCAN]
     elif kind=='biomor_ladder':
-        sc=[sc_bio(d,K) for d in SC]; pn=[mo_bio(c,K) for c in PN]; pan=[mo_gen(LPW[K],c) for c in PANCAN]
+        sc=[sc_bio(d,K) for d in SC]; pn=[mo_bio(c,K) for c in PN]; pan=[mo_bio(c,K) for c in PANCAN]
     elif kind=='biomor_token':
-        sc=[sc_biotok(d) for d in SC]; pn=[mo_biotok(c) for c in PN]; pan=[mo_gen('token',c) for c in PANCAN]
+        sc=[sc_biotok(d) for d in SC]; pn=[mo_biotok(c) for c in PN]; pan=[mo_biotok(c) for c in PANCAN]
     elif kind=='biomor_tokenk':
-        sc=[sc_biotok_k(d,K) for d in SC]; pn=[mo_biotok_k(c,K) for c in PN]; pan=[mo_gen(f'token_k{K}',c) for c in PANCAN]
+        sc=[sc_biotok_k(d,K) for d in SC]; pn=[mo_biotok_k(c,K) for c in PN]; pan=[mo_biotok_k(c,K) for c in PANCAN]
     else:
         sc=[sc_gen(variant,d) for d in SC]; pn=[mo_gen(variant,c) for c in PN]; pan=[mo_gen(variant,c) for c in PANCAN]
     pan = pan + [mo_3m(mode, K)]      # append tri-modal 3M column
@@ -116,7 +123,7 @@ def emit_main():
         if g is None: L.append(r"\midrule"); continue
         (label,variant,mode,K,typ,param,kind), allv = g
         fl=flops_rel(mode,K); flx=f"{fl:.2f}$\\times$" if fl is not None else "--"
-        core=[v for v in allv[:11] if v is not None]
+        core=[v for v in allv[:11] if v is not None]   # 8 SC + Pro/BL/ST
         avg = f"{np.mean([v[0] for v in core]):.1f}{{\\scriptsize$\\pm${np.mean([v[1] for v in core]):.1f}}}" if len(core)==11 else (f"{np.mean([v[0] for v in core]):.1f}*" if core else RUN)
         cells=[cell(allv[i], bold=(allv[i] is not None and best[i] is not None and abs(allv[i][0]-best[i])<1e-9)) for i in range(NC)]
         head = kind.startswith('biomor')

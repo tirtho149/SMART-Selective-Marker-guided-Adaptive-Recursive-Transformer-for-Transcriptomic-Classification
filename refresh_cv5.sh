@@ -5,7 +5,8 @@ PROJ=/work/mech-ai-scratch/tirtho/RecusrsiveQFormer
 PY=/work/mech-ai-scratch/tirtho/.venv/bin/python
 cd "$PROJ"
 $PY build_cv5_tex.py                 # native LaTeX table fragments for the paper (authoritative)
-$PY build_posf1_table.py             # PATH-comparable positive-class F1 ladder (Table tab:posf1)
+$PY build_injection_table.py         # NEW Table 3: injection-site ablation (embed/router/both)
+$PY build_posf1_table.py             # PATH-comparable positive-class F1 ladder (now appendix tab:posf1)
 $PY build_cv5_table.py               # standalone PNG previews (auxiliary)
 $PY build_cv5_scaling_figure.py
 $PY build_cv5_ablation_table.py

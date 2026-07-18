@@ -33,6 +33,24 @@ authoritative numbers, and we include these analyses for completeness and transp
 
 % Training-dynamics section removed; the Baron loss/F1 figure now lives in the main paper.
 
+\section{PATH-Comparable Positive-Class F1}
+\label{app:posf1}
+% Moved from the main paper: the new main-paper Table 3 is the injection-site ablation
+% (tab:injection); this positive-class F1 table is a supplementary metric view.
+\begin{table}[t]
+\centering
+\IfFileExists{cv5_posf1_table.tex}{\input{cv5_posf1_table.tex}}{\emph{(positive-class F1 table renders here as runs land)}}
+\caption{\textbf{PATH-comparable positive-class F1 on the multi-omics cohorts.} Each
+cell is the threshold-calibrated positive-class (progression: metastatic / late-stage)
+F1, mean\,$\pm$\,SD over the folds (\%), for the full efficiency ladder --- the
+positive-class counterpart of the macro-F1 Table~\ref{tab:ladder}. Following the
+PATH protocol, the operating threshold is tuned on validation to maximise positive-class
+F1 and applied to the held-out test fold, with AUROC-based model selection; all other
+settings match Table~\ref{tab:ladder}. PM/PC are the pan-cancer mutation+CNV and
+expression cohorts.}
+\label{tab:posf1}
+\end{table}
+
 \section{Model-Size Scaling}
 \label{app:scaling}
 \begin{table}[t]

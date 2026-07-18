@@ -159,6 +159,37 @@ class RecursiveMarkerTransformer(nn.Module):
             self.register_buffer("bio_anchor_factor", torch.zeros(n_genes, rb),
                                  persistent=False)
 
+        # PATHWAY-SPACE learned graph (multi-omics): the single-cell learned-graph
+        # mechanism, but the tokens are pathways and the graph is the PROVIDED Reactome
+        # pathway->pathway adjacency (adjacency_matrix.csv), warm-started + propagated +
+        # fused exactly like the gene path -- NEVER a co-expression graph computed on the
+        # sparse omics. Installed by set_pathway_graph(); operates on the (B, M, d) tokens.
+        self._pw_learned = (bool(getattr(cfg, "pathway_learned_graph", False))
+                            and cfg.marker_mode == "pathway" and self.selector is not None)
+        if self._pw_learned:
+            M_pw = self.selector.n_markers
+            rp = int(getattr(cfg, "pathway_learned_rank", 16))
+            self.pathway_embed = nn.Parameter(torch.randn(M_pw, rp) * 0.01)
+            _lp = min(max(float(getattr(cfg, "pathway_prop_lambda_init", 0.2)),
+                          1e-3), 1.0 - 1e-3)
+            self.pathway_prop_logit = nn.Parameter(
+                torch.tensor(_math.log(_lp / (1.0 - _lp)), dtype=torch.float32))
+            self.register_buffer("pathway_operator", torch.zeros(M_pw, M_pw),
+                                 persistent=False)
+            self._pw_have_graph = False
+            self._pw_fuse = bool(getattr(cfg, "pathway_learned_fuse", False))
+            if self._pw_fuse:
+                self.pathway_fuse_gate = nn.Parameter(torch.tensor([-1.0]))
+
+        # REDESIGNED bio-router: zero-init graph-conv residual on the depth-router logits
+        # (router.py). The router message-passes over the (M,M) biological token graph so
+        # routing depth can depend on a token's neighbourhood -- learned, bounded, starts
+        # as a no-op. Replaces the harmful static centrality prior as the router-site biology.
+        self._bio_graph_router = bool(getattr(cfg, "bio_graph_router", False))
+        # site decoupling: keep the warm-started graph but optionally skip its input smoothing
+        self._bio_learned_prop = bool(getattr(cfg, "bio_learned_prop", True))
+        self._pw_learned_prop = bool(getattr(cfg, "pathway_learned_prop", True))
+
     def set_gene_variance(self, variance: torch.Tensor) -> None:
         self.gene_variance.copy_(variance.to(self.gene_variance))
 
@@ -296,6 +327,42 @@ class RecursiveMarkerTransformer(nn.Module):
         self.pathway_attn.copy_(self._attn_lambda * (A > 0).float())
         self._use_attn_bias = True
 
+    def set_pathway_graph(self, adjacency: torch.Tensor) -> bool:
+        """Install the PROVIDED Reactome pathway->pathway adjacency (M, M) as the fixed
+        pathway graph AND warm-start the learnable pathway embedding from its
+        low-frequency eigenmodes. Pathway-space twin of init_gene_embed_from_operator:
+        the graph is loaded from adjacency_matrix.csv, never computed from the sparse
+        omics. Returns True if installed (no-op / False unless pathway_learned_graph)."""
+        if not getattr(self, "_pw_learned", False):
+            return False
+        with torch.no_grad():
+            A = torch.nan_to_num(adjacency.detach().cpu().float(),
+                                 nan=0.0, posinf=0.0, neginf=0.0)
+            if A.dim() != 2 or A.shape[0] != A.shape[1] or A.shape[0] != self.pathway_embed.shape[0]:
+                return False
+            A = 0.5 * (A + A.t())
+            M = A.shape[0]
+            # GCN-normalised operator S = D^-1/2 (A+I) D^-1/2 for propagation / fuse
+            Ai = A + torch.eye(M)
+            dinv = Ai.sum(1).clamp_min(1e-8).rsqrt()
+            op = Ai * dinv[:, None] * dinv[None, :]
+            self.pathway_operator.copy_(op.to(self.pathway_operator))
+            self._pw_have_graph = True
+            # warm-start pathway_embed from the operator's top-r eigenmodes (drop the
+            # trivial leading mode), + a small matched-random baseline (Laplacian-eigenmap)
+            if (getattr(self.cfg, "pathway_learned_init", "bio") == "bio"
+                    and float(A.abs().sum()) > 0.0):
+                r = int(self.pathway_embed.shape[1])
+                evals, evecs = torch.linalg.eigh(op)
+                order = torch.argsort(evals, descending=True)
+                idx = order[1:r + 1] if order.numel() > r else order[:r]
+                E = evecs[:, idx] * evals[idx].clamp(min=0.0).sqrt().unsqueeze(0)
+                if torch.isfinite(E).all() and float(E.std()) > 1e-8:
+                    E = E / (E.std() + 1e-6) * 0.05
+                    E = E + torch.randn_like(E) * 0.005
+                    self.pathway_embed.copy_(E.to(self.pathway_embed))
+        return True
+
     @torch.no_grad()
     def _peak_init_router(self):
         """Point each router query at a distinct gene's key so attention starts
@@ -352,7 +419,7 @@ class RecursiveMarkerTransformer(nn.Module):
         # it never materialises the G x G matrix. Magnitude is renormalised per sample
         # so propagation mixes information without rescaling x (training stability);
         # the learnable lam controls how much to trust the learned graph.
-        elif self._bio_learned and x.dim() == 2:
+        elif self._bio_learned and self._bio_learned_prop and x.dim() == 2:
             lam = torch.sigmoid(self.bio_prop_logit)
             En = nn.functional.normalize(self.gene_embed, dim=1)     # (G, r) unit rows
             fuse = self._bio_fuse and self._bio_have_graph
@@ -399,6 +466,27 @@ class RecursiveMarkerTransformer(nn.Module):
                 cluster = self.marker.aggregate(tokens, gene_identity, marker_idx, init_gate)
             marker_ident = nn.functional.normalize(gene_identity[marker_idx], dim=1)
 
+        # PATHWAY-SPACE graph propagation (multi-omics): smooth the pathway tokens along
+        # the LEARNED pathway graph A = norm(E)norm(E)^T (E warm-started from the PROVIDED
+        # Reactome adjacency_matrix.csv), optionally fused with the fixed provided graph.
+        # Exactly the single-cell x-propagation, but on the (B, M, d) pathway tokens using
+        # the provided graph -- never a co-expression graph computed on the sparse omics.
+        if (getattr(self, "_pw_learned", False) and getattr(self, "_pw_have_graph", False)
+                and self._pw_learned_prop):
+            lam = torch.sigmoid(self.pathway_prop_logit)
+            En = nn.functional.normalize(self.pathway_embed, dim=1)   # (M, r)
+            z = torch.einsum("mr,bmd->brd", En, cluster)             # E^T cluster
+            prop = torch.einsum("mr,brd->bmd", En, z)                # (E E^T) cluster
+            prop = prop * (cluster.norm(dim=(1, 2), keepdim=True)
+                           / (prop.norm(dim=(1, 2), keepdim=True) + 1e-6))
+            if getattr(self, "_pw_fuse", False):
+                g = torch.sigmoid(self.pathway_fuse_gate)
+                pf = torch.einsum("mn,bnd->bmd", self.pathway_operator, cluster)
+                pf = pf * (cluster.norm(dim=(1, 2), keepdim=True)
+                           / (pf.norm(dim=(1, 2), keepdim=True) + 1e-6))
+                prop = (1.0 - g) * prop + g * pf
+            cluster = (1.0 - lam) * cluster + lam * prop
+
         # Marker-sufficiency aux loss: probe whether the (pre-recursion) marker
         # tokens alone are task-sufficient, which trains selection toward
         # discriminative genes.
@@ -423,9 +511,27 @@ class RecursiveMarkerTransformer(nn.Module):
 
         refine_fn = self.marker.refine_gate if self.cfg.recursive_marker_refine else None
         attn_bias = self.pathway_attn if self._use_attn_bias else None
+        # REDESIGNED bio-router: build the (M,M) row-normalised token graph so the depth
+        # router can message-pass over the biological neighbourhood (zero-init residual in
+        # router.py, so it can only learn to help). Source: the learned pathway graph
+        # (pathway mode) or the learned gene sub-graph over the selected markers (else).
+        token_graph = None
+        if getattr(self, "_bio_graph_router", False):
+            A = None
+            if getattr(self, "_pw_learned", False):
+                Ep = nn.functional.normalize(self.pathway_embed, dim=1)
+                A = Ep @ Ep.t()
+            elif getattr(self, "_pw_have_graph", False):
+                A = self.pathway_operator
+            elif self._bio_learned and hasattr(self, "gene_embed"):
+                Eg = nn.functional.normalize(self.gene_embed[marker_idx], dim=1)
+                A = Eg @ Eg.t()
+            if A is not None:
+                A = A.clamp(min=0.0)
+                token_graph = A / (A.sum(-1, keepdim=True) + 1e-6)      # row-stochastic
         h, route_info = self.stack(cluster, refine_fn, prior=prior,
                                    prior_weight=prior_weight,
-                                   attn_bias=attn_bias)         # (B, M, d), routing info
+                                   attn_bias=attn_bias, token_graph=token_graph)
         pooled = h.mean(dim=1)                                  # (B, d)
 
         logits = {head: clf(pooled) for head, clf in self.classifiers.items()}

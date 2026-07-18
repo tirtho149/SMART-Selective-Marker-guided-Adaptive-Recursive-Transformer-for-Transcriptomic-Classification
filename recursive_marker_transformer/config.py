@@ -162,6 +162,28 @@ class RMTConfig:
                                                  # recursion_mode in {fixed, token})
     pathway_attn_lambda: float = 2.0             # additive bias on attention logits
                                                  # for hierarchy-adjacent pathway pairs
+    # ---- PATHWAY-SPACE learned graph (multi-omics analogue of the single-cell
+    # gene learned graph). The interaction graph is the PROVIDED Reactome
+    # pathway->pathway adjacency_matrix.csv -- NEVER a co-expression graph computed
+    # on the sparse mut/CNV data. Warm-starts a learnable pathway embedding from the
+    # provided adjacency's eigenmodes, propagates the pathway tokens along it, and
+    # optionally fuses the fixed provided graph -- exactly like the gene path, but in
+    # pathway-token space. Requires marker_mode='pathway'.
+    pathway_learned_graph: bool = False
+    pathway_learned_rank: int = 16               # rank r of the learned pathway graph
+    pathway_prop_lambda_init: float = 0.2        # initial token-smoothing mix (learnable)
+    pathway_learned_init: str = "bio"            # "bio": warm-start from adjacency_matrix.csv
+                                                 # eigenmodes | "random"
+    pathway_learned_fuse: bool = False           # also fuse the fixed provided adjacency
+    # REDESIGNED bio-router: zero-init graph-conv residual on the depth-router logits so
+    # routing depth can depend on a token's biological neighbourhood (learned, bounded,
+    # starts as a no-op). Replaces the harmful static centrality prior as router-site biology.
+    bio_graph_router: bool = False
+    # Decouple the two injection SITES that share one learned graph: propagation smooths the
+    # token EMBEDDING; bio_graph_router feeds the ROUTER. Turn propagation off (keep the
+    # warm-started graph for the router only) to get a clean router-only condition.
+    bio_learned_prop: bool = True                # gene learned-graph input smoothing on/off
+    pathway_learned_prop: bool = True            # pathway learned-graph token smoothing on/off
 
     # ---- loss weights --------------------------------------------------
     lambda_marker: float = 0.1
