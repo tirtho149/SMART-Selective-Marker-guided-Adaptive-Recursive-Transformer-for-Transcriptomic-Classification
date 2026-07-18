@@ -46,12 +46,10 @@
 \begin{figure*}[t]
 \centering
 \includegraphics[width=0.85\linewidth]{figs/overview.pdf}
-\caption{\footnotesize\textbf{Overview of bioMoR.} Gene/pathway inputs are embedded and refined
-by a shared \emph{biology prior} (gene--gene and pathway--pathway graphs); a selector
-keeps the top-$M$ marker/pathway tokens; and a \emph{bio-router} combines a
-data-driven and a biology-prior term to send only selected tokens through further
-Mixture-of-Recursions steps (\emph{adaptive depth}). Pooled tokens feed a task head.
-One pipeline serves single-cell and multi-omics data.}
+\caption{\footnotesize\textbf{Overview of bioMoR.} Inputs are embedded and refined by a
+learned interaction graph; a selector keeps the top-$M$ marker/pathway tokens; a bio-router
+sends selected tokens through further weight-shared recursion (adaptive depth). One pipeline
+serves single-cell and multi-omics.}
 \label{fig:overview}
 \end{figure*}
 
@@ -102,10 +100,9 @@ ORBIT \cite{orbit2026}                    & -- & \checkmark & -- & \checkmark & 
 \textbf{bioMoR (ours)}                    & -- & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
 \bottomrule
 \end{tabular}}
-\caption{\footnotesize\textbf{We position bioMoR against recent state-of-the-art models.}
-Columns are the key design axes and \checkmark{} marks a built-in choice. bioMoR is the only
-model we are aware of that unifies a biology prior and a \emph{learned} graph with adaptive,
-weight-shared recursion while also compressing tokens and handling multi-omics.}
+\caption{\footnotesize\textbf{Positioning bioMoR against recent models.} Columns are design
+axes; \checkmark{} = built-in. bioMoR uniquely unifies a learned interaction graph with
+adaptive weight-shared recursion, token compression, and multi-omics.}
 \label{tab:positioning}
 \end{table}
 
@@ -120,7 +117,7 @@ In parallel, numerous studies have demonstrated the value of incorporating biolo
 
 In this work, we introduce \textbf{bioMoR} (\textbf{bio}logy-guided \textbf{M}ixture-\textbf{o}f-\textbf{R}ecursions), a biology-guided adaptive recursive transformer for transcriptomic learning. Unlike existing recursive transformers, bioMoR incorporates gene--gene or Reactome pathway--pathway interaction knowledge into both representation learning and adaptive routing. Biological interaction networks first refine gene or pathway embeddings through graph-based propagation, and the resulting biological prior is subsequently combined with the data-driven routing score to determine which marker tokens receive deeper recursive computation. Consequently, bioMoR allocates computation according to both the observed sample and its underlying biological context. The proposed framework naturally supports both expert-choice and token-choice routing while preserving the parameter efficiency of shared recursive transformer blocks.
 
-We evaluate bioMoR on eight single-cell transcriptomic datasets and six multi-omics cancer cohorts (fourteen benchmarks in total) under a unified 5-fold cross-validation protocol. On average, bioMoR outperforms Vanilla Transformers, Recursive Transformers, and biology-agnostic Mixture-of-Recursions under both expert-choice and token-choice routing: its best configuration reaches an average macro-F1 of \textbf{68.2\%}, improving over Vanilla Transformers (60.1\%), Recursive Transformers (60.4\%), and MoR (61.1\%) by roughly $7$--$8$ points, while using approximately $4\times$ fewer transformer parameters and reducing recursive FLOPs by up to 58\%. A controlled analysis further isolates \emph{where} biology helps: a rigid hand-built prior injected into the router fails, whereas a \emph{learned} interaction graph is effective at both the embedding and routing sites---smoothing token embeddings and steering depth allocation through a zero-initialised graph-convolution router---and injecting it at both sites jointly is best.
+We evaluate bioMoR on eight single-cell transcriptomic datasets and six multi-omics benchmarks (fourteen in total) under a unified 5-fold cross-validation protocol. On average, bioMoR outperforms Vanilla Transformers, Recursive Transformers, and biology-agnostic Mixture-of-Recursions under both expert-choice and token-choice routing: its best configuration reaches an average macro-F1 of \textbf{68.2\%}, improving over Vanilla Transformers (60.1\%), Recursive Transformers (60.4\%), and MoR (61.1\%) by roughly $7$--$8$ points, while using approximately $4\times$ fewer transformer parameters and reducing recursive FLOPs by up to 58\%. A controlled analysis further isolates \emph{where} biology helps: a rigid hand-built prior injected into the router fails, whereas a \emph{learned} interaction graph is effective at both the embedding and routing sites---smoothing token embeddings and steering depth allocation through a zero-initialised graph-convolution router---and injecting it at both sites jointly is best.
 
 Our contributions are summarized as follows:
 
@@ -131,7 +128,7 @@ Our contributions are summarized as follows:
 
     \item Through this controlled study we identify \emph{learned gene-graph smoothing}---not a fixed biological routing prior---as the decisive driver of the accuracy gains, an honest negative-and-positive result that clarifies where biological structure helps.
 
-    \item On thirteen genomic benchmarks under a unified 5-fold cross-validation protocol, bioMoR improves average predictive performance over Vanilla Transformers, Recursive Transformers, and biology-agnostic MoR while substantially reducing parameters and FLOPs, and we report an honest comparison against strong classical baselines.
+    \item On fourteen genomic benchmarks under a unified 5-fold cross-validation protocol, bioMoR improves average predictive performance over Vanilla Transformers, Recursive Transformers, and biology-agnostic MoR while substantially reducing parameters and FLOPs, and we report an honest comparison against strong classical baselines.
 \end{itemize}
 
 \paragraph{Positioning against recent biology-aware models.}
@@ -212,51 +209,39 @@ where $\mathbf{E}\in\mathbb{R}^{N\times d}$ are the gene-identity embeddings. Th
 contributions are placed on a common scale by the pre-norm LayerNorm at the entry of
 the shared block (Sec.~\ref{sec:rec}).
 
-\subsection{Recursive Shared Transformer with Marker Refinement}
+\subsection{Weight-Shared Adaptive Recursion (from MoR)}
 \label{sec:rec}
-Rather than $K$ independent layers, we instantiate a \emph{single} pre-norm
-transformer block $f_\theta$ and apply it up to $K$ times:
-$\mathbf{H}^{(t+1)} = f_\theta(\mathbf{H}^{(t)})$, $\mathbf{H}^{(0)} = \mathbf{C}$.
-This ties all depth-wise parameters \cite{dehghani2019universal,lan2020albert,%
-bae2025mixture}, so the stack's parameter count is independent of $K$. After each
-pass we recompute a per-token gate from the \emph{updated} embeddings,
-$g^{(t)}_m = \sigma(\mathrm{MLP}_r(\mathbf{H}^{(t)}_m))$, and apply it before the next
-pass (\emph{recursive marker refinement}).
-
-\paragraph{Mixture-of-Recursions over genes.}
-Spending the full depth $K$ on every marker is wasteful: most genes are settled after
-one pass, while a few lineage drivers reward deeper iteration. We make the recursion
-\emph{adaptive per token} with a Mixture-of-Recursions router \cite{bae2025mixture}
-(Figure~\ref{fig:mor}). Our headline model uses \emph{expert-choice} routing: at step
-$t$ a lightweight router scores the active marker tokens and a capacity $c_t$ keeps
-the top-$\lceil c_t M\rceil$; selected tokens are gated by the router weight and
-updated by $f_\theta$, the rest are frozen. A gene's \emph{recursion depth}
-$d_m\in\{0,\dots,K\}$ is the number of steps its marker survived; averaged over a
-dataset this is an intrinsic, compute-allocation importance score read directly off
-the architecture. As an ablation we implement \emph{token-choice} routing
-\cite{bae2025mixture} with a Switch-style load-balancing loss
-\cite{shazeer2017outrageously}; both share $f_\theta$, so the parameter-efficiency
-claim is untouched, and both reduce to fixed-depth recursion when routing is disabled.
+We reuse the Mixture-of-Recursions backbone \cite{bae2025mixture}: a \emph{single} pre-norm
+block $f_\theta$ is applied up to $K$ times, $\mathbf{H}^{(t+1)}=f_\theta(\mathbf{H}^{(t)})$,
+$\mathbf{H}^{(0)}=\mathbf{C}$, tying all depth-wise parameters
+\cite{dehghani2019universal,lan2020albert} so the stack's size is independent of $K$. Depth
+is \emph{adaptive per token} (Fig.~\ref{fig:mor}): \emph{expert-choice} keeps the
+top-$\lceil c_t M\rceil$ tokens each step (our headline) and \emph{token-choice} lets each
+token self-gate with a Switch-style load-balancing loss \cite{shazeer2017outrageously}; both
+share $f_\theta$ and reduce to fixed-depth recursion when routing is off. A token's
+surviving-step count is its interpretable \emph{recursion depth} $d_m\in\{0,\dots,K\}$---an
+architecture-intrinsic compute-allocation score. A per-token gate recomputed from the updated
+embeddings, $g^{(t)}_m=\sigma(\mathrm{MLP}_r(\mathbf{H}^{(t)}_m))$, refines markers between
+steps.
 
 \begin{figure*}[t]
 \centering
 \IfFileExists{figs/fig2_depth.pdf}{\includegraphics[width=0.90\textwidth]{figs/fig2_depth.pdf}}{\emph{(real per-pathway depth panels render here once the run lands)}}
-\caption{\textbf{Two routing modes assign per-pathway recursion depth $d_m$} (real
-Prostate Reactome tokens; $\bullet$ recurses, $\circ$ exited; the block $f_\theta$ is
-reused each step up to $K{=}4$, so depth adds no parameters). \emph{Expert-choice} keeps a
-fixed capacity per step, so a shared set of pathways is driven deep; \emph{token-choice}
-lets each pathway self-gate, allocating depth per pathway (the same pathways receive very
-different depths under the two routers). Empirically the \emph{learned} graph is the
-decisive win; a fixed centrality prior does not beat a random-graph control.}
+\caption{\textbf{Two routing modes assign per-pathway depth $d_m$} (real Prostate tokens;
+$\bullet$ recurses, $\circ$ exited; the block $f_\theta$ is reused up to $K{=}4$, so depth
+adds no parameters). Expert-choice fixes capacity per step; token-choice lets each pathway
+self-gate its depth.}
 \label{fig:mor}
 \end{figure*}
 
 \subsection{Biology-Informed Routing}
 \label{sec:biorouter}
-This is the core of our method. So far the router decides depth from data alone, and
-biology enters only afterward, when we cross-check deeply-routed genes against known
-markers. We instead move a biological prior \emph{into} the routing decision. For
-marker token $m$ at step $t$, the expert-choice logit becomes
+The backbone so far---embedding, marker/pathway compression, weight-shared recursion, and
+expert-/token-choice depth routing---follows Mixture-of-Recursions and recursive transformers
+\cite{bae2025mixture,dehghani2019universal,lan2020albert}. bioMoR's contribution is to inject
+a \emph{learned} biological interaction graph at \emph{two} sites of this backbone: the depth
+\emph{router} and the token \emph{embedding}. At the router, the expert-choice depth logit for
+token $m$ at step $t$ takes the form
 \begin{equation}
 \tilde r^{(t)}_m \;=\; \underbrace{\tfrac{1}{\tau}\,\mathbf{w}_r^{\top}\mathbf{H}^{(t)}_m}_{\text{data-driven (learned)}}
 \;+\; \underbrace{\beta_t\,\pi_m}_{\text{biological prior}},
@@ -268,42 +253,30 @@ definition is unchanged but now reflects prior and data together. This is the sa
 loss-free additive-bias slot used by Switch routing \cite{shazeer2017outrageously},
 except the bias is a per-gene \emph{biological} score, not a load-balancing scalar.
 
-\paragraph{The prior $\pi_m$ from gene-gene interactions.}
-We obtain $\pi_m$ from genomap's gene-gene \emph{interaction} identification
-\cite{islam2023cartography}: genomap's \texttt{createInteractionMatrix} defines
-interaction as the pairwise correlation distance between genes across cells (which it
-feeds to optimal transport for an image layout). We call that same function on the
-training split and reuse only its interaction matrix, taking the co-expression
-affinity $\mathbf{W}_{ij}=|\mathrm{corr}(g_i,g_j)|=|1-d_{ij}|$, sparsifying it to each
-gene's $k$ nearest neighbours, symmetrising, and reading off the network centrality
-\begin{equation}
-\pi \;=\; \mathrm{zscore}\big(\text{eigvec-centrality}(\mathbf{W})\big),
-\end{equation}
-so co-expression \emph{hub} genes receive a larger prior and are nudged to recurse deeper.
-$\mathbf{W}$ is built from \emph{expression alone, with no labels}, keeping any
-gene-discovery claim honest. The prior strength is annealed, $\beta_t=\beta_0(1-\text{progress})\!\to\!0$
-(empirical-Bayes shrinkage: strong when evidence is weak, fading as it accumulates), and it
-is a constant additive bias, so trainability is unchanged. We validate it against a
-degree-matched \emph{random}-graph control; as Sec.~\ref{sec:interaction} shows, this fixed
-prior is a \emph{negative} result -- it does not separate from its random control.
+\paragraph{Site 1 (router): a zero-initialised graph-convolution residual.}
+A first attempt sets $\pi_m$ to a fixed network centrality (z-scored eigenvector centrality
+of the label-free co-expression / Reactome graph) and adds $\beta_t\pi_m$ in
+Eq.~\ref{eq:biorouter}. This is a \emph{negative} result: the fixed prior does not separate
+from a degree-matched random control and can pin the router to a bad operating point
+(Sec.~\ref{sec:interaction}). We therefore replace it with a \emph{learned} residual---the
+router message-passes over the row-normalised token graph $\mathbf{A}$ (below) and adds
+$\sigma(\gamma_t)\,\mathrm{MLP}\big([\mathbf{A}\mathbf{H}^{(t)},\,\mathbf{H}^{(t)}-\mathbf{A}\mathbf{H}^{(t)}]\big)_m$
+to the depth logit, with the MLP output \emph{zero-initialised} so the term begins as a
+no-op and can only learn to help, never collapsing routing the way the fixed prior does.
 
-\paragraph{The learned graph (our best variant).}
-A fixed graph is frozen and label-free; it cannot adapt to the task. We therefore also
-let the model \emph{learn} its own gene-gene graph. We attach a low-rank gene embedding
-$\mathbf{E}\in\mathbb{R}^{N\times r}$ ($r{=}16$) whose row-cosine similarity
-\emph{is} the affinity, $\mathbf{A}=\tilde{\mathbf{E}}\tilde{\mathbf{E}}^{\top}$ with
-$\tilde{\mathbf{E}}=\mathrm{normalize}(\mathbf{E})$, and smooth the input along it before
-marker selection, $\mathbf{x}\leftarrow(1-\lambda)\mathbf{x}+\lambda\,(\mathbf{x}
-\tilde{\mathbf{E}})\tilde{\mathbf{E}}^{\top}$, computed in the low-rank order so it never
-forms the $N\times N$ matrix and costs $\mathcal{O}(Nr)$; the trust weight $\lambda$ is
-learned. Because $\mathbf{E}$ receives gradient from the task loss
-($\partial\mathcal{L}/\partial\mathbf{E}\neq 0$), the graph is shaped to be
-discriminative rather than merely variance- or centrality-maximal, and its $r$ latent
-factors act as learned gene programs that denoise each gene toward its program's
-consensus. This graph can be initialised randomly or \emph{warm-started} from the
-biological graph (top-$r$ eigenmodes of the co-expression / Reactome operator); we
-compare both. As Sec.~\ref{sec:interaction} shows, this learned graph is the one routing
-variant that decisively helps.
+\paragraph{The shared learned graph and Site 2 (embedding).}
+Both sites read one \emph{learned} low-rank graph. We attach an embedding
+$\mathbf{E}\in\mathbb{R}^{M\times r}$ ($r{=}16$) whose row-cosine similarity is the affinity
+$\mathbf{A}=\tilde{\mathbf{E}}\tilde{\mathbf{E}}^{\top}$,
+$\tilde{\mathbf{E}}=\mathrm{normalize}(\mathbf{E})$, warm-started from the co-expression graph
+(single cell) or the \emph{provided} Reactome pathway$\to$pathway adjacency
+(multi-omics, \texttt{adjacency\_matrix.csv}) and then refined end-to-end so it is
+discriminative, not merely centrality-maximal. At the embedding site we smooth the tokens
+along it, $\mathbf{c}\leftarrow(1-\lambda)\mathbf{c}+\lambda\,(\mathbf{c}\tilde{\mathbf{E}})\tilde{\mathbf{E}}^{\top}$
+(learned $\lambda$, low-rank $\mathcal{O}(Mr)$), so its $r$ latent factors act as gene/pathway
+programs that denoise each token toward its program consensus. Injecting the graph at
+\emph{both} sites is bioMoR; the injection-site ablation (Table~\ref{tab:injection}) shows
+the two are complementary and jointly best.
 
 \subsection{Training Objective}
 We minimise a composite loss
@@ -324,7 +297,7 @@ peak-initialised.
 \section{Experiments}
 \input{cv5_placeholders}
 \subsection{Setup}
-We evaluate on thirteen datasets. The $8$ \textbf{genomap single-cell}
+We evaluate on fourteen datasets (eight single-cell, six multi-omics). The $8$ \textbf{genomap single-cell}
 suites \cite{islam2023cartography} -- Baron, Lung, Muraro, Oesophagus, Segerstolpe,
 Spleen, T-cell and Xin -- span an easy-to-hard range of scRNA-seq cell-recognition
 tasks. The $5$ \textbf{multi-omics cohorts} comprise three Reactome/P-NET cohorts --
@@ -475,11 +448,9 @@ models. A comparison on named-gene single-cell data is the natural next benchmar
 \begin{table}[t]
 \centering
 \IfFileExists{cv5_baselines_table.tex}{\input{cv5_baselines_table.tex}}{\emph{(baselines table renders here as the 5-fold CV runs land)}}
-\caption{\textbf{We compare bioMoR (token-choice) against non-transformer baselines} on the
-identical 5-fold splits (macro-F1, mean$\pm$SD): a linear ANOVA$\to$PCA$\to$logistic
-pipeline, a Random Forest, and a Nearest-Centroid classifier. Classical pipelines are strong
-on the engineered single-cell features and competitive on multi-omics, so we frame bioMoR's
-value as efficiency and interpretability rather than raw accuracy.}
+\caption{\textbf{bioMoR (token-choice) vs.\ non-transformer baselines} on identical 5-fold
+splits (macro-F1 mean$\pm$SD): linear ANOVA$\to$PCA$\to$logistic, Random Forest, and
+Nearest-Centroid. We frame bioMoR's value as efficiency and interpretability.}
 \label{tab:baselines}
 \end{table}
 
