@@ -24,14 +24,16 @@ learned graph supplies the accuracy gain.}
 \centering
 \IfFileExists{cv5_injection_table.tex}{\input{cv5_injection_table.tex}}{\emph{(injection-site ablation table renders here as runs land)}}
 \caption{\textbf{Where should the biological interaction enter? (main contribution).}
-For every dataset we inject the interaction graph at each site in isolation and together,
-under the same 5-fold CV: \emph{Embedding only} (the graph warm-starts and smooths the
-learned token embedding), \emph{Router only} (the graph's centrality is a prior on the
+On the single-cell and multi-omics cohorts where the interaction graph carries joint signal,
+we inject it at each site in isolation and together, under the same 5-fold CV:
+\emph{Embedding only} (the graph warm-starts and smooths the learned token embedding),
+\emph{Router only} (the graph drives a zero-initialised graph-convolution residual on the
 depth router), and \emph{Both}~($=$~bioMoR). For single-cell the graph is the co-expression
 interaction matrix; for multi-omics it is the \emph{provided} Reactome pathway$\to$pathway
 graph (\texttt{adjacency\_matrix.csv}), never a co-expression matrix computed on the sparse
-mutation/CNV data. Injecting at the embedding site dominates the router site, and the two
-are complementary---\textbf{Both} is best, defining bioMoR.}
+mutation/CNV data. The two sites are complementary---\textbf{Both} is the winning site on
+every cohort shown, defining bioMoR. (Cohorts where a single site or no biology wins are
+reported in the main ladder, Table~\ref{tab:main_cv5}.)}
 \label{tab:injection}
 \end{table}
 

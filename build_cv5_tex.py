@@ -187,30 +187,32 @@ def dlt(t,b):
 def emit_ablation():
     R=[]
     def add(fam,label,sc,mo,bsc,bmo,hdr=False): R.append((fam,label,sc,mo,bsc,bmo,hdr))
-    add("1. Biological graph source","bioMoR learned (baseline)",BSC_BIO,BMO_BIO,None,None,True)
+    # Family 1 = the biological interaction graph: SOURCE (none/curated/random) AND
+    # REFINEMENT (warm-start/fuse) share the SAME bioMoR-learned baseline, so they are one
+    # family with a single baseline row (was split into families 1 and 5 -> duplicate 74.0).
+    add("1. Biological interaction graph","bioMoR learned (baseline)",BSC_BIO,BMO_BIO,None,None,True)
     add("","\\quad none (no graph)",cond_sc("f1_sc_none"),cond_mo("f1_mo_none"),BSC_BIO,BMO_BIO)
-    add("","\\quad coexpr / curated",cond_sc("f1_sc_coexpr"),cond_mo("f1_mo_curated"),BSC_BIO,BMO_BIO)
+    add("","\\quad coexpr / curated (fixed)",cond_sc("f1_sc_coexpr"),cond_mo("f1_mo_curated"),BSC_BIO,BMO_BIO)
     add("","\\quad random (deg.-matched)",cond_sc("f1_sc_random"),cond_mo("f1_mo_random"),BSC_BIO,BMO_BIO)
-    add("2. Routing internals","MoR-general shared (baseline)",BSC_GEN,None,None,None,True)
+    add("","\\quad warm-start from curated",cond_sc("f5_learned_bio"),None,BSC_BIO,None)
+    add("","\\quad fuse coexpr graph",cond_sc("f5_learned_fused"),None,BSC_BIO,None)
+    add("","\\quad fuse RANDOM (control)",cond_sc("f5_learned_fused_rand"),None,BSC_BIO,None)
+    # Family 2 = recursion & routing internals: routing / markers / depth all ablate from the
+    # SAME MoR-general baseline, so one baseline row (was families 2,3,4 -> triplicate 63.2).
+    add("2. Recursion \\& routing (MoR-general)","$N_R{=}4$, $M{=}128$ shared (baseline)",BSC_GEN,None,None,None,True)
     add("","\\quad share: sequence",cond_sc("f2_share_seq"),None,BSC_GEN,None)
     add("","\\quad share: middle-cycle",cond_sc("f2_share_midcyc"),None,BSC_GEN,None)
     add("","\\quad share: middle-seq.",cond_sc("f2_share_midseq"),None,BSC_GEN,None)
     add("","\\quad router: MLP",cond_sc("f2_router_mlp"),None,BSC_GEN,None)
     add("","\\quad no load-balance loss",cond_sc("f2_nobalance"),None,BSC_GEN,None)
-    add("3. Marker selection / budget","router markers, $M{=}128$ (baseline)",BSC_GEN,None,None,None,True)
     add("","\\quad markers: random",cond_sc("f3_marker_random"),None,BSC_GEN,None)
     add("","\\quad markers: variance",cond_sc("f3_marker_var"),None,BSC_GEN,None)
     add("","\\quad budget $M{=}64$",cond_sc("f3_M64"),None,BSC_GEN,None)
     add("","\\quad budget $M{=}256$",cond_sc("f3_M256"),None,BSC_GEN,None)
-    add("4. Recursion depth","$N_R{=}4$ (baseline)",BSC_GEN,None,None,None,True)
     add("","\\quad $N_R{=}1$ (no recursion)",cond_sc("f4_K1"),None,BSC_GEN,None)
     add("","\\quad $N_R{=}6$",cond_sc("f4_K6"),None,BSC_GEN,None)
     add("","\\quad $N_R{=}8$",cond_sc("f4_K8"),None,BSC_GEN,None)
-    add("5. Learned-graph refinement","learned (baseline)",BSC_BIO,None,None,None,True)
-    add("","\\quad warm-start from curated",cond_sc("f5_learned_bio"),None,BSC_BIO,None)
-    add("","\\quad fuse coexpr graph",cond_sc("f5_learned_fused"),None,BSC_BIO,None)
-    add("","\\quad fuse RANDOM (control)",cond_sc("f5_learned_fused_rand"),None,BSC_BIO,None)
-    add("6. Input modality (multi-omics)","mut+CNV (baseline)",None,BMO_GEN,None,None,True)
+    add("3. Input modality (multi-omics)","mut+CNV (baseline)",None,BMO_GEN,None,None,True)
     add("","\\quad CNV only",None,cond_mo("f6_mo_cnv"),None,BMO_GEN)
     add("","\\quad mutation only",None,cond_mo("f6_mo_mut"),None,BMO_GEN)
     L=[r"\resizebox{\columnwidth}{!}{%",
@@ -234,7 +236,7 @@ BL_SC = [('Lung','Lung','sc')]
 BL_MO = [('pan_meta_pri','Pan-cancer (PM)','pancan')]
 def _base(ds, meth): return _read(f"results_cv5/baselines/{ds}/{meth}_cv.json")
 def _biomor_ds(ds, kind):
-    # headline bioMoR = token-choice (matches the main-table Avg of 69.8 and the abstract)
+    # headline bioMoR = token-choice (main-table Avg headline 68.2; see abstract/intro)
     if kind=='sc':   return _read(f"results_cv5/biomor_sc_token/{ds}/learned_cv.json")
     if kind=='pnet': return _read(f"results_cv5/biomor_mo_token/pnet/{ds}__response/learned_cv.json")
     return _read(f"results_cv5/mo/token/{ds}__*_cv.json")   # pancan token-choice

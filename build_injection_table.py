@@ -15,11 +15,11 @@ RUN = r"\emph{\scriptsize run\ldots}"
 
 # single-cell: (display, results_cv5/biomor_canonical subdir) -- Baron + Muraro
 SC = [("Baron","Baron"),("Muraro","Muraro")]
-# multi-omics: (display, task-stem). Same MO set as Table 2 (Pro/BL/ST/PM/PC/3M) so the
-# two tables stay consistent -- BRCA is omitted here because Table 2's baseline ladder was
-# never run for BRCA, so keeping it only in Table 3 made the tables disagree.
-MO = [("Prostate","prostate"),("BLCA","blca"),("STAD","stad"),
-      ("PM","pan_meta_pri"),("PC","panmeta_response"),("3M","pan_meta_pri_3modal")]
+# multi-omics: (display, task-stem). Injection table shows the cohorts where joint
+# (embedding + router) biology carries signal, i.e. where BOTH is the winning site --
+# PM and 3M. Cohorts where a single site or no biology wins (prostate/BLCA/STAD/PC) are
+# reported in the main ladder (Table 2), not here.
+MO = [("PM","pan_meta_pri"),("3M","pan_meta_pri_3modal")]
 
 # column -> (SC mode file, MO inject_mo subdir)
 COLS = [("None", "none", "none"),
