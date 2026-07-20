@@ -14,7 +14,11 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import build_cv5_tex as B
 
-BARON = 0  # Baron is data column 0
+# Which single-cell suite to plot. Column index into build_cv5_tex.SC =
+# ['segerstolpe','lung','oesophagus','baron','muraro','tcell','spleen','xin'].
+DATASET = "muraro"
+COL_IDX = B.SC.index(DATASET)          # 4 for Muraro
+DS_TITLE = B.SCdir[DATASET]            # "Muraro"
 
 def arch_of(label, variant, kind):
     if kind.startswith("biomor"): return "bioMoR"
@@ -30,7 +34,7 @@ for s in B.SPECS:
     if s is None: continue
     label, variant, mode, K, typ, param, kind = s
     sc, pn, pan = B.row_vals(kind, variant, K, mode)
-    v = (sc + pn + pan)[BARON]
+    v = (sc + pn + pan)[COL_IDX]
     if v is None: continue          # skip not-yet-run (token k2/k3 placeholders)
     f1 = v[0]
     flops = B.flops_rel(mode, K) or 1.0
@@ -58,7 +62,8 @@ plt.rcParams.update({"font.size": 11})
 fig, ax = plt.subplots(figsize=(6.0, 4.2))
 
 xmin, xmax = 0.33, 1.10
-ymin, ymax = 55, 90
+_f1s = [p["f1"] for p in pts]
+ymin, ymax = np.floor(min(_f1s) - 5), np.ceil(max(_f1s) + 3)   # data-driven padding
 best = max(pts, key=lambda d: d["f1"])          # headline bioMoR point
 van = max((p for p in pts if p["arch"] == "Vanilla"), key=lambda d: d["cost"])
 DARK = {"Vanilla": "#5a5a5a", "Recursive": "#8a6100",
@@ -80,18 +85,20 @@ for p in sorted(pts, key=lambda d: -d["params"]):   # big bubbles first (drawn b
     ax.text(p["cost"], p["f1"], f"K{p['depth']}", ha="center", va="center",
             fontsize=6.5, fontweight="bold", color=DARK[p["arch"]], zorder=4)
 
-# single callout for the headline win, in the empty middle-right
+# single callout for the headline win, pinned to the empty TOP-RIGHT corner (no bubbles there)
 gain = best["f1"] - van["f1"]; speed = van["cost"] / best["cost"]
 ax.annotate(f"bioMoR: +{gain:.0f} macro-F1\nat {speed:.1f}$\\times$ less compute",
-            xy=(best["cost"] + 0.03, best["f1"]), xytext=(0.70, 78.5),
-            fontsize=10, fontweight="bold", color="#00694f", va="center",
+            xy=(best["cost"] + 0.03, best["f1"]),
+            xytext=(xmax - 0.03, ymax - 0.03 * (ymax - ymin)),
+            ha="right", va="top",
+            fontsize=10, fontweight="bold", color="#00694f",
             bbox=dict(boxstyle="round,pad=0.35", fc="#eafaf3", ec="#009E73", lw=1.3),
             arrowprops=dict(arrowstyle="-|>", color="#009E73", lw=1.7))
 
 ax.set_xlim(xmin, xmax); ax.set_ylim(ymin, ymax)
 ax.set_xlabel("Relative compute  (FLOPs / forward pass, $\\times$Vanilla)", fontsize=11)
 ax.set_ylabel("Macro-F1 (\\%)".replace("\\", ""), fontsize=11)
-ax.set_title("Accuracy vs.\\ compute on Baron".replace("\\", ""), fontsize=12, fontweight="bold")
+ax.set_title(f"Accuracy vs. compute on {DS_TITLE} (pancreas)", fontsize=12, fontweight="bold")
 ax.grid(True, ls=":", lw=0.5, alpha=0.5)
 # color legend BELOW the axes (no in-plot overlap); bubble size note alongside
 order = ["Vanilla", "Recursive", "MoR (general)", "bioMoR"]
@@ -108,6 +115,7 @@ import os as _os
 _figs = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "paper", "figs")
 _os.makedirs(_figs, exist_ok=True)
 fig.savefig(_os.path.join(_figs, "pareto_efficiency.pdf"), bbox_inches="tight", dpi=600)
+fig.savefig(_os.path.join(_figs, "pareto_efficiency.png"), bbox_inches="tight", dpi=600)
 print("wrote paper/figs/pareto_efficiency.pdf")
 print(f"{'arch':16s} {'depth':5s} {'cost(FLOPs)':11s} {'F1':6s} {'onFrontier'}")
 for p in sorted(pts, key=lambda d: (d["arch"], d["cost"])):

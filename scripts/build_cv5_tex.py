@@ -5,7 +5,7 @@ every refresh cycle so the compiled PDF updates in real time. Missing cells rend
 import glob, json, os
 import numpy as np
 
-ROOT = "/work/mech-ai-scratch/tirtho/RecusrsiveQFormer"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PAP = os.path.join(ROOT, "paper")
 SC = ['segerstolpe','lung','oesophagus','baron','muraro','tcell','spleen','xin']
 SCdir = {'baron':'Baron','lung':'Lung','muraro':'Muraro','oesophagus':'Oesophagus',
@@ -102,7 +102,7 @@ SPECS=[  # (label,variant,mode,K,type,param,kind)
 ]
 
 def emit_main():
-    DS = ['Seg','Lun','Oes','Bar','Mur','Tce','Spl','Xin','Pro','BL','ST','PM','PC','3M']
+    DS = ['Segerst.','Lung','Oesoph.','Baron','Muraro','T-cell','Spleen','Xin','Prostate','Bladder','Stomach','Pan-MC','Pan-Ex','Pan-3M']
     NC = len(DS)   # 14 data columns (8 single-cell + 6 multi-omics incl. tri-modal 3M)
     # best (max mean) per data column for bolding
     grid=[]
@@ -115,6 +115,9 @@ def emit_main():
         vals=[g[1][i][0] for g in grid if g and g[1][i] is not None]
         best[i]=max(vals) if vals else None
     L=[]
+    # tighter columns -> smaller natural width -> \resizebox scales the font UP; taller rows
+    # -> the table fills ~half the page. Both are local to the table* environment.
+    L.append(r"\setlength{\tabcolsep}{3pt}\renewcommand{\arraystretch}{1.5}")
     L.append(r"\resizebox{\textwidth}{!}{%")
     L.append(r"\begin{tabular}{l l c c c " + "c "*8 + "c "*6 + "c}")
     L.append(r"\toprule")
@@ -126,9 +129,14 @@ def emit_main():
         if g is None: L.append(r"\midrule"); continue
         (label,variant,mode,K,typ,param,kind), allv = g
         fl=flops_rel(mode,K); flx=f"{fl:.2f}$\\times$" if fl is not None else "--"
-        core=[v for v in allv[:11] if v is not None]   # 8 SC + Pro/BL/ST
-        avg = f"{np.mean([v[0] for v in core]):.1f}{{\\scriptsize$\\pm${np.mean([v[1] for v in core]):.1f}}}" if len(core)==11 else (f"{np.mean([v[0] for v in core]):.1f}*" if core else RUN)
-        cells=[cell(allv[i], bold=(allv[i] is not None and best[i] is not None and abs(allv[i][0]-best[i])<1e-9)) for i in range(NC)]
+        core=[v for v in allv if v is not None]   # ALL 14 datasets (PM/PC/3M treated like the rest)
+        avg = f"{np.mean([v[0] for v in core]):.1f}{{\\scriptsize$\\pm${np.mean([v[1] for v in core]):.1f}}}" if len(core)==NC else (f"{np.mean([v[0] for v in core]):.1f}*" if core else RUN)
+        cells=[]
+        for i in range(NC):
+            isbest = allv[i] is not None and best[i] is not None and abs(allv[i][0]-best[i])<1e-9
+            c = cell(allv[i], bold=isbest)
+            if isbest: c = r"\cellcolor{bestgreen}" + c   # light-green highlight for the best per column
+            cells.append(c)
         head = kind.startswith('biomor')
         lab = f"\\textbf{{{label}}}" if (label and (label.startswith('bioMoR') or label.startswith('MoR') or '+' in label)) else label
         L.append(" & ".join([lab, typ, str(K), param, flx]+cells+[avg]) + r" \\")
@@ -158,7 +166,7 @@ def emit_scaling():
     L=[r"\resizebox{\columnwidth}{!}{%",
        r"\begin{tabular}{c ccc ccc}",
        r"\toprule",
-       r" & \multicolumn{3}{c}{Single-cell} & \multicolumn{3}{c}{Multi-omics (P-NET)} \\",
+       r" & \multicolumn{3}{c}{Single-cell} & \multicolumn{3}{c}{Multi-omics (Reactome)} \\",
        r"\cmidrule(lr){2-4}\cmidrule(lr){5-7}",
        r"$d_{\text{model}}$ & Vanilla & MoR-gen. & bioMoR & Vanilla & MoR-gen. & bioMoR \\",
        r"\midrule"]
@@ -233,24 +241,35 @@ def emit_ablation():
 
 # ---------- Table 5: bioMoR vs non-transformer baselines (native) ----------
 BL_SC = [('Lung','Lung','sc')]
-BL_MO = [('pan_meta_pri','Pan-cancer (PM)','pancan')]
+BL_MO = [('pan_meta_pri','Pan-cancer (mut$+$CNV)','pancan')]
 def _base(ds, meth): return _read(f"results/cv5/baselines/{ds}/{meth}_cv.json")
+def _scbignn(ds):
+    """scBiGNN baseline (arXiv:2312.10310), same 5-fold folds; JSON uses 'sd' key."""
+    for f in sorted(glob.glob(os.path.join(ROOT, f"results/cv5/scbignn/{ds}.json"))):
+        try:
+            m = json.load(open(f)).get("cv_macro_f1")
+            if m and m.get("mean") is not None:
+                return (float(m["mean"]), float(m.get("std", m.get("sd", 0.0))))
+        except Exception: pass
+    return None
 def _biomor_ds(ds, kind):
-    # headline bioMoR = token-choice (main-table Avg headline 68.2; see abstract/intro)
-    if kind=='sc':   return _read(f"results/cv5/biomor_sc_token/{ds}/learned_cv.json")
-    if kind=='pnet': return _read(f"results/cv5/biomor_mo_token/pnet/{ds}__response/learned_cv.json")
-    return _read(f"results/cv5/mo/token/{ds}__*_cv.json")   # pancan token-choice
+    # CANONICAL bioMoR = bio_both (interaction at BOTH sites) -- the SAME files the main
+    # table (Expert, N_R=4) and the injection figure read, so this column is in parity with
+    # Table 2 (Lung 80.3, Pan-MC 86.8) rather than a stray token-choice / MoR-agnostic file.
+    if kind=='sc':   return _read(f"results/cv5/biomor_canonical/{ds}/bio_both_cv.json")
+    if kind=='pnet': return _read(f"results/cv5/inject_mo/both/{ds}__*_cv.json")
+    return _read(f"results/cv5/inject_mo/both/{ds}__*_cv.json")   # pancan bio_both
 
 def emit_baselines():
     L=[r"\resizebox{\columnwidth}{!}{%",
-       r"\begin{tabular}{l cccc}",
+       r"\begin{tabular}{l ccccc}",
        r"\toprule",
-       r"Dataset & Linear & Random Forest & Nearest Centroid & bioMoR \\",
+       r"Dataset & Linear & Random Forest & Nearest Centroid & scBiGNN & bioMoR \\",
        r"\midrule",
-       r"\multicolumn{5}{l}{\emph{Single-cell (genomap)}} \\"]
-    colmeans=[[],[],[],[]]
+       r"\multicolumn{6}{l}{\emph{Single-cell (genomap)}} \\"]
+    colmeans=[[],[],[],[],[]]
     def row(ds,lab,kind):
-        cells=[_base(ds,'linear'),_base(ds,'random'),_base(ds,'nearestcentroid'),_biomor_ds(ds,kind)]
+        cells=[_base(ds,'linear'),_base(ds,'random'),_base(ds,'nearestcentroid'),_scbignn(ds),_biomor_ds(ds,kind)]
         for i,t in enumerate(cells):
             if t is not None: colmeans[i].append(t[0])
         vals=[c[0] for c in cells if c is not None]
@@ -259,7 +278,7 @@ def emit_baselines():
         L.append(f"\\quad {lab} & "+" & ".join(txt)+r" \\")
     for ds,lab,kind in BL_SC: row(ds,lab,kind)
     L.append(r"\midrule")
-    L.append(r"\multicolumn{5}{l}{\emph{Multi-omics (Reactome/P-NET \& pan-cancer)}} \\")
+    L.append(r"\multicolumn{6}{l}{\emph{Multi-omics (Reactome \& pan-cancer)}} \\")
     for ds,lab,kind in BL_MO: row(ds,lab,kind)
     L.append(r"\midrule")
     mean=[f"\\textbf{{{np.mean(c):.1f}}}" if c else RUN for c in colmeans]

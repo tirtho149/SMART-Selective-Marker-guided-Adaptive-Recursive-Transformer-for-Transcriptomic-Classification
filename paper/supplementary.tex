@@ -9,6 +9,8 @@
 \usepackage{amssymb}
 \usepackage{graphicx}
 \usepackage{float}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=[rgb]{0.10,0.20,0.75},citecolor=[rgb]{0.10,0.20,0.75},urlcolor=[rgb]{0.05,0.35,0.85}}
 \frenchspacing
 \setlength{\pdfpagewidth}{8.5in}
 \setlength{\pdfpageheight}{11in}
@@ -43,11 +45,11 @@ authoritative numbers, and we include these analyses for completeness and transp
 \caption{\textbf{PATH-comparable positive-class F1 on the multi-omics cohorts.} Each
 cell is the threshold-calibrated positive-class (progression: metastatic / late-stage)
 F1, mean\,$\pm$\,SD over the folds (\%), for the full efficiency ladder --- the
-positive-class counterpart of the macro-F1 Table~\ref{tab:ladder}. Following the
+positive-class counterpart of the macro-F1 main-results table (Table~2 of the main paper). Following the
 PATH protocol, the operating threshold is tuned on validation to maximise positive-class
 F1 and applied to the held-out test fold, with AUROC-based model selection; all other
-settings match Table~\ref{tab:ladder}. PM/PC are the pan-cancer mutation+CNV and
-expression cohorts.}
+settings match the main-results table. PM, PC and 3M are the pan-cancer cohorts under mutation$+$CNV, expression, and
+tri-modal (all three) inputs; Bladder/Stomach are the BLCA/STAD Reactome cancers.}
 \label{tab:posf1}
 \end{table}
 
@@ -58,7 +60,7 @@ expression cohorts.}
 \IfFileExists{cv5_scaling_table.tex}{\input{cv5_scaling_table.tex}}{\emph{(scaling table renders here as runs land)}}
 \caption{\textbf{Model-size scaling.} Macro-F1 (mean$\pm$SD) across a width sweep
 ($d_{\mathrm{model}}\in\{96,\dots,352\}$) for Vanilla, MoR-general and bioMoR, averaged over
-the $8$ single-cell and $3$ P-NET suites. bioMoR holds a flat, high accuracy across widths
+the $8$ single-cell and $3$ Reactome multi-omics suites. bioMoR holds a flat, high accuracy across widths
 while the vanilla stack---at $4\times$ the recursion-stack parameters---degrades.}
 \label{fig:scaling_cv5}
 \end{table}
@@ -73,8 +75,8 @@ Dataset & $M{=}128$ & $M{=}256$ & $M{=}512$ & $M{=}1024$ & $M{=}2048$ & Linear (
 Baron & 79.1\,$\pm$\,2.8 & 78.1\,$\pm$\,1.4 & 79.6\,$\pm$\,4.4 & 82.6\,$\pm$\,2.0 & 80.4\,$\pm$\,2.1 & 91.1\,$\pm$\,2.0 \\
 Lung & 79.1\,$\pm$\,1.2 & 80.2\,$\pm$\,0.8 & 79.8\,$\pm$\,1.9 & 81.3\,$\pm$\,2.0 & 81.1\,$\pm$\,1.9 & 74.8\,$\pm$\,0.2 \\
 Muraro & 75.3\,$\pm$\,6.4 & 72.4\,$\pm$\,2.7 & 68.3\,$\pm$\,3.3 & 75.7\,$\pm$\,4.5 & 73.8\,$\pm$\,6.0 & 95.7\,$\pm$\,2.2 \\
-Oeso. & 69.6\,$\pm$\,1.4 & 69.8\,$\pm$\,0.6 & 71.5\,$\pm$\,1.6 & 73.6\,$\pm$\,0.5 & 72.2\,$\pm$\,1.6 & 69.5\,$\pm$\,1.1 \\
-Seger. & 71.4\,$\pm$\,5.3 & 70.3\,$\pm$\,4.1 & 73.8\,$\pm$\,5.4 & 69.4\,$\pm$\,14.7 & 68.3\,$\pm$\,3.3 & 89.5\,$\pm$\,5.0 \\
+Oesophagus & 69.6\,$\pm$\,1.4 & 69.8\,$\pm$\,0.6 & 71.5\,$\pm$\,1.6 & 73.6\,$\pm$\,0.5 & 72.2\,$\pm$\,1.6 & 69.5\,$\pm$\,1.1 \\
+Segerstolpe & 71.4\,$\pm$\,5.3 & 70.3\,$\pm$\,4.1 & 73.8\,$\pm$\,5.4 & 69.4\,$\pm$\,14.7 & 68.3\,$\pm$\,3.3 & 89.5\,$\pm$\,5.0 \\
 Spleen & 58.2\,$\pm$\,0.9 & 58.6\,$\pm$\,1.6 & 59.9\,$\pm$\,0.8 & 61.1\,$\pm$\,2.3 & 61.6\,$\pm$\,4.0 & 64.7\,$\pm$\,0.1 \\
 T-cell & 68.9\,$\pm$\,1.0 & 69.9\,$\pm$\,0.3 & 71.5\,$\pm$\,0.4 & 71.8\,$\pm$\,2.3 & 73.0\,$\pm$\,0.3 & 78.1\,$\pm$\,0.3 \\
 Xin & 64.7\,$\pm$\,9.4 & 64.8\,$\pm$\,6.0 & 63.7\,$\pm$\,10.3 & 64.1\,$\pm$\,0.6 & 62.1\,$\pm$\,2.8 & 97.4\,$\pm$\,0.6 \\
@@ -99,8 +101,8 @@ Dataset & Learned (random init) & $+$ bio warm-start & $+$ stronger init & $+$ a
 Baron & 82.3\,$\pm$\,2.2 & 80.9\,$\pm$\,3.8 & 81.6\,$\pm$\,1.8 & 66.8\,$\pm$\,6.2 \\
 Lung & 79.5\,$\pm$\,1.4 & 79.8\,$\pm$\,0.8 & 78.4\,$\pm$\,0.6 & 70.0\,$\pm$\,2.7 \\
 Muraro & 74.5\,$\pm$\,5.4 & 75.3\,$\pm$\,4.9 & 76.6\,$\pm$\,5.4 & 75.9\,$\pm$\,9.3 \\
-Oeso. & 69.3\,$\pm$\,0.7 & 71.1\,$\pm$\,0.9 & 70.2\,$\pm$\,1.0 & 57.4\,$\pm$\,2.6 \\
-Seger. & 74.0\,$\pm$\,5.3 & 69.9\,$\pm$\,7.4 & 74.5\,$\pm$\,5.7 & 53.0\,$\pm$\,5.0 \\
+Oesophagus & 69.3\,$\pm$\,0.7 & 71.1\,$\pm$\,0.9 & 70.2\,$\pm$\,1.0 & 57.4\,$\pm$\,2.6 \\
+Segerstolpe & 74.0\,$\pm$\,5.3 & 69.9\,$\pm$\,7.4 & 74.5\,$\pm$\,5.7 & 53.0\,$\pm$\,5.0 \\
 Spleen & 59.0\,$\pm$\,0.2 & 59.1\,$\pm$\,0.7 & 58.7\,$\pm$\,1.2 & 52.5\,$\pm$\,1.2 \\
 T-cell & 68.9\,$\pm$\,0.7 & 69.1\,$\pm$\,1.1 & 69.0\,$\pm$\,0.6 & 54.7\,$\pm$\,2.4 \\
 Xin & 69.2\,$\pm$\,5.0 & 67.2\,$\pm$\,8.4 & 68.5\,$\pm$\,6.1 & 69.5\,$\pm$\,7.7 \\
@@ -125,13 +127,13 @@ init; forcing biology in more strongly does not beat learning the graph from dat
 Cohort & bioMoR (mut+CNV) & Geneformer & scGPT \\
 \midrule
 Prostate & 78.2\,$\pm$\,2.2 & 78.2\,$\pm$\,3.3 & 40.1\,$\pm$\,0.0 \\
-BLCA & 40.9\,$\pm$\,1.9 & 47.7\,$\pm$\,3.7 & 40.4\,$\pm$\,0.0 \\
-STAD & 52.2\,$\pm$\,6.8 & 46.1\,$\pm$\,5.5 & 35.7\,$\pm$\,0.0 \\
+BLCA (bladder) & 40.9\,$\pm$\,1.9 & 47.7\,$\pm$\,3.7 & 40.4\,$\pm$\,0.0 \\
+STAD (stomach) & 52.2\,$\pm$\,6.8 & 46.1\,$\pm$\,5.5 & 35.7\,$\pm$\,0.0 \\
 \midrule
 \textbf{Mean} & \textbf{57.1} & \textbf{57.3} & \textbf{38.7} \\
 \bottomrule
 \end{tabular}}
-\caption{\textbf{bioMoR vs.\ gene-vocabulary foundation models} on the P-NET cohorts
+\caption{\textbf{bioMoR vs.\ gene-vocabulary foundation models} on the Reactome multi-omics cohorts
 (macro-F1, mean$\pm$std over seeds). Geneformer (fine-tuned) and scGPT (frozen embedding
 $+$ logistic probe) are mapped onto each cohort's HUGO gene symbols with a per-gene
 mutation/copy-number alteration burden, on the same splits as bioMoR. Bulk DNA-alteration
@@ -178,17 +180,18 @@ Dataset & $M{=}16$ & $M{=}32$ & $M{=}64$ & $M{=}128$ & $M{=}256$ \\
 \quad T-cell & 25.5\,$\pm$\,3.2 & 36.6\,$\pm$\,5.4 & 43.1\,$\pm$\,5.2 & 47.4\,$\pm$\,2.2 & 61.5\,$\pm$\,1.7 \\
 \quad Xin & 50.5\,$\pm$\,5.9 & 46.2\,$\pm$\,1.6 & 60.8\,$\pm$\,5.6 & 64.1\,$\pm$\,3.3 & 72.4\,$\pm$\,11.7 \\
 \midrule
-\multicolumn{6}{l}{\emph{Multi-omics (Reactome/P-NET)}} \\
+\multicolumn{6}{l}{\emph{Multi-omics (Reactome)}} \\
 \quad Prostate & 74.3\,$\pm$\,3.0 & 74.7\,$\pm$\,2.7 & 78.0\,$\pm$\,3.0 & 76.7\,$\pm$\,2.6 & 77.3\,$\pm$\,0.2 \\
-\quad BLCA & 49.8\,$\pm$\,2.2 & 46.0\,$\pm$\,3.1 & 49.3\,$\pm$\,2.5 & 48.1\,$\pm$\,6.8 & 55.7\,$\pm$\,3.5 \\
-\quad STAD & 54.2\,$\pm$\,3.1 & 51.0\,$\pm$\,2.2 & 44.0\,$\pm$\,5.6 & 51.2\,$\pm$\,2.8 & 49.4\,$\pm$\,4.1 \\
+\quad BLCA (bladder) & 49.8\,$\pm$\,2.2 & 46.0\,$\pm$\,3.1 & 49.3\,$\pm$\,2.5 & 48.1\,$\pm$\,6.8 & 55.7\,$\pm$\,3.5 \\
+\quad STAD (stomach) & 54.2\,$\pm$\,3.1 & 51.0\,$\pm$\,2.2 & 44.0\,$\pm$\,5.6 & 51.2\,$\pm$\,2.8 & 49.4\,$\pm$\,4.1 \\
 \midrule
 \textbf{Mean macro-F1} & \textbf{41.6} & \textbf{44.8} & \textbf{54.4} & \textbf{59.2} & \textbf{65.1} \\
 \bottomrule
 \end{tabular}}
 \caption{\textbf{Marker-token budget.} Macro-F1 (mean$\pm$std over 3 seeds) as
 the marker budget $M$ shrinks from 256 to 16. A few dozen to a few hundred tokens recover
-most of the full-gene accuracy. Bottom row: mean over all 11 datasets.}
+most of the full-gene accuracy. Bottom row: mean over the $11$ single-cell and Reactome multi-omics
+datasets included in this sweep (the pan-cancer settings are omitted here).}
 \label{tab:token}
 \end{table}
 
@@ -196,12 +199,14 @@ most of the full-gene accuracy. Bottom row: mean over all 11 datasets.}
 
 \section{Dataset Details}
 \label{app:data}
-We use $8$ genomap single-cell datasets \cite{islam2023cartography} converted to
-plain CSV (expression + labels + stratified split) -- Baron, Lung, Muraro, Oesophagus,
-Segerstolpe, Spleen, T-cell and Xin -- $3$ Reactome/P-NET multi-omics
-cohorts (prostate, BLCA, STAD) whose fixed Reactome pathway tokens pool mutation,
-copy-number and expression channels. Per-dataset sample, feature and class counts are
-read directly from the result files and summarised in Table~\ref{tab:datasets}.
+We use $14$ datasets: $8$ genomap single-cell datasets \cite{islam2023cartography}, each an
+expression matrix with cell-type labels and a fixed stratified split -- Baron, Lung, Muraro, Oesophagus,
+Segerstolpe, Spleen, T-cell and Xin -- $3$ Reactome multi-omics
+cohorts --- prostate, bladder (BLCA), stomach (STAD) cancer --- whose fixed Reactome pathway tokens pool mutation,
+copy-number and expression channels, and $3$ pan-cancer TCGA settings of a binary
+primary-vs-metastatic task (PM, mutation$+$CNV; PC, expression; 3M, tri-modal). Per-dataset
+sample, feature and class counts are read directly from the result files and summarised in
+Table~\ref{tab:datasets}.
 
 \begin{table}[h]
 \centering
@@ -213,24 +218,62 @@ Dataset & Modality & Samples & Features & Classes \\
 Baron & single-cell & 8{,}569 & 2{,}000 & 13 \\
 Lung & single-cell & 57{,}020 & 1{,}089 & 25 \\
 Muraro & single-cell & 2{,}122 & 2{,}000 & 9 \\
-Oeso. & single-cell & 87{,}947 & 1{,}089 & 18 \\
-Seger. & single-cell & 2{,}127 & 2{,}000 & 11 \\
+Oesophagus & single-cell & 87{,}947 & 1{,}089 & 18 \\
+Segerstolpe & single-cell & 2{,}127 & 2{,}000 & 11 \\
 Spleen & single-cell & 94{,}129 & 1{,}089 & 28 \\
 T-cell & single-cell & 24{,}007 & 1{,}089 & 7 \\
 Xin & single-cell & 1{,}492 & 2{,}000 & 4 \\
 \midrule
 Prostate & multi-omics & 1{,}011 & 1{,}223 & 2 \\
-BLCA & multi-omics & 404 & 1{,}258 & 2 \\
-STAD & multi-omics & 414 & 1{,}258 & 2 \\
-PM (\texttt{pan\_meta}, mut+CNV) & multi-omics & 8{,}893 & 10{,}333 & 2 \\
-PC (\texttt{pan\_meta}, expr) & multi-omics & 8{,}586 & 10{,}013 & 2 \\
+BLCA (bladder) & multi-omics & 404 & 1{,}258 & 2 \\
+STAD (stomach) & multi-omics & 414 & 1{,}258 & 2 \\
+Pan-cancer PM (mut$+$CNV) & multi-omics & 8{,}893 & 10{,}333 & 2 \\
+Pan-cancer PC (expression) & multi-omics & 8{,}586 & 10{,}013 & 2 \\
+Pan-cancer 3M (tri-modal) & multi-omics & 8{,}586 & 9{,}880 & 2 \\
 \bottomrule
 \end{tabular}}
-\caption{The 13 datasets used throughout: $8$ genomap single-cell suites
-$3$ Reactome/P-NET multi-omics cohorts. Counts are read directly from the
-result files.}
+\caption{The datasets used throughout ($14$ in total): $8$ genomap single-cell suites,
+$3$ Reactome multi-omics cohorts, and $3$ pan-cancer TCGA settings (PM, PC, 3M).
+Counts are read directly from the result files.}
 \label{tab:datasets}
 \end{table}
+
+\section{Implementation Details and Hyperparameters}
+\label{app:hparams}
+All settings below are held \emph{fixed across every dataset and every variant} (no per-dataset
+tuning); the only quantities we vary are those explicitly swept in a reported study (marker/token
+budget $M$ in the scaling table, recursion depth $K$ in the ladder). This keeps every comparison in
+the main results paired.
+
+\paragraph{Optimisation and protocol.}
+We train with AdamW (learning rate $3\times10^{-4}$, weight decay $10^{-2}$), dropout $0.1$, for up
+to $100$ epochs with early stopping on validation macro-F1 (patience $15$). The protocol is
+$5$-fold stratified cross-validation (seed $42$; $20\%$ test, $10\%$-of-train validation), with
+per-gene $z$-scoring fit on the training fold only. Single-cell models use $d_{\mathrm{model}}{=}96$
+and $M{=}128$ learnable marker tokens; multi-omics models use $d_{\mathrm{model}}{=}128$, $M{=}256$
+fixed Reactome pathway tokens, and batch size $32$. The weight-shared block is applied up to
+$K{=}4$ times by default.
+
+\paragraph{Router budgets.}
+Expert-choice routing uses a fixed \emph{capacity funnel}: at recursion step $t$ the router keeps a
+fraction $c_t=\max(0.75,\,1-0.25\,t)$ of the tokens, i.e.\ $c=(1.00,\,0.75,\,0.75,\,0.75)$ at
+$K{=}4$ (all tokens pass step~$0$, then a $0.75$ floor thereafter; the floor is exposed as
+\texttt{RMT\_CAP\_FLOOR}). The floor is deliberately gentle---because the classifier mean-pools the
+$M$ marker tokens, freezing too many too early starves the pooled vector, and a $0.5$ floor made
+$K{=}4$ the weakest depth. Token-choice routing instead lets each token self-gate a single depth in
+$\{1,\dots,K\}$ (top-$1$ over depths), so its budget is emergent rather than fixed. The router gate
+scale ($\alpha{=}1.0$) and temperature ($\tau{=}1.0$) are left at their neutral defaults.
+
+\paragraph{Balancing coefficients.}
+Expert-choice is load-balanced by construction (the funnel fixes per-step capacity), so it carries
+no balancing loss. Token-choice adds a Switch-style load-balancing term
+\cite{shazeer2017outrageously} over the $K$ depths with weight $0.1$, plus a router $z$-loss
+(logit-magnitude regulariser) with weight $10^{-3}$. When the biological prior is injected at the
+router it enters as an additive centrality bias on the depth logits with initial strength
+$\beta_0{=}1.0$, annealed toward $0$ over training; the learned interaction graph is mixed into the
+token embeddings through a sigmoid-bounded, \emph{learnable} coefficient initialised at $\lambda{=}0.3$.
+A marker-sufficiency auxiliary head (weight $1.0$) probes the pre-recursion marker panel; the total
+objective is the classification cross-entropy plus these auxiliary and balancing terms.
 
 \section{Effective-FLOPs Accounting}
 \label{app:flops}
@@ -312,6 +355,129 @@ $\hat{\mathbf{r}}^{(t)}=\tilde{\mathbf{r}}^{(t)}-\gamma\,\mathbf{L}\tilde{\mathb
 (graph-Laplacian regularisation): a gene borrows routing strength from its network
 neighbours. This is one sparse matrix-vector product per step and adds no transformer
 parameters; we expose it as an option and leave its evaluation to future work.
+
+\section{Routing-Depth Visualisation}
+\label{app:depth}
+\begin{figure}[h]
+\centering
+\IfFileExists{figs/fig2_depth.pdf}{\includegraphics[width=\columnwidth]{figs/fig2_depth.pdf}}{}%
+\caption{\textbf{Two routing modes assign per-pathway depth $d_m$} (real Prostate tokens;
+$\bullet$ recurses, $\circ$ exited; the block $f_\theta$ is reused up to $K{=}4$, so depth adds
+no parameters). Expert-choice fixes capacity per step; token-choice lets each pathway self-gate
+its depth.}
+\label{fig:mor_supp}
+\end{figure}
+
+\IfFileExists{pm_depth_tables.tex}{\input{pm_depth_tables.tex}}{\emph{(per-pathway PM depth tables render here once scripts/build\_pm\_depth\_tables.py runs)}}
+
+\section{Proofs for the Theoretical Analysis}
+\label{app:proofs}
+We use the signal-plus-noise model of the main text: $x=z+\varepsilon$,
+$\varepsilon\sim(0,\sigma^2 I_G)$, $\varepsilon\perp z$, $\mathbb{E}z=0$,
+$\Sigma=\mathbb{E}[zz^\top]=\sum_k s_k u_k u_k^\top$ with $s_1\ge s_2\ge\cdots\ge0$ and
+orthonormal $\{u_k\}$; at least one $s_k>0$. The propagation is the linear filter
+$T_\lambda=(1-\lambda)I+\lambda A$, $A=\tilde E\tilde E^\top\succeq0$, $\mathrm{rank}(A)\le r$,
+and $R(T)=\mathbb{E}\lVert Tx-z\rVert^2$. Regimes: $B_0$ ($T{=}I$) $\subseteq B_1$ ($A{=}0$)
+$\subseteq B_2$ (learned $A$).
+
+\paragraph{Lemma~1 (Spectral decoupling).} For symmetric $T=\sum_k f_k u_ku_k^\top$,
+$R(T)=\sum_k[(1-f_k)^2 s_k+f_k^2\sigma^2]$.
+\emph{Proof.} $R(T)=\mathbb{E}\lVert(T-I)z\rVert^2+\mathbb{E}\lVert T\varepsilon\rVert^2$ (cross term
+vanishes as $\varepsilon\perp z$). By trace cyclicity the first is
+$\mathrm{tr}((T-I)\Sigma(T-I)^\top)=\sum_k(f_k-1)^2 s_k$ and the second is
+$\sigma^2\mathrm{tr}(TT^\top)=\sigma^2\sum_k f_k^2$. $\square$
+
+\paragraph{Lemma~2 (Per-direction Wiener optimum).} Each summand is strictly convex in $f_k$ and
+minimised at $f_k^\star=s_k/(s_k+\sigma^2)\in[0,1)$ with residual $s_k\sigma^2/(s_k+\sigma^2)$.
+\emph{Proof.} $g(f)=(1-f)^2 s_k+f^2\sigma^2$ has $g'(f)=-2(1-f)s_k+2f\sigma^2$, vanishing at
+$f_k^\star$; $g''=2(s_k+\sigma^2)>0$. Substituting gives the residual. The signal-preservation
+gain over the fully-shrunk value $g(0)=s_k$ is $s_k-\frac{s_k\sigma^2}{s_k+\sigma^2}=\frac{s_k^2}{s_k+\sigma^2}$. $\square$
+
+\paragraph{Lemma~3 (Realizability).} For any $\{f_i\}_{i\le r}\subset[0,1]$ on any orthonormal
+$\{v_i\}_{i\le r}$ there exist $\lambda\in[0,1]$ and PSD $A=\tilde E\tilde E^\top$ of rank $\le r$
+with $T_\lambda v_i=f_i v_i$. \emph{Proof.} Take $\lambda=1$, $\mu_i=(f_i-(1-\lambda))/\lambda=f_i\ge0$,
+$A=\sum_{i\le r}\mu_i v_iv_i^\top$, $\tilde E=[\sqrt{\mu_1}v_1,\dots,\sqrt{\mu_r}v_r]$; on
+$\mathrm{span}\{v_i\}^\perp$, $A{=}0$ so $T_\lambda=(1-\lambda)I$ only further shrinks noise
+directions. $\square$
+
+\paragraph{Theorem~1.} Monotonicity is immediate from the nesting $B_0\subseteq B_1\subseteq B_2$
+(min of the same objective over a larger set). $R^\star(B_0)=G\sigma^2$ ($f_k\equiv1$ in
+Lemma~1). By Lemma~3 place $v_i{=}u_i$, $f_i{=}f_i^\star$ for $i\le r$ and $f_k{=}1-\lambda$ on the
+tail; Lemma~2 gives, per top-$r$ direction, a saving
+$\sigma^2-\frac{s_i\sigma^2}{s_i+\sigma^2}=\frac{\sigma^4}{s_i+\sigma^2}$, equivalently a
+signal-preservation gain $\frac{s_i^2}{s_i+\sigma^2}$, and $\lambda\to0$ recovers $\sigma^2$ on the
+tail. Hence $R^\star(B_0)-R^\star(B_2)\ge\sum_{i\le r}\frac{s_i^2}{s_i+\sigma^2}>0$. $\square$
+
+\paragraph{Proposition~1 (No graph cannot close the gap).} If $s_i\ne s_j$ for some $i,j\le r$
+then $R^\star(B_1)>R^\star(B_2)$. \emph{Proof.} $B_1$ forces one scalar $f_k\equiv f$ (since
+$A{=}0$); minimising Lemma~1 over a single $f$ gives $\hat f=\mathrm{tr}\Sigma/(\mathrm{tr}\Sigma+G\sigma^2)$,
+whereas the per-direction optima $f_i^\star$ differ when the $s_i$ differ. A convex objective under
+the equality constraint ``all $f_k$ equal'' exceeds its unconstrained minimum whenever the latter
+violates the constraint. $\square$
+
+\paragraph{Proposition~2 (Task-risk bound).} If the head $\Phi$ is $L_\Phi$-Lipschitz and the label
+depends on the clean signal through the selection statistics $Wz$, then
+$\mathbb{E}\lVert\Phi(WTx)-\Phi(Wz)\rVert\le L_\Phi\lVert W\rVert_2\sqrt{R(T)}$; minimising $R$ over
+$B_2$ strictly tightens this over $B_0$ by Theorem~1. \emph{Proof.} Lipschitzness and the
+operator-norm inequality bound the LHS by $L_\Phi\lVert W\rVert_2\lVert Tx-z\rVert$; take
+expectations and apply Jensen. $\square$
+
+\paragraph{Theorem~2 (Router monotone-safety).} With router logit
+$\ell_t=\rho_\theta^{(t)}(H)+\Phi_t(AH)^\top$ and $A$ row-stochastic, setting $\Phi{=}0$ recovers
+the baseline router exactly, so $\Theta_0\subset\Theta_G$ and $R^\star(\Theta_G)\le R^\star(\Theta_0)$;
+gradient flow from $\Phi{=}0$ has $\tfrac{d}{d\tau}L=-\lVert\nabla L\rVert^2\le0$, so the trained
+router attains loss $\le$ the baseline. Strictness: a baseline router is $\sigma(h_m)$-measurable
+and cannot separate two tokens with equal $h_m$ but different neighbourhoods $(AH)_m$, incurring a
+fixed excess $\delta>0$ that a suitable $\Phi$ removes. $\square$
+
+\paragraph{Corollary~1 (Both sites best).} The joint family contains embedding-only ($\Phi{=}0$)
+and router-only ($\lambda{=}0$) as no-op restrictions, so
+$R^\star_{\mathrm{both}}\le\min\{R^\star_{\mathrm{emb}},R^\star_{\mathrm{rt}}\}\le R^\star_{\mathrm{none}}$
+by monotonicity of the min over set inclusion. $\square$
+
+\section{Low-Rank Propagation, Over-Smoothing, and Rare Cells}
+\label{app:oversmooth}
+The denoising filter and the over-smoothing failure mode are two ends of the same spectral dial. Let
+$A=\tilde E\tilde E^\top$ have eigendecomposition $A=\sum_k a_k w_kw_k^\top$ with $a_k\ge0$ and
+$a_k{=}0$ for $k>r$ (the range of $\tilde E$ is $r$-dimensional). Then $T_\lambda=(1-\lambda)I+\lambda A$
+is simultaneously diagonalised, with eigenvalues
+\[
+\mu_k(\lambda)\;=\;1-\lambda+\lambda a_k ,
+\]
+so on the $r$ graph directions $T_\lambda$ scales by $1-\lambda+\lambda a_k$ and on the orthogonal
+complement it acts as the scalar $1-\lambda$.
+
+\paragraph{Spectral view of over-smoothing.} As $\lambda\to1$ the off-range eigenvalue $1-\lambda\to0$:
+every direction outside $\mathrm{span}(\tilde E)$ is annihilated and token features collapse onto the
+$r$-dimensional graph subspace, the discrete analogue of graph over-smoothing (repeated propagation
+driving representations toward a low-rank fixed point). The \emph{spectral gap} that controls how fast
+this happens is $\min_k \mu_k - (1-\lambda) = \lambda\,a_{\min}^{+}$ on the range versus $1-\lambda$
+off it; a large $\lambda$ widens the gap and accelerates the collapse. Because bioMoR \emph{learns}
+$\lambda$ through a sigmoid (initialised at $0.3$; App.~\ref{app:hparams}) rather than fixing it at the
+denoising-maximal value, and because the residual identity path guarantees $\mu_k\ge 1-\lambda>0$ for
+all $k$, no direction is fully annihilated: the operator is a \emph{bounded} smoother, not a projector.
+
+\paragraph{Rare-cell implication.} Rare populations are precisely the directions this dial threatens.
+Their signal typically lives in low-variance modes ($s_k$ small, and frequently outside the dominant
+top-$r$ subspace), where the Wiener-optimal gain $f_k^\star=s_k/(s_k+\sigma^2)$ from Lemma~2 is already
+small; additional smoothing ($\mu_k\to$ off-range $1-\lambda$) drives the effective gain toward zero
+and erases the very directions that separate a rare type from the bulk. The learned bounded $\lambda$
+is therefore not a convenience but the mechanism that protects rare-cell discriminability while still
+denoising the high-variance modes ($s_k\gg\sigma^2$, where $f_k^\star\to1$ and smoothing is safe).
+A second structural safeguard is that propagation acts on the $M\ll N$ marker/pathway \emph{tokens},
+not on cells: it mixes feature channels within a token but cannot average two cells of different type
+into one, so it cannot induce the cell-level homogenisation that over-smoothing causes in
+cell--cell-graph GNNs.
+
+\paragraph{Prediction and diagnostics.} This analysis predicts a \emph{graded} benefit: the learned
+graph should help most where the raw per-feature signal is weak (denoising dominates) and little where
+classes are already separable (smoothing is redundant and risks the rare-cell modes) --- exactly the
+pattern in the main-results table (largest gains on the hard single-cell suites and the multi-omics
+cohorts, negligible where a task is near-saturated). Two direct falsifiers we leave to future work: a
+per-class recall breakdown restricted to the rarest populations (over-smoothing predicts the learned
+graph should never \emph{lower} rare-class recall relative to no graph, given the bounded $\lambda$),
+and a sweep of $\lambda$ against the induced spectral gap $\lambda a_{\min}^{+}$ measuring where the
+denoising/over-smoothing trade-off turns.
 
 \bibliographystyle{aaai}
 \bibliography{refs}

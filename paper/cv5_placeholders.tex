@@ -8,42 +8,39 @@
 \begin{table*}[t]
 \centering
 \IfFileExists{cv5_main_table.tex}{\input{cv5_main_table.tex}}{\emph{(main-results table renders here as 5-fold CV runs land)}}
-\caption{\textbf{Main results: the efficiency ladder (5-fold CV).} Macro-F1 mean$\pm$SD;
-\textbf{bold} = best per column; Avg over the $11$ core datasets (PM/PC/3M shown separately,
-not averaged). The learned graph supplies the accuracy gain at $4\times$ fewer parameters.}
+\caption{\textbf{Main results: the efficiency ladder (5-fold CV).} Macro-F1 mean$\pm$SD; the
+\colorbox{bestgreen}{best per column} is highlighted; Avg is over all $14$ datasets (the three pan-cancer cohorts
+PM/PC/3M are included on the same footing as every other column). The learned graph supplies
+the accuracy gain at $4\times$ fewer parameters.}
 \label{tab:main_cv5}\label{tab:learned}\label{tab:ladder}
 \end{table*}
 
-% NEW Table 3 -- the injection-site ablation is our main contribution: WHERE the
-% biological interaction should enter. (The former PATH-comparable positive-class F1
-% table has been moved to the supplementary.)
-\begin{table}[t]
+% Injection-site ablation (our main contribution: WHERE biology should enter) -- now a
+% single figure spanning all four cohorts (this MERGES and REPLACES the former Table 3).
+\begin{figure*}[t]
 \centering
-\IfFileExists{cv5_injection_table.tex}{\input{cv5_injection_table.tex}}{\emph{(injection-site ablation table renders here as runs land)}}
-\caption{\textbf{Where should biology enter? (main contribution).} The interaction graph
-injected at the embedding, the router (zero-init graph-conv), or both, under 5-fold CV.
-\emph{Both} is the winning site on every cohort shown---defining bioMoR.}
-\label{tab:injection}
-\end{table}
+\IfFileExists{figs/biorouter_bars.pdf}{\includegraphics[width=0.82\textwidth]{figs/biorouter_bars.pdf}}{\emph{(injection-site ablation bar chart renders here)}}
+\caption{\textbf{Where should biology enter? (main contribution).} Injection-site ablation
+(macro-F1, 5-fold CV): the learned interaction graph injected at no site, the router only
+(zero-init graph-conv), the embedding only, or \emph{both}, on all four ablation cohorts ---
+Baron, Muraro (single-cell, co-expression graph) and PM, 3M (pan-cancer multi-omics, provided
+Reactome graph). Injecting at \emph{both} sites (bioMoR) is the winning site on every cohort;
+each bar equals the corresponding cell of the main results (Table~\ref{tab:main_cv5}).}
+\label{fig:injection}
+\end{figure*}
 
-\begin{figure}[t]
+\begin{figure*}[t]
 \centering
-\IfFileExists{figs/biorouter_bars.pdf}{\includegraphics[width=\columnwidth]{figs/biorouter_bars.pdf}}{\emph{(bio-router ablation bar chart renders here)}}
-\caption{\textbf{Biology in the router.} Depth-router ablation (5-fold CV) on Baron and
-Prostate: fixed biology-only, data-only learned, and their combination. The learned graph
-matches or beats fixed; combining is best---biology helps only when learned, not imposed.}
-\label{fig:biorouter}
-\end{figure}
-
-\begin{figure}[t]
-\centering
-\IfFileExists{figs/baron_loss.pdf}{\includegraphics[width=0.49\columnwidth]{figs/baron_loss.pdf}}{}%
+\IfFileExists{figs/baron_loss.pdf}{\includegraphics[width=0.42\textwidth]{figs/baron_loss.pdf}}{}%
 \hfill
-\IfFileExists{figs/baron_val_f1.pdf}{\includegraphics[width=0.49\columnwidth]{figs/baron_val_f1.pdf}}{}%
-\caption{\textbf{Training dynamics on Baron.} Training loss (left) and validation macro-F1
-(right) vs.\ epoch, learned-graph $K{=}4$ on fold~0 of the shared 5-fold split.}
+\IfFileExists{figs/baron_val_f1.pdf}{\includegraphics[width=0.42\textwidth]{figs/baron_val_f1.pdf}}{}%
+\caption{\textbf{Training dynamics on Baron (5-fold CV).} Training loss (left) and
+validation macro-F1 (right) vs.\ \emph{estimated cloud cost} (USD; A100 @ \$1.80/hr,
+i.e.\ measured A100 GPU-seconds priced at an on-demand cloud rate), for all four
+architectures (Vanilla, Recursive, MoR, bioMoR). Lines are the mean over the same 5 folds
+as Table~\ref{tab:main_cv5}; shaded bands are $\pm1$ SD across folds.}
 \label{fig:baron_curves}
-\end{figure}
+\end{figure*}
 
 \begin{figure}[t]
 \centering

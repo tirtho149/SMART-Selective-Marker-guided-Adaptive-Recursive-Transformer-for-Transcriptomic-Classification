@@ -1,0 +1,454 @@
+\documentclass[10pt]{article}
+\usepackage[margin=0.9in]{geometry}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage[colorlinks=true,linkcolor=blue!55!black]{hyperref}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\titlespacing*{\section}{0pt}{12pt}{5pt}
+\titleformat{\section}{\large\bfseries\color{blue!35!black}}{}{0pt}{}
+\renewcommand{\arraystretch}{1.05}
+\begin{document}
+
+\begin{center}{\LARGE\bfseries PM Routing Interpretability}\\[2pt]{\large which pathways are kept vs.\ dropped}\end{center}
+\vspace{2pt}
+\noindent\textbf{Cohort:} \texttt{pan\_meta\_pri} (mut\_cnv) ---
+8893 samples, 1258 Reactome pathway tokens, 2 classes.\\
+\textbf{Protocol:} unified 5-fold CV, seed 42 (20\% test / 10\%-of-train val),
+identical folds to Table~2. Model: canonical bioMoR (\texttt{bio\_both}, learned pathway
+graph at both sites, sum-pooled).\\
+\textbf{Keep/drop signal:} each pathway token's \emph{mean recursion depth} over held-out
+test folds. Under \textbf{expert-choice} a capacity funnel keeps a shrinking top-$k$ each step
+(depth $\in[0,K]$ = steps survived); under \textbf{token-choice} each pathway self-gates one
+depth $\in[1,K]$. Higher depth $=$ router \textbf{keeps} compute; the minimum $=$
+\textbf{dropped} (exits early).
+
+\section*{Summary}
+\begin{center}\begin{tabular}{@{}l c c c l l@{}}
+\toprule
+Routing & $K$ & Macro-F1 & mean depth & active tokens / step & kept-to-$K$ \\
+\midrule
+expert & 1 & 85.1$\pm$1.3 & 1.00 & 1258 & 1258/1258 \\
+expert & 2 & 84.7$\pm$2.8 & 1.75 & 1258, 944 & 1189/1258 \\
+expert & 3 & 85.9$\pm$2.2 & 2.50 & 1258, 944, 944 & 684/1258 \\
+expert & 4 & 83.9$\pm$1.9 & 3.25 & 1258, 944, 944, 944 & 379/1258 \\
+token & 1 & 85.5$\pm$2.5 & 1.00 & 1258 & 1258/1258 \\
+token & 2 & 86.1$\pm$1.5 & 1.49 & 1258, 611 & 604/1258 \\
+token & 3 & 84.5$\pm$4.2 & 2.02 & 1258, 846, 436 & 115/1258 \\
+token & 4 & 85.3$\pm$3.6 & 2.51 & 1258, 942, 629, 323 & 36/1258 \\
+\bottomrule\end{tabular}\end{center}
+\section*{expert-choice, $K=1$  (Macro-F1 85.1$\pm$1.3)}
+\emph{$K{=}1$ is a single pass --- every pathway is kept to depth 1, so there is no keep/drop decision.}
+\section*{expert-choice, $K=2$  (Macro-F1 84.7$\pm$2.8)}
+\filbreak
+\begin{minipage}[t]{0.48\textwidth}\centering\textbf{\color{green!45!black}KEPT} --- top 25 deepest-routed\\[3pt]
+\begin{tabular}{@{}r l r@{}}
+\toprule
+\# & Pathway & depth \\
+\midrule
+1 & \texttt{R-HSA-2559583} & 1.99 \\
+2 & \texttt{R-HSA-2990846} & 1.99 \\
+3 & \texttt{R-HSA-69563} & 1.99 \\
+4 & \texttt{R-HSA-5358346} & 1.99 \\
+5 & \texttt{R-HSA-163685} & 1.99 \\
+6 & \texttt{R-HSA-157118} & 1.98 \\
+7 & \texttt{R-HSA-5083625} & 1.98 \\
+8 & \texttt{R-HSA-9755511} & 1.98 \\
+9 & \texttt{R-HSA-2559580} & 1.98 \\
+10 & \texttt{R-HSA-1236974} & 1.98 \\
+11 & \texttt{R-HSA-9711123} & 1.98 \\
+12 & \texttt{R-HSA-388841} & 1.98 \\
+13 & \texttt{R-HSA-163560} & 1.98 \\
+14 & \texttt{R-HSA-212165} & 1.98 \\
+15 & \texttt{R-HSA-936964} & 1.98 \\
+16 & \texttt{R-HSA-3000171} & 1.97 \\
+17 & \texttt{R-HSA-5632684} & 1.97 \\
+18 & \texttt{R-HSA-9917777} & 1.97 \\
+19 & \texttt{R-HSA-5579029} & 1.97 \\
+20 & \texttt{R-HSA-9759194} & 1.97 \\
+21 & \texttt{R-HSA-1980145} & 1.97 \\
+22 & \texttt{R-HSA-1989781} & 1.97 \\
+23 & \texttt{R-HSA-9613829} & 1.97 \\
+24 & \texttt{R-HSA-8982491} & 1.97 \\
+25 & \texttt{R-HSA-9843745} & 1.97 \\
+\bottomrule
+\end{tabular}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\textwidth}\centering\textbf{\color{red!60!black}DROPPED} --- 25 earliest-exit\\[3pt]
+\begin{tabular}{@{}r l r@{}}
+\toprule
+\# & Pathway & depth \\
+\midrule
+1 & \texttt{R-HSA-9629569} & 1.09 \\
+2 & \texttt{R-HSA-450513} & 1.20 \\
+3 & \texttt{R-HSA-180024} & 1.22 \\
+4 & \texttt{R-HSA-450385} & 1.27 \\
+5 & \texttt{R-HSA-450604} & 1.31 \\
+6 & \texttt{R-HSA-3560783} & 1.34 \\
+7 & \texttt{R-HSA-210500} & 1.34 \\
+8 & \texttt{R-HSA-392517} & 1.34 \\
+9 & \texttt{R-HSA-110330} & 1.35 \\
+10 & \texttt{R-HSA-450302} & 1.36 \\
+11 & \texttt{R-HSA-5651801} & 1.37 \\
+12 & \texttt{R-HSA-9920588} & 1.37 \\
+13 & \texttt{R-HSA-9675135} & 1.38 \\
+14 & \texttt{R-HSA-176187} & 1.38 \\
+15 & \texttt{R-HSA-111471} & 1.38 \\
+16 & \texttt{R-HSA-76071} & 1.38 \\
+17 & \texttt{R-HSA-1810476} & 1.39 \\
+18 & \texttt{R-HSA-5625740} & 1.39 \\
+19 & \texttt{R-HSA-9709570} & 1.40 \\
+20 & \texttt{R-HSA-844456} & 1.40 \\
+21 & \texttt{R-HSA-5601884} & 1.41 \\
+22 & \texttt{R-HSA-3560782} & 1.41 \\
+23 & \texttt{R-HSA-9735871} & 1.41 \\
+24 & \texttt{R-HSA-1606322} & 1.41 \\
+25 & \texttt{R-HSA-114452} & 1.42 \\
+\bottomrule
+\end{tabular}
+\end{minipage}
+\section*{expert-choice, $K=3$  (Macro-F1 85.9$\pm$2.2)}
+\filbreak
+\begin{minipage}[t]{0.48\textwidth}\centering\textbf{\color{green!45!black}KEPT} --- top 25 deepest-routed\\[3pt]
+\begin{tabular}{@{}r l r@{}}
+\toprule
+\# & Pathway & depth \\
+\midrule
+1 & \texttt{R-HSA-3229121} & 2.99 \\
+2 & \texttt{R-HSA-205043} & 2.99 \\
+3 & \texttt{R-HSA-6803204} & 2.99 \\
+4 & \texttt{R-HSA-6782315} & 2.98 \\
+5 & \texttt{R-HSA-9764725} & 2.98 \\
+6 & \texttt{R-HSA-6793080} & 2.98 \\
+7 & \texttt{R-HSA-9920951} & 2.97 \\
+8 & \texttt{R-HSA-9772755} & 2.97 \\
+9 & \texttt{R-HSA-5654219} & 2.97 \\
+10 & \texttt{R-HSA-9615710} & 2.97 \\
+11 & \texttt{R-HSA-192823} & 2.97 \\
+12 & \texttt{R-HSA-211976} & 2.97 \\
+13 & \texttt{R-HSA-9619665} & 2.96 \\
+14 & \texttt{R-HSA-9764560} & 2.96 \\
+15 & \texttt{R-HSA-204998} & 2.96 \\
+16 & \texttt{R-HSA-917729} & 2.96 \\
+17 & \texttt{R-HSA-2173796} & 2.96 \\
+18 & \texttt{R-HSA-196757} & 2.96 \\
+19 & \texttt{R-HSA-1502540} & 2.95 \\
+20 & \texttt{R-HSA-5083625} & 2.95 \\
+21 & \texttt{R-HSA-8982491} & 2.95 \\
+22 & \texttt{R-HSA-4641263} & 2.95 \\
+23 & \texttt{R-HSA-6804757} & 2.95 \\
+24 & \texttt{R-HSA-5633007} & 2.95 \\
+25 & \texttt{R-HSA-9758274} & 2.94 \\
+\bottomrule
+\end{tabular}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\textwidth}\centering\textbf{\color{red!60!black}DROPPED} --- 25 earliest-exit\\[3pt]
+\begin{tabular}{@{}r l r@{}}
+\toprule
+\# & Pathway & depth \\
+\midrule
+1 & \texttt{R-HSA-3928664} & 1.52 \\
+2 & \texttt{R-HSA-8862803} & 1.67 \\
+3 & \texttt{R-HSA-3296482} & 1.68 \\
+4 & \texttt{R-HSA-173623} & 1.69 \\
+5 & \texttt{R-HSA-2514856} & 1.70 \\
+6 & \texttt{R-HSA-5668599} & 1.73 \\
+7 & \texttt{R-HSA-452723} & 1.74 \\
+8 & \texttt{R-HSA-203927} & 1.75 \\
+9 & \texttt{R-HSA-5627123} & 1.77 \\
+10 & \texttt{R-HSA-4419969} & 1.77 \\
+11 & \texttt{R-HSA-5601884} & 1.78 \\
+12 & \texttt{R-HSA-1482788} & 1.78 \\
+13 & \texttt{R-HSA-6803529} & 1.79 \\
+14 & \texttt{R-HSA-1482839} & 1.80 \\
+15 & \texttt{R-HSA-211000} & 1.82 \\
+16 & \texttt{R-HSA-1482801} & 1.84 \\
+17 & \texttt{R-HSA-9768727} & 1.84 \\
+18 & \texttt{R-HSA-352230} & 1.87 \\
+19 & \texttt{R-HSA-1482925} & 1.87 \\
+20 & \texttt{R-HSA-5669034} & 1.87 \\
+21 & \texttt{R-HSA-1482922} & 1.87 \\
+22 & \texttt{R-HSA-73933} & 1.88 \\
+23 & \texttt{R-HSA-606279} & 1.89 \\
+24 & \texttt{R-HSA-450302} & 1.90 \\
+25 & \texttt{R-HSA-9659787} & 1.90 \\
+\bottomrule
+\end{tabular}
+\end{minipage}
+\section*{expert-choice, $K=4$  (Macro-F1 83.9$\pm$1.9)}
+\filbreak
+\begin{minipage}[t]{0.48\textwidth}\centering\textbf{\color{green!45!black}KEPT} --- top 25 deepest-routed\\[3pt]
+\begin{tabular}{@{}r l r@{}}
+\toprule
+\# & Pathway & depth \\
+\midrule
+1 & \texttt{R-HSA-1632852} & 4.00 \\
+2 & \texttt{R-HSA-2028269} & 3.99 \\
+3 & \texttt{R-HSA-74751} & 3.99 \\
+4 & \texttt{R-HSA-9663891} & 3.99 \\
+5 & \texttt{R-HSA-2565942} & 3.99 \\
+6 & \texttt{R-HSA-9678108} & 3.99 \\
+7 & \texttt{R-HSA-9706574} & 3.99 \\
+8 & \texttt{R-HSA-2404192} & 3.99 \\
+9 & \texttt{R-HSA-442982} & 3.99 \\
+10 & \texttt{R-HSA-8963899} & 3.99 \\
+11 & \texttt{R-HSA-918233} & 3.99 \\
+12 & \texttt{R-HSA-5628897} & 3.99 \\
+13 & \texttt{R-HSA-3769402} & 3.98 \\
+14 & \texttt{R-HSA-9013418} & 3.98 \\
+15 & \texttt{R-HSA-9833110} & 3.98 \\
+16 & \texttt{R-HSA-445989} & 3.98 \\
+17 & \texttt{R-HSA-499943} & 3.98 \\
+18 & \texttt{R-HSA-2559580} & 3.98 \\
+19 & \texttt{R-HSA-168898} & 3.98 \\
+20 & \texttt{R-HSA-109704} & 3.98 \\
+21 & \texttt{R-HSA-9818027} & 3.98 \\
+22 & \texttt{R-HSA-442742} & 3.98 \\
+23 & \texttt{R-HSA-5693571} & 3.98 \\
+24 & \texttt{R-HSA-1566977} & 3.98 \\
+25 & \texttt{R-HSA-69206} & 3.98 \\
+\bottomrule
+\end{tabular}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\textwidth}\centering\textbf{\color{red!60!black}DROPPED} --- 25 earliest-exit\\[3pt]
+\begin{tabular}{@{}r l r@{}}
+\toprule
+\# & Pathway & depth \\
+\midrule
+1 & \texttt{R-HSA-977606} & 1.73 \\
+2 & \texttt{R-HSA-166663} & 1.74 \\
+3 & \texttt{R-HSA-166658} & 1.81 \\
+4 & \texttt{R-HSA-202433} & 1.81 \\
+5 & \texttt{R-HSA-2029481} & 1.84 \\
+6 & \texttt{R-HSA-391160} & 1.94 \\
+7 & \texttt{R-HSA-6803529} & 1.97 \\
+8 & \texttt{R-HSA-1483206} & 1.99 \\
+9 & \texttt{R-HSA-3371568} & 2.01 \\
+10 & \texttt{R-HSA-9664323} & 2.05 \\
+11 & \texttt{R-HSA-111465} & 2.19 \\
+12 & \texttt{R-HSA-9828806} & 2.20 \\
+13 & \texttt{R-HSA-9830364} & 2.21 \\
+14 & \texttt{R-HSA-4419969} & 2.21 \\
+15 & \texttt{R-HSA-202131} & 2.23 \\
+16 & \texttt{R-HSA-1483166} & 2.24 \\
+17 & \texttt{R-HSA-9820965} & 2.24 \\
+18 & \texttt{R-HSA-2173788} & 2.24 \\
+19 & \texttt{R-HSA-171319} & 2.24 \\
+20 & \texttt{R-HSA-606279} & 2.25 \\
+21 & \texttt{R-HSA-1482925} & 2.25 \\
+22 & \texttt{R-HSA-8862803} & 2.25 \\
+23 & \texttt{R-HSA-76071} & 2.25 \\
+24 & \texttt{R-HSA-212300} & 2.25 \\
+25 & \texttt{R-HSA-352230} & 2.26 \\
+\bottomrule
+\end{tabular}
+\end{minipage}
+\section*{token-choice, $K=1$  (Macro-F1 85.5$\pm$2.5)}
+\emph{$K{=}1$ is a single pass --- every pathway is kept to depth 1, so there is no keep/drop decision.}
+\section*{token-choice, $K=2$  (Macro-F1 86.1$\pm$1.5)}
+\filbreak
+\begin{minipage}[t]{0.48\textwidth}\centering\textbf{\color{green!45!black}KEPT} --- top 25 deepest-routed\\[3pt]
+\begin{tabular}{@{}r l r@{}}
+\toprule
+\# & Pathway & depth \\
+\midrule
+1 & \texttt{R-HSA-9920951} & 2.00 \\
+2 & \texttt{R-HSA-9931510} & 1.99 \\
+3 & \texttt{R-HSA-9821993} & 1.99 \\
+4 & \texttt{R-HSA-379716} & 1.99 \\
+5 & \texttt{R-HSA-75876} & 1.99 \\
+6 & \texttt{R-HSA-140534} & 1.99 \\
+7 & \texttt{R-HSA-9940465} & 1.99 \\
+8 & \texttt{R-HSA-9648002} & 1.99 \\
+9 & \texttt{R-HSA-9970672} & 1.99 \\
+10 & \texttt{R-HSA-5357769} & 1.99 \\
+11 & \texttt{R-HSA-912446} & 1.99 \\
+12 & \texttt{R-HSA-5654228} & 1.98 \\
+13 & \texttt{R-HSA-5654719} & 1.98 \\
+14 & \texttt{R-HSA-5654712} & 1.98 \\
+15 & \texttt{R-HSA-937072} & 1.98 \\
+16 & \texttt{R-HSA-71336} & 1.98 \\
+17 & \texttt{R-HSA-5690714} & 1.98 \\
+18 & \texttt{R-HSA-428930} & 1.98 \\
+19 & \texttt{R-HSA-982772} & 1.98 \\
+20 & \texttt{R-HSA-9733458} & 1.98 \\
+21 & \texttt{R-HSA-75105} & 1.98 \\
+22 & \texttt{R-HSA-8849932} & 1.98 \\
+23 & \texttt{R-HSA-9705462} & 1.97 \\
+24 & \texttt{R-HSA-8875360} & 1.97 \\
+25 & \texttt{R-HSA-392170} & 1.97 \\
+\bottomrule
+\end{tabular}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\textwidth}\centering\textbf{\color{red!60!black}DROPPED} --- 25 earliest-exit\\[3pt]
+\begin{tabular}{@{}r l r@{}}
+\toprule
+\# & Pathway & depth \\
+\midrule
+1 & \texttt{R-HSA-453274} & 1.00 \\
+2 & \texttt{R-HSA-3858494} & 1.00 \\
+3 & \texttt{R-HSA-170834} & 1.01 \\
+4 & \texttt{R-HSA-9006936} & 1.01 \\
+5 & \texttt{R-HSA-9010553} & 1.01 \\
+6 & \texttt{R-HSA-195721} & 1.01 \\
+7 & \texttt{R-HSA-4641258} & 1.01 \\
+8 & \texttt{R-HSA-201681} & 1.01 \\
+9 & \texttt{R-HSA-6791312} & 1.01 \\
+10 & \texttt{R-HSA-2467813} & 1.01 \\
+11 & \texttt{R-HSA-376176} & 1.02 \\
+12 & \texttt{R-HSA-349425} & 1.02 \\
+13 & \texttt{R-HSA-373755} & 1.02 \\
+14 & \texttt{R-HSA-174178} & 1.02 \\
+15 & \texttt{R-HSA-432722} & 1.02 \\
+16 & \texttt{R-HSA-8873719} & 1.02 \\
+17 & \texttt{R-HSA-9948299} & 1.02 \\
+18 & \texttt{R-HSA-174143} & 1.02 \\
+19 & \texttt{R-HSA-6811434} & 1.02 \\
+20 & \texttt{R-HSA-72312} & 1.03 \\
+21 & \texttt{R-HSA-450408} & 1.03 \\
+22 & \texttt{R-HSA-9648025} & 1.03 \\
+23 & \texttt{R-HSA-3371556} & 1.03 \\
+24 & \texttt{R-HSA-162909} & 1.03 \\
+25 & \texttt{R-HSA-3928665} & 1.03 \\
+\bottomrule
+\end{tabular}
+\end{minipage}
+\section*{token-choice, $K=3$  (Macro-F1 84.5$\pm$4.2)}
+\filbreak
+\begin{minipage}[t]{0.48\textwidth}\centering\textbf{\color{green!45!black}KEPT} --- top 25 deepest-routed\\[3pt]
+\begin{tabular}{@{}r l r@{}}
+\toprule
+\# & Pathway & depth \\
+\midrule
+1 & \texttt{R-HSA-9648002} & 2.99 \\
+2 & \texttt{R-HSA-5358508} & 2.84 \\
+3 & \texttt{R-HSA-9687136} & 2.81 \\
+4 & \texttt{R-HSA-9709570} & 2.78 \\
+5 & \texttt{R-HSA-9755779} & 2.78 \\
+6 & \texttt{R-HSA-5689901} & 2.77 \\
+7 & \texttt{R-HSA-6783310} & 2.77 \\
+8 & \texttt{R-HSA-174048} & 2.76 \\
+9 & \texttt{R-HSA-936964} & 2.75 \\
+10 & \texttt{R-HSA-2243919} & 2.74 \\
+11 & \texttt{R-HSA-6802946} & 2.74 \\
+12 & \texttt{R-HSA-450321} & 2.74 \\
+13 & \texttt{R-HSA-3000157} & 2.73 \\
+14 & \texttt{R-HSA-9675126} & 2.72 \\
+15 & \texttt{R-HSA-977225} & 2.71 \\
+16 & \texttt{R-HSA-2214320} & 2.71 \\
+17 & \texttt{R-HSA-442660} & 2.71 \\
+18 & \texttt{R-HSA-176412} & 2.71 \\
+19 & \texttt{R-HSA-3134975} & 2.70 \\
+20 & \texttt{R-HSA-174437} & 2.70 \\
+21 & \texttt{R-HSA-179409} & 2.70 \\
+22 & \texttt{R-HSA-6805567} & 2.69 \\
+23 & \texttt{R-HSA-6809371} & 2.69 \\
+24 & \texttt{R-HSA-166663} & 2.68 \\
+25 & \texttt{R-HSA-9823730} & 2.68 \\
+\bottomrule
+\end{tabular}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\textwidth}\centering\textbf{\color{red!60!black}DROPPED} --- 25 earliest-exit\\[3pt]
+\begin{tabular}{@{}r l r@{}}
+\toprule
+\# & Pathway & depth \\
+\midrule
+1 & \texttt{R-HSA-170834} & 1.01 \\
+2 & \texttt{R-HSA-8853659} & 1.09 \\
+3 & \texttt{R-HSA-5625900} & 1.12 \\
+4 & \texttt{R-HSA-180292} & 1.14 \\
+5 & \texttt{R-HSA-383280} & 1.14 \\
+6 & \texttt{R-HSA-9006936} & 1.21 \\
+7 & \texttt{R-HSA-5627123} & 1.22 \\
+8 & \texttt{R-HSA-977444} & 1.23 \\
+9 & \texttt{R-HSA-9665348} & 1.24 \\
+10 & \texttt{R-HSA-5601884} & 1.24 \\
+11 & \texttt{R-HSA-418038} & 1.25 \\
+12 & \texttt{R-HSA-5617472} & 1.25 \\
+13 & \texttt{R-HSA-2173789} & 1.25 \\
+14 & \texttt{R-HSA-375280} & 1.26 \\
+15 & \texttt{R-HSA-5610787} & 1.26 \\
+16 & \texttt{R-HSA-8941326} & 1.26 \\
+17 & \texttt{R-HSA-977443} & 1.27 \\
+18 & \texttt{R-HSA-201681} & 1.28 \\
+19 & \texttt{R-HSA-5578775} & 1.28 \\
+20 & \texttt{R-HSA-9013404} & 1.29 \\
+21 & \texttt{R-HSA-674695} & 1.29 \\
+22 & \texttt{R-HSA-9006115} & 1.30 \\
+23 & \texttt{R-HSA-167242} & 1.31 \\
+24 & \texttt{R-HSA-418597} & 1.31 \\
+25 & \texttt{R-HSA-451326} & 1.31 \\
+\bottomrule
+\end{tabular}
+\end{minipage}
+\section*{token-choice, $K=4$  (Macro-F1 85.3$\pm$3.6)}
+\filbreak
+\begin{minipage}[t]{0.48\textwidth}\centering\textbf{\color{green!45!black}KEPT} --- top 25 deepest-routed\\[3pt]
+\begin{tabular}{@{}r l r@{}}
+\toprule
+\# & Pathway & depth \\
+\midrule
+1 & \texttt{R-HSA-982772} & 3.82 \\
+2 & \texttt{R-HSA-9828806} & 3.82 \\
+3 & \texttt{R-HSA-9836573} & 3.80 \\
+4 & \texttt{R-HSA-977068} & 3.76 \\
+5 & \texttt{R-HSA-9820965} & 3.75 \\
+6 & \texttt{R-HSA-9970672} & 3.74 \\
+7 & \texttt{R-HSA-9821002} & 3.71 \\
+8 & \texttt{R-HSA-9931295} & 3.71 \\
+9 & \texttt{R-HSA-5334118} & 3.70 \\
+10 & \texttt{R-HSA-937072} & 3.66 \\
+11 & \texttt{R-HSA-8931838} & 3.66 \\
+12 & \texttt{R-HSA-9710421} & 3.65 \\
+13 & \texttt{R-HSA-196807} & 3.65 \\
+14 & \texttt{R-HSA-199220} & 3.64 \\
+15 & \texttt{R-HSA-3238698} & 3.64 \\
+16 & \texttt{R-HSA-9821993} & 3.61 \\
+17 & \texttt{R-HSA-187687} & 3.61 \\
+18 & \texttt{R-HSA-1810476} & 3.61 \\
+19 & \texttt{R-HSA-9619483} & 3.60 \\
+20 & \texttt{R-HSA-9755779} & 3.58 \\
+21 & \texttt{R-HSA-5635838} & 3.58 \\
+22 & \texttt{R-HSA-1912420} & 3.58 \\
+23 & \texttt{R-HSA-445144} & 3.58 \\
+24 & \texttt{R-HSA-9037629} & 3.57 \\
+25 & \texttt{R-HSA-70221} & 3.57 \\
+\bottomrule
+\end{tabular}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\textwidth}\centering\textbf{\color{red!60!black}DROPPED} --- 25 earliest-exit\\[3pt]
+\begin{tabular}{@{}r l r@{}}
+\toprule
+\# & Pathway & depth \\
+\midrule
+1 & \texttt{R-HSA-170834} & 1.28 \\
+2 & \texttt{R-HSA-68949} & 1.36 \\
+3 & \texttt{R-HSA-2565942} & 1.41 \\
+4 & \texttt{R-HSA-373076} & 1.42 \\
+5 & \texttt{R-HSA-9006936} & 1.42 \\
+6 & \texttt{R-HSA-5673001} & 1.42 \\
+7 & \texttt{R-HSA-5655302} & 1.44 \\
+8 & \texttt{R-HSA-909733} & 1.44 \\
+9 & \texttt{R-HSA-9637690} & 1.44 \\
+10 & \texttt{R-HSA-69052} & 1.45 \\
+11 & \texttt{R-HSA-1643713} & 1.46 \\
+12 & \texttt{R-HSA-8878159} & 1.47 \\
+13 & \texttt{R-HSA-2173793} & 1.49 \\
+14 & \texttt{R-HSA-5633008} & 1.49 \\
+15 & \texttt{R-HSA-5668541} & 1.50 \\
+16 & \texttt{R-HSA-2559586} & 1.50 \\
+17 & \texttt{R-HSA-9948299} & 1.52 \\
+18 & \texttt{R-HSA-418038} & 1.54 \\
+19 & \texttt{R-HSA-380320} & 1.55 \\
+20 & \texttt{R-HSA-9820952} & 1.55 \\
+21 & \texttt{R-HSA-9680350} & 1.56 \\
+22 & \texttt{R-HSA-69306} & 1.57 \\
+23 & \texttt{R-HSA-8864260} & 1.58 \\
+24 & \texttt{R-HSA-1483257} & 1.58 \\
+25 & \texttt{R-HSA-5683057} & 1.58 \\
+\bottomrule
+\end{tabular}
+\end{minipage}
+\end{document}

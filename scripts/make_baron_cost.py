@@ -1,8 +1,12 @@
-"""Timed per-epoch training on Baron for the four architectures (Table-2 configs), to build
-the compute-cost figures: learning curves (F1 vs cumulative GPU-seconds) and time-to-target.
+"""Timed per-epoch training on one single-cell dataset for the four architectures
+(Table-2 configs), to build the compute-cost figures: learning curves (F1 vs cumulative
+GPU-seconds), time-to-target, and the accuracy-vs-compute (time & FLOPs) trade-off.
 
 Records, per epoch, {epoch, train_loss, val_f1, sec} for Vanilla / Recursive / MoR / bioMoR
 on the same fold-0 of the shared 5-fold split, plus final test F1 and parameter count.
+
+Usage: python scripts/make_baron_cost.py [--dataset muraro] [--smoke]
+       -> results/cv5/curves/<dataset>_cost.json
 """
 import json
 from pathlib import Path
@@ -37,8 +41,9 @@ def configs():
     }
 
 
-def main(smoke=False):
-    X, y, _ = _load_dataset(ROOT / "data" / "singlecell" / "baron")
+def main(dataset="baron", smoke=False):
+    tag = f"{dataset}-cost"
+    X, y, _ = _load_dataset(ROOT / "data" / "singlecell" / dataset)
     X = X.astype(np.float32); F = X.shape[1]; C = int(y.max() + 1)
     tr, va, te = list(cv_folds(y, n_folds=5, seed=SEED, val_frac=VAL_FRAC))[0]
     out = {}
@@ -53,13 +58,17 @@ def main(smoke=False):
         out[name] = {"history": h, "test_f1": tf1,
                      "params": int(sum(p.numel() for p in model.parameters()))}
         last = h[-1] if h else {"sec": 0}
-        print(f"[baron-cost] {name}: epochs={len(h)} sec={last['sec']:.1f} "
+        print(f"[{tag}] {name}: epochs={len(h)} sec={last['sec']:.1f} "
               f"test_f1={tf1:.1f} params={out[name]['params']}", flush=True)
     d = ROOT / "results/cv5" / "curves"; d.mkdir(parents=True, exist_ok=True)
-    (d / "baron_cost.json").write_text(json.dumps(out, indent=1))
-    print(f"[baron-cost] saved {d/'baron_cost.json'}", flush=True)
+    (d / f"{dataset}_cost.json").write_text(json.dumps(out, indent=1))
+    print(f"[{tag}] saved {d/f'{dataset}_cost.json'}", flush=True)
 
 
 if __name__ == "__main__":
-    import sys
-    main(smoke="--smoke" in sys.argv)
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--dataset", default="baron")
+    ap.add_argument("--smoke", action="store_true")
+    a = ap.parse_args()
+    main(dataset=a.dataset, smoke=a.smoke)

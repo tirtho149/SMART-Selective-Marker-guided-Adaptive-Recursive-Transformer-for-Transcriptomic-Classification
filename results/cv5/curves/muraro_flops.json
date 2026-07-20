@@ -1,0 +1,75 @@
+{
+ "_meta": {
+  "dataset": "muraro",
+  "n_genes": 2000,
+  "n_classes": 9,
+  "n_markers": 128,
+  "batch": 128,
+  "device": "cuda",
+  "counter": "FlopCounterMode"
+ },
+ "std|independent|4": {
+  "flops_total": 5144166400,
+  "flops_per_sample": 40188800.0
+ },
+ "std|fixed|2": {
+  "flops_total": 3011362816,
+  "flops_per_sample": 23526272.0
+ },
+ "std|fixed|3": {
+  "flops_total": 4524457984,
+  "flops_per_sample": 35347328.0
+ },
+ "std|fixed|4": {
+  "flops_total": 6037553152,
+  "flops_per_sample": 47168384.0
+ },
+ "std|expert|2": {
+  "flops_total": 2715664384,
+  "flops_per_sample": 21216128.0
+ },
+ "std|expert|3": {
+  "flops_total": 3929915392,
+  "flops_per_sample": 30702464.0
+ },
+ "std|expert|4": {
+  "flops_total": 5144166400,
+  "flops_per_sample": 40188800.0
+ },
+ "std|token|2": {
+  "flops_total": 3017654272,
+  "flops_per_sample": 23575424.0
+ },
+ "std|token|3": {
+  "flops_total": 4533895168,
+  "flops_per_sample": 35421056.0
+ },
+ "std|token|4": {
+  "flops_total": 6050136064,
+  "flops_per_sample": 47266688.0
+ },
+ "biomor|expert|2": {
+  "flops_total": 4752130048,
+  "flops_per_sample": 37126016.0
+ },
+ "biomor|expert|3": {
+  "flops_total": 6976159744,
+  "flops_per_sample": 54501248.0
+ },
+ "biomor|expert|4": {
+  "flops_total": 9200189440,
+  "flops_per_sample": 71876480.0
+ },
+ "biomor|token|2": {
+  "flops_total": 4047486976,
+  "flops_per_sample": 31620992.0
+ },
+ "biomor|token|3": {
+  "flops_total": 5566873600,
+  "flops_per_sample": 43491200.0
+ },
+ "biomor|token|4": {
+  "flops_total": 7086260224,
+  "flops_per_sample": 55361408.0
+ }
+}

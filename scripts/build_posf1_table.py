@@ -2,12 +2,12 @@
 for the multi-omics binary cohorts, full Table-2 ladder. Reads results/repro/ladder/.
 Cells: pos-F1 (macro-F1 in parens). 'run...' where a cell is still computing."""
 import glob, json, os
-ROOT="/work/mech-ai-scratch/tirtho/RecusrsiveQFormer"
+ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ARMS=[("vanilla","Vanilla"),("fixed_k2","Recursive $K{=}2$"),("fixed_k3","Recursive $K{=}3$"),
       ("fixed_k4","Recursive $K{=}4$"),("expert_k2","MoR-Expert $K{=}2$"),("expert_k3","MoR-Expert $K{=}3$"),
       ("expert_k4","MoR-Expert $K{=}4$"),("token_k2","Token-choice $K{=}2$"),
       ("token_k3","Token-choice $K{=}3$"),("token_k4","Token-choice $K{=}4$")]
-COH=[("prostate","Prostate"),("blca","BLCA"),("stad","STAD"),("pan_meta_pri","PM"),("panmeta_response","PC"),("pan_meta_pri_3modal","3M")]
+COH=[("prostate","Prostate"),("blca","Bladder"),("stad","Stomach"),("pan_meta_pri","PM"),("panmeta_response","PC"),("pan_meta_pri_3modal","3M")]
 RUN=r"\emph{\scriptsize run\ldots}"
 def cell(t,a):
     f=f"{ROOT}/results/repro/ladder/{t}_{a}/{t}__{a}.json"

@@ -31,6 +31,10 @@ from .train import resolve_device
 
 ROOT = Path(__file__).resolve().parents[1]
 GD = ROOT / "genomap_data"
+if not GD.exists():                                  # genomap suites were moved to archive/
+    _alt = ROOT / "archive" / "misc" / "genomap_data"
+    if _alt.exists():
+        GD = _alt
 
 # dataset -> (kind, path-parts). Supervised cell-recognition sets only (Retinal /
 # Trajectory are unsupervised and excluded).

@@ -18,5 +18,5 @@ PROJ=/work/mech-ai-scratch/tirtho/RecusrsiveQFormer
 PY=/work/mech-ai-scratch/tirtho/.venv/bin/python
 cd "$PROJ"; export PYTHONUNBUFFERED=1; export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-8}
 echo "[baron-cost] $(date) host=$(hostname)"; nvidia-smi -L || true
-"$PY" scripts/make_baron_cost.py
+"$PY" scripts/make_baron_cost.py --dataset "${DATASET:-baron}"
 echo "[baron-cost] DONE rc=$? $(date)"

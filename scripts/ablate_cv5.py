@@ -14,7 +14,7 @@ Outputs -> results/cv5/ablation/<condition>/... (unified cv_macro_f1 key).
 """
 import argparse, glob, os, subprocess, sys
 
-ROOT = "/work/mech-ai-scratch/tirtho/RecusrsiveQFormer"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PY = sys.executable
 SC_LC  = ["baron","lung","muraro","oesophagus","segerstolpe","spleen","tcell","xin"]
 SC_CAP = ["Baron","Lung","Muraro","Oesophagus","Segerstolpe","Spleen","Tcell","Xin"]
