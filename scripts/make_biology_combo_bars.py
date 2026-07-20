@@ -105,8 +105,9 @@ def main():
                    facecolor=(*rgb, 0.45), edgecolor=CCOLOR[cond], linewidth=0.9, hatch="////",
                    error_kw=dict(lw=0.8, capsize=1.6, ecolor="#333333"),
                    label=LABEL[cond] if gi == 0 else None)
-            ax.annotate(f"{v[0]:.0f}", (x, v[0]), (0, 1.5), textcoords="offset points",
-                        ha="center", va="bottom", fontsize=5.6, color="#333")
+            ax.annotate(f"{v[0]:.0f}", (x, v[0] + (v[1] or 0)), (0, 2.0),
+                        textcoords="offset points", rotation=90,
+                        ha="center", va="bottom", fontsize=7.5, fontweight="bold", color="#111")
     if 0 < n_sc < n_ds:
         ax.axvline(n_sc - 0.5, ls="--", lw=0.7, color="#999", zorder=1)
 
@@ -119,7 +120,7 @@ def main():
     for sp in ("top", "right"):
         ax.spines[sp].set_visible(False)
     ax.tick_params(labelsize=8)
-    ax.set_ylim(bottom=40)   # cut y-axis at 40 so the per-condition differences are visible
+    ax.set_ylim(40, 112)   # cut y-axis at 40 (visible differences) + headroom for rotated labels
     fig.tight_layout()
 
     figs = ROOT / "paper" / "figs"; figs.mkdir(parents=True, exist_ok=True)
