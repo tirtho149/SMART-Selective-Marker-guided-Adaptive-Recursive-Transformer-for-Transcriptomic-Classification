@@ -1,5 +1,16 @@
 # Is biology used the *same way* in single-cell and pathway (multi-omics)?
 
+> **UPDATE (2026-07-20): canonical bioMoR is now ERA (E+R+A) in BOTH regimes.** The attention
+> bias is no longer multi-omics-only — single-cell biases marker self-attention along the
+> **learned gene sub-graph** (`gene_attn_bias`), the exact analogue of the multi-omics Reactome
+> `pathway_attn_bias`. It applies in **both** expert- and token-choice routing: expert-choice
+> gathers the matching per-step **(k,k) attention sub-mask** for its top-k token subset
+> (`router.py` `ExpertChoiceRouter`, `recursion.py`). So **every** bioMoR Table-2 cell
+> (Expert & Token, N_R=2/3/4) carries E+R+A — single-cell and multi-omics are apple-to-apple.
+> The **only** remaining asymmetry is fixed-graph *fusion*, impossible for single-cell (no
+> provided gene graph to fuse — the features are anonymized) and therefore data-forced. The
+> rows below marked "Multi-omics only" for attention bias are now applied to single-cell too.
+
 **Short answer:** the **mechanism is the same** — a learnable, sigmoid-bounded low-rank graph
 smoother at the embedding site plus a **zero-init graph-convolution residual** at the router site,
 applied at *both* sites in both regimes. What differs is (1) the **source of the graph** and

@@ -104,7 +104,11 @@ def _cfg(mode: str, K: int, seed: int, epochs: int, n_markers: int = 128) -> RMT
         gene_interaction=(mode if mode in ("coexpr", "random", "aggnet") else "none"),
     )
     cfg = RMTConfig(**base)
-    if mode and set(mode) <= set("ERA"):
+    if mode == "N":
+        # no-biology baseline in TOKEN mode, matching the E/R/A/ERA combos' routing mode so the
+        # 5-bar figure (None/E/R/A/ERA) is fully controlled (only the biology mechanisms vary).
+        cfg.recursion_mode = "token"; cfg.gene_interaction = "none"
+    elif mode and set(mode) <= set("ERA"):
         # 7-COMBINATION biology ablation over three binary mechanisms on a SHARED learned gene
         # graph (warm-started from co-expression): E = embedding-site smoothing, R = router-site
         # graph-conv, A = attention bias (the mechanism un-gated for single-cell, see
@@ -195,6 +199,22 @@ def _cfg(mode: str, K: int, seed: int, epochs: int, n_markers: int = 128) -> RMT
         # graph, so routing depth can learn to use biological neighbourhood structure --
         # bounded, starts as a no-op, cannot collapse (replaces the harmful centrality prior).
         cfg.bio_graph_router = True
+    elif mode == "bio_era":
+        # CANONICAL bioMoR = biology at ALL THREE sites (E+R+A), the same mechanism set as
+        # multi-omics (--pathway_attn_bias), so single-cell and multi-omics are APPLE-TO-APPLE
+        # (no dataset discrimination -- see BIOLOGY_SC_VS_PATHWAY.md). It is `bio_both`
+        # (E=embedding smoothing + R=graph-conv router) PLUS A=attention bias along the learned
+        # gene sub-graph. Works in BOTH expert- and token-choice routing: expert-choice gathers
+        # the per-step (k,k) sub-mask (router.py / recursion.py), so every bioMoR ladder cell
+        # (Expert & Token, N_R=2/3/4) carries attention.
+        cfg.gene_interaction = "none"
+        cfg.bio_learned_graph = True; cfg.bio_learned_rank = 16
+        cfg.bio_learned_init = "bio"; cfg.bio_init_scale = 0.01; cfg.bio_init_rand = 0.01
+        cfg.bio_prop_lambda_init = 0.2; cfg.bio_prop_hops = 1
+        cfg.bio_graph_prop = False
+        cfg.bio_learned_prop = True          # E: embedding-site smoothing
+        cfg.bio_graph_router = True          # R: router-site graph-conv residual
+        cfg.gene_attn_bias   = True          # A: attention bias over the learned gene sub-graph
     elif mode == "learned_anchor":
         # learned graph, warm-started from biology AND held near it early by an annealed
         # ||A_learned - A_bio||^2 penalty (lambda: 0.5 -> 0 over training), with a larger

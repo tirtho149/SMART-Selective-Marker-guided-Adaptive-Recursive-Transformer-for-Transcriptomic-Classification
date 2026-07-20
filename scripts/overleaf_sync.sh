@@ -41,6 +41,7 @@ push_to_overleaf(){   # paper/ -> Overleaf clone  (do NOT --delete: keep Overlea
     --include='*.tex' --include='*.bib' --include='*.cls' --include='*.sty' \
     --include='*.bst' --include='*.bbl' \
     --include='figs/***' \
+    --include='tabledata/***' \
     --exclude='main.pdf' \
     --exclude='*' \
     "$PAPER/" "$SYNC/"

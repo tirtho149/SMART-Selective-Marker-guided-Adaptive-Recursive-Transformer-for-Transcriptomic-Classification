@@ -60,7 +60,7 @@
     \begin{quote}
 % Transformer models for transcriptomic analysis process thousands of genes or pathways, although only a subset requires deep computation. Mixture-of-Recursions (MoR) addresses this inefficiency through adaptive token-choice or expert-choice routing, but its routers are biology-agnostic and rely mainly on individual token representations. We propose \textbf{bioMoR}, a biology-guided recursive Transformer that incorporates gene--gene or pathway--pathway interactions into routing through a \emph{bio-router}. The bio-router combines learned token scores with graph-centrality scores, enabling biologically influential tokens to receive deeper computation while less relevant tokens exit earlier. bioMoR supports both routing strategies and repeatedly applies a weight-shared block for parameter efficiency. Across eight single-cell and six multi-omics benchmarks under five-fold cross-validation, bioMoR improves average macro-F1 from $67.1\%$ to $73.5\%$ over the strongest biology-agnostic MoR baseline while using $75\%$ fewer parameters and up to $58\%$ fewer FLOPs. The assigned recursion depths also provide an interpretable measure of token-level importance.
 
-Transformer models for transcriptomic analysis process thousands of genes or pathways, although only a subset requires deep computation. Mixture-of-Recursions (MoR) addresses this inefficiency through adaptive token-choice or expert-choice routing, but its routers are \emph{biology-agnostic}, relying primarily on individual token representations. We propose \textbf{bioMoR}, a biology-guided recursive Transformer that injects a learned gene--gene or pathway--pathway interaction graph at two sites in an MoR backbone. The graph first refines a compact set of interpretable marker or pathway tokens and then guides depth allocation through a zero-initialized graph-convolutional router. Consequently, biologically influential tokens receive deeper computation, while less relevant tokens are frozen at shallower recursion depths. bioMoR supports both expert-choice and token-choice routing and reuses a single weight-shared block for parameter efficiency. Across eight single-cell and six multi-omics benchmarks under a unified five-fold cross-validation protocol, bioMoR improves average macro-F1 from $67.1\%$ to $73.5\%$ over the strongest biology-agnostic MoR baseline, while using $75\%$ fewer parameters and up to $58\%$ fewer FLOPs. The resulting token-specific recursion depths additionally provide an interpretable measure of both token-level importance and allocated computation.
+Transformer models for transcriptomic analysis process thousands of genes or pathways, although only a subset requires deep computation. Mixture-of-Recursions (MoR) addresses this inefficiency through adaptive token-choice or expert-choice routing, but its routers are \emph{biology-agnostic}, relying primarily on individual token representations. We propose \textbf{bioMoR}, a biology-guided recursive Transformer that injects a learned gene--gene or pathway--pathway interaction graph into an MoR backbone through three mechanisms. The graph refines a compact set of interpretable marker or pathway tokens, biases self-attention toward interacting tokens, and guides depth allocation through a zero-initialized graph-convolutional router. Consequently, biologically influential tokens receive deeper computation, while less relevant tokens are frozen at shallower recursion depths. bioMoR supports both expert-choice and token-choice routing and reuses a single weight-shared block for parameter efficiency. Across eight single-cell and six multi-omics benchmarks under a unified five-fold cross-validation protocol, bioMoR improves average macro-F1 from $67.1\%$ to $73.5\%$ over the strongest biology-agnostic MoR baseline, while using $75\%$ fewer parameters and up to $58\%$ fewer FLOPs. The resulting token-specific recursion depths additionally provide an interpretable measure of both token-level importance and allocated computation.
     \end{quote}
 \end{abstract}
 
@@ -140,7 +140,7 @@ In parallel, numerous studies have demonstrated the value of incorporating biolo
 
 In this work, we introduce \textbf{bioMoR} (\textbf{bio}logy-guided \textbf{M}ixture-\textbf{o}f-\textbf{R}ecursions), a biology-guided adaptive recursive transformer for transcriptomic learning. Unlike existing recursive transformers, bioMoR incorporates gene--gene or Reactome pathway--pathway interaction knowledge into both representation learning and adaptive routing. Biological interaction networks first refine gene or pathway embeddings through graph-based propagation, and the resulting biological prior is subsequently combined with the data-driven routing score to determine which marker tokens receive deeper recursive computation. Consequently, bioMoR allocates computation according to both the observed sample and its underlying biological context. The proposed framework naturally supports both expert-choice and token-choice routing while preserving the parameter efficiency of shared recursive transformer blocks.
 
-We evaluate bioMoR on eight single-cell transcriptomic datasets and six multi-omics benchmarks (fourteen in total) under a unified 5-fold cross-validation protocol. On average, bioMoR outperforms Vanilla Transformers, Recursive Transformers, and biology-agnostic Mixture-of-Recursions under both expert-choice and token-choice routing: its best configuration reaches an average macro-F1 of \textbf{73.5\%}, improving over Vanilla Transformers (66.2\%), Recursive Transformers (66.4\%), and MoR (67.1\%) by roughly $6$--$7$ points, while using approximately $4\times$ fewer transformer parameters and reducing recursive FLOPs by up to 58\%. A controlled analysis further isolates \emph{where} biology helps: a rigid hand-built prior injected into the router fails, whereas a \emph{learned} interaction graph is effective at both the embedding and routing sites---smoothing token embeddings and steering depth allocation through a zero-initialised graph-convolution router---and injecting it at both sites jointly is best.
+We evaluate bioMoR on eight single-cell transcriptomic datasets and six multi-omics benchmarks (fourteen in total) under a unified 5-fold cross-validation protocol. On average, bioMoR outperforms Vanilla Transformers, Recursive Transformers, and biology-agnostic Mixture-of-Recursions under both expert-choice and token-choice routing: its best configuration reaches an average macro-F1 of \textbf{73.5\%}, improving over Vanilla Transformers (66.2\%), Recursive Transformers (66.4\%), and MoR (67.1\%) by roughly $6$--$7$ points, while using approximately $4\times$ fewer transformer parameters and reducing recursive FLOPs by up to 58\%. A controlled analysis further isolates \emph{where} biology helps: a rigid hand-built prior injected into the router fails, whereas a \emph{learned} interaction graph is effective through three mechanisms---smoothing token embeddings, biasing self-attention toward graph-adjacent tokens, and steering depth allocation through a zero-initialised graph-convolution router---and combining all three is best.
 
 Our contributions are summarized as follows:
 
@@ -191,7 +191,7 @@ parameters and FLOPs --- read as a ladder from a vanilla transformer to expert- 
 token-choice Mixture-of-Recursions (Table~\ref{tab:main_cv5}); (ii)~how the biological
 interaction graph should be \emph{formed} --- learned end-to-end versus a fixed hand-built
 prior or a degree-matched random control; and (iii)~\emph{where} it should enter --- the
-token embedding, the depth router, or both (Fig.~\ref{fig:injection}). Each component below
+token embedding, the depth router, the attention bias, or all jointly (Fig.~\ref{fig:injection}). Each component below
 is introduced so that these three ablations map one-to-one onto its design choice; the
 remaining knobs (marker budget $M$ and the weight-sharing schedule) are held at the defaults
 stated below and swept only in the supplementary material.
@@ -295,7 +295,7 @@ to the depth logit, with the MLP output \emph{zero-initialised} so the term begi
 no-op and can only learn to help, never collapsing routing the way the fixed prior does.
 
 \paragraph{The shared learned graph and Site 2 (embedding).}
-Both sites read one \emph{learned} low-rank graph. We attach an embedding
+All three mechanisms read one \emph{learned} low-rank graph. We attach an embedding
 $\mathbf{E}\in\mathbb{R}^{M\times r}$ ($r{=}16$) whose row-cosine similarity is the affinity
 $\mathbf{A}=\tilde{\mathbf{E}}\tilde{\mathbf{E}}^{\top}$,
 $\tilde{\mathbf{E}}=\mathrm{normalize}(\mathbf{E})$, warm-started from the co-expression graph
@@ -304,9 +304,19 @@ $\tilde{\mathbf{E}}=\mathrm{normalize}(\mathbf{E})$, warm-started from the co-ex
 discriminative, not merely centrality-maximal. At the embedding site we smooth the tokens
 along it, $\mathbf{c}\leftarrow(1-\lambda)\mathbf{c}+\lambda\,(\mathbf{c}\tilde{\mathbf{E}})\tilde{\mathbf{E}}^{\top}$
 (learned $\lambda$, low-rank $\mathcal{O}(Mr)$), so its $r$ latent factors act as gene/pathway
-programs that denoise each token toward its program consensus. Injecting the graph at
-\emph{both} sites is bioMoR; the injection-site ablation (Fig.~\ref{fig:injection}) shows
-the two are complementary and jointly best.
+programs that denoise each token toward its program consensus.
+
+\paragraph{Site 3 (attention bias).}
+The same learned graph finally biases the recursive block's self-attention: graph-adjacent
+token pairs receive a fixed additive logit boost
+$\lambda_{\mathrm{attn}}\,\mathbf{1}[A_{mn}{>}0]$ ($\lambda_{\mathrm{attn}}{=}2$), so each token
+attends more strongly to its interaction neighbours during refinement. Unlike the
+zero-initialised router (Site~1), this is a \emph{fixed}-strength term, so we validate its
+contribution empirically rather than through the no-op argument of Thm.~2. Injecting the graph
+through all three mechanisms---embedding smoothing (E), the depth router (R), and the attention
+bias (A)---is bioMoR (ERA); the mechanism ablation (Fig.~\ref{fig:injection}) shows the
+embedding pathway carries most of the gain, with the router and attention bias contributing
+in combination (ERA best on Baron).
 
 \paragraph{Complexity.}
 Only the embedding and the marker router touch all $N$ genes ($\mathcal{O}(Nd)$, and an
@@ -335,10 +345,12 @@ peak-initialised.
 
 \section{Theoretical Analysis}
 \label{sec:theory}
-We show the two injection sites are principled rather than heuristic: the embedding-site graph
+We show the two graph-injection sites are principled rather than heuristic: the embedding-site graph
 is a \emph{provably optimal denoiser} (Thm.~1), the router-site graph is \emph{monotone-safe}
 (Thm.~2), and combining them dominates either alone (Cor.~1) --- the population-risk statement
-of the empirical ordering in Fig.~\ref{fig:injection}. Full proofs are in the supplementary
+of the empirical ordering in Fig.~\ref{fig:injection}. The attention bias (A) is a third,
+fixed-strength mechanism validated empirically in the same ablation; the analysis here covers the
+two sites that admit a no-op initialisation. Full proofs are in the supplementary
 material.
 
 \begin{table*}[!b]
@@ -395,8 +407,8 @@ theorem as licensing the augmentation and verify the gain against degree-matched
 (Sec.~\ref{sec:interaction}). It is exactly the property the earlier \emph{fixed} centrality prior
 lacked: a rank-one bias $\beta c$ initialised at $\beta_0\!\approx\!1$ neither starts at the no-op nor
 expresses a non-collinear correction, so it can strictly raise risk and collapse (equal-centrality
-hubs driven to identical depth) --- the theoretical cause of the fixed-prior failure in
-Fig.~\ref{fig:injection}.
+hubs driven to identical depth) --- the theoretical cause of the fixed-prior failure reported
+in Sec.~\ref{sec:interaction}.
 
 A low-rank filter can also \emph{over-smooth}: $T_\lambda$ has eigenvalues $1-\lambda+\lambda a_k$, so
 $\lambda\to1$ erases the low-variance modes that most often carry \emph{rare} populations. bioMoR
@@ -457,22 +469,26 @@ raw per-gene signal is weak and is redundant once the classes are trivially sepa
 \label{sec:interaction}
 \begin{figure}[t]
 \centering
-\IfFileExists{figs/biorouter_bars.pdf}{\includegraphics[width=\columnwidth]{figs/biorouter_bars.pdf}}{\emph{(injection-site ablation bar chart renders here)}}
-\caption{\textbf{Where should biology enter? (our main ablation).} Injection-site ablation
-(macro-F1, 5-fold CV): the learned interaction graph injected at no site, the router only, the
-embedding only, or \emph{both}, on the Baron and Muraro single-cell pancreas atlases and the pan-cancer multi-omics cohorts under mutation$+$CNV (PM) and tri-modal (3M) inputs. Injecting at \emph{both} sites (bioMoR) wins on every cohort; each bar equals the
-corresponding cell of Table~\ref{tab:main_cv5}.}
+\IfFileExists{figs/biology_combo_bars.pdf}{\includegraphics[width=\columnwidth]{figs/biology_combo_bars.pdf}}{\emph{(mechanism ablation bar chart renders here)}}
+\caption{\textbf{Which mechanism carries the biology? (mechanism ablation).} Per-mechanism
+ablation (macro-F1, 5-fold CV, token mode) on the Baron and Muraro single-cell pancreas
+atlases: the shared learned interaction graph injected through the embedding smoothing (E),
+the depth router (R), the attention bias (A over the learned gene sub-graph), or all three
+jointly (ERA). Router and attention bias are weak in isolation; the full combination (ERA)
+is best on Baron ($85.3$ vs.\ embedding $80.1$) and matches embedding on Muraro ($82.5$ vs.\
+$82.8$), showing the three mechanisms are complementary rather than redundant.}
 \label{fig:injection}
 \end{figure}
 
-\paragraph{Where should biology enter?}
-Figure~\ref{fig:injection} injects the learned graph at no site, the router only, the
-embedding only, or both, on four cohorts. Router-only injection barely improves on the no-graph
-baseline (Baron $66.6$ vs.\ $63.6$; PM $81.0$ vs.\ $81.0$), embedding smoothing carries most of
-the gain (Baron $79.1$; Muraro $87.0$; PM $85.9$), and injecting at \emph{both} sites is best on
-every cohort (Baron $81.3$; Muraro $87.3$; PM $86.8$; 3M $95.9$). The two sites are therefore
-complementary --- the design that defines bioMoR --- and the effect is largest where the task is
-hard (Baron, $+17.7$ over no graph) and negligible where it is already saturated (3M, $+1.4$).
+\paragraph{Which mechanism carries the biology?}
+Figure~\ref{fig:injection} decomposes the learned graph into its three injection mechanisms ---
+embedding smoothing (E), the depth router (R), and the attention bias (A) --- and their full
+combination (ERA), in token mode on the Baron and Muraro pancreas atlases. Router- and
+attention-bias-only injection are weak (Baron $R\,63.4$, $A\,65.9$; Muraro $R\,76.1$, $A\,78.1$),
+whereas embedding smoothing carries most of the single-cell gain (Baron $80.1$; Muraro $82.8$).
+Combining all three (ERA) is best on Baron ($85.3$, $+5.2$ over embedding alone) and matches
+embedding on Muraro ($82.5$ vs.\ $82.8$), so the mechanisms are complementary rather than
+redundant, with the largest gain where the task is hardest.
 
 \paragraph{Biology helps only when the graph is learned, not imposed.}
 Varying only how the router's gene--gene graph is \emph{formed}, a learned graph lifts mean
@@ -486,17 +502,19 @@ only lowers accuracy further ($62.5$ vs.\ $72.1$ random-init; supplementary). Ou
 thus mechanistic: biology helps as a \emph{learned}, end-to-end graph and is harmful as a fixed
 prior.
 
-\paragraph{Why learned, and why two sites.}
+\paragraph{Why learned, and why multiple sites.}
 The ordering is mechanistically informative: a fixed prior applies every edge regardless of task
 relevance and drags the router to a poor operating point (hence it sits below the no-graph
 baseline), whereas the learned low-rank graph is optimised end-to-end and re-derives only the
 discriminative subset of the co-expression/Reactome structure from data --- which is why a
-biological warm-start is neutral (Figure~\ref{fig:injection}). The two injection sites then apply
+biological warm-start is neutral (Figure~\ref{fig:injection}). The three mechanisms then apply
 this graph for complementary functions: at the embedding it \emph{smooths} each token with its
 neighbours (reducing variance in sparse single-cell measurements, carrying most of the single-cell
-gain), and at the router it \emph{allocates} deeper recursion to tokens whose neighbourhood marks
-them discriminative. Smoothing and allocation are independent uses of the structure, so their gains
-add, and the combined margin is largest where signal is weakest (Baron, $+17.7$ over no graph).
+gain), in the attention it \emph{biases} each token toward its interaction neighbours during
+refinement, and at the router it \emph{allocates} deeper recursion to tokens whose neighbourhood
+marks them discriminative. Smoothing, biasing, and allocation are largely independent uses of the
+structure, so their gains add, and the combined margin is largest where signal is weakest
+(Baron, $+17.7$ over no graph).
 
 \begin{figure*}[!t]
 \centering
@@ -613,7 +631,7 @@ vanilla, and recursive transformer) at a quarter of the transformer-stack parame
 $58\%$ fewer recursion FLOPs. The graph must be \emph{learned} rather than imposed --- a learned
 graph adds $+11.3$ single-cell macro-F1 over a no-graph router while a \emph{fixed} prior does not
 separate from a random-graph control --- and composes cleanly with adaptive recursion when injected
-at both the embedding and routing sites.
+through embedding smoothing, an attention bias, and the depth router.
 
 \section{Broader Impact and Ethics Statement}
 bioMoR targets cell-type annotation and bulk-omics subtyping with an auditable

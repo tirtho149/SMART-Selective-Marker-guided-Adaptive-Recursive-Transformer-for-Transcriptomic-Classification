@@ -46,6 +46,7 @@ class SharedTransformerBlock(nn.Module):
     def __init__(self, d_model: int, n_heads: int, d_ff: int, dropout: float,
                  marker_ffn: bool = False):
         super().__init__()
+        self.n_heads = n_heads
         self.attn = nn.MultiheadAttention(d_model, n_heads, dropout=dropout,
                                           batch_first=True)
         self.norm1 = nn.LayerNorm(d_model)
@@ -67,13 +68,19 @@ class SharedTransformerBlock(nn.Module):
                 attn_bias: Optional[torch.Tensor] = None,
                 kv: Optional[torch.Tensor] = None) -> torch.Tensor:
         h = self.norm1(x)
-        # attn_bias (M, M): additive bias on the attention logits so each pathway
-        # token attends preferentially to its Reactome-hierarchy neighbours. None =
-        # ordinary full self-attention. Broadcasts over batch and heads.
+        # attn_bias: additive bias on the attention logits so each pathway token
+        # attends preferentially to its Reactome-hierarchy neighbours. None = ordinary
+        # full self-attention. A 2D (M, M) mask broadcasts over batch and heads (the
+        # token/fixed path, which sees the whole token set). A 3D (B, k, k) mask is the
+        # PER-SAMPLE sub-mask gathered by expert-choice routing (each sample keeps a
+        # different top-k subset), which nn.MultiheadAttention wants as (B*n_heads, k, k).
         # kv (B, M, d): step-cache -- use these cached (step-0) states as the
         # key/value source instead of the current tokens, so attention is not
         # recomputed against the evolving hidden states (KV-reuse analogue). None =
         # ordinary self-attention where query=key=value=h.
+        if attn_bias is not None and attn_bias.dim() == 3:
+            # per-sample (B, k, k) -> (B*n_heads, k, k) as MultiheadAttention requires.
+            attn_bias = attn_bias.repeat_interleave(self.n_heads, dim=0)
         if kv is None:
             a, _ = self.attn(h, h, h, need_weights=False, attn_mask=attn_bias)
         else:
@@ -201,17 +208,20 @@ class RecursiveStack(nn.Module):
             # Pass the step-indexed block picker: _block(t) is the shared block
             # when share_weights, else the t-th independent block -- so routing
             # composes with both weight-sharing and the independent ablation.
-            # The (M,M) attention bias is only valid when the block sees the FULL
-            # token set (token-choice / fixed). Expert-choice gathers a per-step
-            # top-k subset, so a fixed (M,M) mask cannot apply -- drop it there.
-            if attn_bias is not None and self.recursion_mode != "token":
-                raise ValueError("pathway_attn_bias needs recursion_mode in "
-                                 "{token, fixed}; expert-choice gathers token "
-                                 "subsets incompatible with a fixed (M,M) mask")
             if self.step_cache and self.recursion_mode != "token":
                 raise ValueError("step_cache needs recursion_mode in {token, fixed}; "
                                  "expert-choice gathers per-step token subsets")
             kv0 = tokens if self.step_cache else None
+            # Attention bias: token-choice / fixed see the FULL token set, so the block
+            # closes over the shared (M,M) mask. Expert-choice gathers a per-step top-k
+            # SUBSET, so it must gather the matching (B,k,k) sub-mask itself -- the block
+            # then takes a per-call bias argument. This makes the attention-bias mechanism
+            # available in expert mode too (bioMoR = E+R+A everywhere, apple-to-apple).
+            if self.recursion_mode == "expert":
+                block = (lambda t, x, bias=None: self._block(t)(x, bias, kv0))
+                return self.router(tokens, block, refine_fn,
+                                   prior=prior, prior_weight=prior_weight,
+                                   token_graph=token_graph, attn_bias=attn_bias)
             block = (lambda t, x: self._block(t)(x, attn_bias, kv0))
             return self.router(tokens, block, refine_fn,
                                prior=prior, prior_weight=prior_weight,

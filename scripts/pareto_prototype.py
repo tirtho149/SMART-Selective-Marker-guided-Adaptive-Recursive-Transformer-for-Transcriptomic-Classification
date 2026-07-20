@@ -69,9 +69,7 @@ van = max((p for p in pts if p["arch"] == "Vanilla"), key=lambda d: d["cost"])
 DARK = {"Vanilla": "#5a5a5a", "Recursive": "#8a6100",
         "MoR (general)": "#1f6f9e", "bioMoR": "#00694f"}
 
-# --- shaded "winning" region: high accuracy AND low compute (upper-left of Vanilla) ---
-ax.axhspan(van["f1"], ymax, xmin=0, xmax=(van["cost"] - xmin) / (xmax - xmin),
-           color="#009E73", alpha=0.06, zorder=0)
+# (green "winning region" background shading removed per request)
 
 # --- Pareto frontier line ---
 fx = [p["cost"] for p in front]; fy = [p["f1"] for p in front]
@@ -85,15 +83,7 @@ for p in sorted(pts, key=lambda d: -d["params"]):   # big bubbles first (drawn b
     ax.text(p["cost"], p["f1"], f"K{p['depth']}", ha="center", va="center",
             fontsize=6.5, fontweight="bold", color=DARK[p["arch"]], zorder=4)
 
-# single callout for the headline win, pinned to the empty TOP-RIGHT corner (no bubbles there)
-gain = best["f1"] - van["f1"]; speed = van["cost"] / best["cost"]
-ax.annotate(f"bioMoR: +{gain:.0f} macro-F1\nat {speed:.1f}$\\times$ less compute",
-            xy=(best["cost"] + 0.03, best["f1"]),
-            xytext=(xmax - 0.03, ymax - 0.03 * (ymax - ymin)),
-            ha="right", va="top",
-            fontsize=10, fontweight="bold", color="#00694f",
-            bbox=dict(boxstyle="round,pad=0.35", fc="#eafaf3", ec="#009E73", lw=1.3),
-            arrowprops=dict(arrowstyle="-|>", color="#009E73", lw=1.7))
+# (green "1.7x less compute" callout box removed per request)
 
 ax.set_xlim(xmin, xmax); ax.set_ylim(ymin, ymax)
 ax.set_xlabel("Relative compute  (FLOPs / forward pass, $\\times$Vanilla)", fontsize=11)

@@ -19,6 +19,7 @@ $PY scripts/build_pm_depth_tables.py  # pm_depth_tables.tex      (supplementary 
 
 echo "== figures =="
 $PY scripts/make_biorouter_bars.py   || echo "  [warn] biorouter_bars skipped"
+$PY scripts/make_biology_combo_bars.py || echo "  [warn] biology_combo_bars skipped"
 $PY scripts/make_baron_epoch_figs.py || echo "  [warn] baron_curves skipped (needs results/cv5/curves)"
 $PY scripts/make_baron_pointdiagram.py || echo "  [warn] baron_pointdiagram skipped (needs results/cv5/curves)"
 $PY scripts/make_fig2_depth.py       || echo "  [warn] fig2_depth skipped (needs results/depth)"

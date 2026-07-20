@@ -416,12 +416,10 @@ def main():
 
     device = resolve_device(args.device)
     # The (M,M) attention bias needs the full token set every step; expert-choice
-    # gathers a top-k subset, so force the full-token token-choice router when bias
-    # is on (keeps adaptive per-token depth, makes the with/without arms apples-to-apples).
+    # gathers a top-k subset. Expert-choice now gathers the matching per-step (k,k) attention
+    # sub-mask (router.py / recursion.py), so attention bias works in BOTH routing modes and the
+    # requested recursion_mode is honoured verbatim -- expert bioMoR rows stay expert.
     rec_mode = args.recursion_mode
-    if args.pathway_attn_bias and rec_mode == "expert":
-        rec_mode = "token"
-        print("[pathway] pathway_attn_bias on -> recursion_mode=token", flush=True)
     base = RMTConfig(
         heads=(args.task,), n_hvg=None, batch_size=args.batch_size,
         d_model=args.d_model, d_ff=2 * args.d_model, n_markers=args.n_markers,

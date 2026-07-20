@@ -132,6 +132,7 @@ class ExpertChoiceRouter(nn.Module):
                 refine_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
                 prior: Optional[torch.Tensor] = None, prior_weight: float = 0.0,
                 token_graph: Optional[torch.Tensor] = None,
+                attn_bias: Optional[torch.Tensor] = None,
                 ) -> Tuple[torch.Tensor, RouteInfo]:
         B, M, _ = tokens.shape
         device = tokens.device
@@ -179,7 +180,14 @@ class ExpertChoiceRouter(nn.Module):
             gate = (torch.sigmoid(weights) * self.alpha).unsqueeze(-1)  # (B, k, 1)
             idx = sel.unsqueeze(-1).expand(-1, -1, tokens.shape[-1])    # (B, k, d)
             gathered = torch.gather(tokens, 1, idx)                     # (B, k, d)
-            processed = block_fn(t, gathered)                         # shared block on k
+            # Attention-bias sub-mask: each sample keeps a DIFFERENT top-k subset `sel`,
+            # so gather the (k,k) block of the shared (M,M) bias for that subset ->
+            # (B, k, k) per-sample additive mask, aligned with `gathered`. This lets the
+            # attention-bias mechanism (A in E/R/A) apply under expert-choice routing.
+            sub_bias = None
+            if attn_bias is not None:
+                sub_bias = attn_bias[sel.unsqueeze(2), sel.unsqueeze(1)]   # (B, k, k)
+            processed = block_fn(t, gathered, sub_bias)               # shared block on k
             # Weighted residual: router gate scales how much this step moves the token.
             updated = gathered + gate * (processed - gathered)
 
