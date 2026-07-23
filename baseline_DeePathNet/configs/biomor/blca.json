@@ -1,0 +1,23 @@
+{
+  "cohort": "blca",
+  "modalities": ["mutation", "cnv"],
+  "task": "binary",
+  "dim": 64,
+  "depth": 2,
+  "heads": 4,
+  "mlp_ratio": 2,
+  "out_mlp_ratio": 2,
+  "dropout": 0.1,
+  "pathway_dropout": 0.0,
+  "cancer_only": false,
+  "lr": 0.0001,
+  "weight_decay": 0.0005,
+  "batch_size": 16,
+  "num_of_epochs": 200,
+  "min_epochs": 50,
+  "patience": 25,
+  "drop_last": false,
+  "min_gene_num": 5,
+  "max_pathways": 300,
+  "seed": 42
+}
