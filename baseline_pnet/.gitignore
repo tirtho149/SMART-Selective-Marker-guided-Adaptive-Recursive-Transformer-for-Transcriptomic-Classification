@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+_database/pathways/Reactome*/
+work_dirs/*.out
+work_dirs/**/*.out
+work_dirs/*.flag

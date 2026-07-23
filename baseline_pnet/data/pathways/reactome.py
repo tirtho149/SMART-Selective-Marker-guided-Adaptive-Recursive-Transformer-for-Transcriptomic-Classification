@@ -1,3 +1,4 @@
+import os
 import re
 import networkx as nx
 import pandas as pd
@@ -5,7 +6,9 @@ from os.path import join
 from config_path import REACTOM_PATHWAY_PATH
 from data.gmt_reader import GMT
 
-reactome_base_dir = REACTOM_PATHWAY_PATH
+# bioMOR: allow a per-cohort Reactome dir so concurrent array tasks don't clobber
+# a single shared _database/pathways/Reactome/.
+reactome_base_dir = os.environ.get('PNET_REACTOME_DIR', REACTOM_PATHWAY_PATH)
 relations_file_name = 'ReactomePathwaysRelation.txt'
 pathway_names = 'ReactomePathways.txt'
 pathway_genes = 'ReactomePathways.gmt'

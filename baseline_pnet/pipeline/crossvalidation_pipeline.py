@@ -1,5 +1,7 @@
 import datetime
 import logging
+import os
+import sys
 from copy import deepcopy
 from os import makedirs
 from os.path import join, exists
@@ -15,6 +17,13 @@ from model.model_factory import get_model
 from pipeline.one_split import OneSplitPipeline
 from utils.plots import plot_box_plot
 from utils.rnd import set_random_seeds
+
+# --- bioMOR shared contract: identical seed-42 CV5 folds + common score CSV ---
+_PNET_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # baseline_pnet
+_REPO_ROOT = os.path.dirname(_PNET_BASE)                                  # repo root
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+import biomor_common as bc  # noqa: E402
 
 timeStamp = '_{0:%b}-{0:%d}_{0:%H}-{0:%M}'.format(datetime.datetime.now())
 
@@ -50,11 +59,14 @@ class CrossvalidationPipeline(OneSplitPipeline):
             logging.info('loading data....')
             data = Data(**data_params)
 
-            x_train, x_validate_, x_test_, y_train, y_validate_, y_test_, info_train, info_validate_, info_test_, cols = data.get_train_validate_test()
-
-            X = np.concatenate((x_train, x_validate_), axis=0)
-            y = np.concatenate((y_train, y_validate_), axis=0)
-            info = np.concatenate((info_train, info_validate_), axis=0)
+            # bioMOR: use the FULL cohort (train+val+test) in the reader's
+            # patient-sorted order, then split with bc.cv_folds so folds are
+            # byte-identical to bioMoR's seed-42 CV5. Per-fold CNV z-scoring is
+            # applied inside train_predict_crossvalidation (the reader's own
+            # z-score is disabled via zscore_cnv=False in the param file).
+            X, y, info, cols = data.get_data()
+            y = np.asarray(y).ravel()
+            info = np.asarray(info)
 
             # get model
             logging.info('fitting model ...')
@@ -106,33 +118,56 @@ class CrossvalidationPipeline(OneSplitPipeline):
         info['y'] = np.asarray(y_test).ravel()
         info.to_csv(file_name)
 
+    def _zscore_cnv_per_fold(self, x_train, x_test):
+        """Z-score the CNV (odd) columns of the gene-grouped [mut,cnv] matrix
+        using TRAIN statistics only. Mutation (even) columns stay binary."""
+        cnv_cols = np.arange(1, x_train.shape[1], 2)
+        mu = x_train[:, cnv_cols].mean(axis=0, keepdims=True)
+        sd = x_train[:, cnv_cols].std(axis=0, keepdims=True) + 1e-8
+        x_train = x_train.copy()
+        x_test = x_test.copy()
+        x_train[:, cnv_cols] = (x_train[:, cnv_cols] - mu) / sd
+        x_test[:, cnv_cols] = (x_test[:, cnv_cols] - mu) / sd
+        return x_train, x_test
+
     def train_predict_crossvalidation(self, model_params, X, y, info, cols, model_name):
         logging.info('model_params: {}'.format(model_params))
-        n_splits = self.pipeline_params['params']['n_splits']
-        skf = StratifiedKFold(n_splits=n_splits, random_state=123, shuffle=True)
+        # bioMOR: identical seed-42 CV5 (train/val/test) folds.
+        folds = bc.cv_folds(y)
+        if os.environ.get('PNET_SMOKE', '0') == '1':
+            folds = folds[:1]
+            # Shrink epochs for a fast smoke check.
+            try:
+                model_params['params']['fitting_params']['epoch'] = 3
+            except Exception:
+                pass
         i = 0
         scores = []
         model_list = []
-        for train_index, test_index in skf.split(X, y.ravel()):
+        bc_f1, bc_acc, bc_nt = [], [], []
+        for train_index, val_index, test_index in folds:
             model = get_model(model_params)
             logging.info('fold # ----------------%d---------' % i)
-            x_train, x_test = X[train_index], X[test_index]
-            y_train, y_test = y[train_index], y[test_index]
-            info_train = pd.DataFrame(index=info[train_index])
+            x_train_all = X[np.concatenate([train_index, val_index])]
+            x_test = X[test_index]
+            y_train_all = y[np.concatenate([train_index, val_index])]
+            y_test = y[test_index]
             info_test = pd.DataFrame(index=info[test_index])
-            x_train, x_test = self.preprocess(x_train, x_test)
-            # feature extraction
-            logging.info('feature extraction....')
-            x_train, x_test = self.extract_features(x_train, x_test)
+            info_train = pd.DataFrame(index=info[np.concatenate([train_index, val_index])])
 
-            # Carve a stratified inner validation split out of this fold's
-            # train set so ModelCheckpoint/EarlyStopping have a `val_*` to
-            # monitor. val = 10% of the 80% train_val pool (≈ 8% of total).
-            x_tr, x_val, y_tr, y_val = train_test_split(
-                x_train, y_train, test_size=0.10,
-                stratify=y_train, random_state=42,
-            )
+            # Per-fold CNV z-score (train stats only) on the gene-grouped matrix.
+            x_train_all, x_test = self._zscore_cnv_per_fold(x_train_all, x_test)
+            x_train_all, x_test = self.preprocess(x_train_all, x_test)
+            x_train_all, x_test = self.extract_features(x_train_all, x_test)
+
+            # Inner train/val (bc's own within-train val split); z-score val
+            # using the inner-train CNV stats only.
+            x_tr, x_val = self._zscore_cnv_per_fold(X[train_index], X[val_index])
+            y_tr = y[train_index]
+            y_val = y[val_index]
             model = model.fit(x_tr, y_tr, x_val, y_val)
+            x_train = x_train_all
+            y_train = y_train_all
 
             y_pred_test, y_pred_test_scores = self.predict(model, x_test, y_test)
             score_test = self.evaluate(y_test, y_pred_test, y_pred_test_scores)
@@ -150,6 +185,9 @@ class CrossvalidationPipeline(OneSplitPipeline):
                                      training=True)
 
             scores.append(score_test)
+            bc_f1.append(100.0 * float(score_test.get('f1_macro', 0.0)))
+            bc_acc.append(100.0 * float(score_test.get('accuracy', 0.0)))
+            bc_nt.append(int(len(test_index)))
 
             fs_parmas = deepcopy(model_params)
             if hasattr(fs_parmas, 'id'):
@@ -161,6 +199,17 @@ class CrossvalidationPipeline(OneSplitPipeline):
             i += 1
         self.save_coef(model_list, cols)
         logging.info(scores)
+
+        # bioMOR common-schema score CSV (dataset,model,fold,macro_f1,accuracy,n_test).
+        try:
+            cohort = os.environ.get('PNET_COHORT', str(model_name))
+            work_dir = os.path.join(_PNET_BASE, 'work_dirs', cohort)
+            out = bc.write_scores(work_dir, model='P-NET', dataset=cohort,
+                                  fold_f1=bc_f1, fold_acc=bc_acc, fold_ntest=bc_nt)
+            logging.info('bioMOR scores written to %s', out)
+            print('[pnet] bioMOR scores ->', out, 'mean macro-F1=%.2f' % (np.mean(bc_f1)))
+        except Exception as e:
+            logging.warning('bc.write_scores failed: %s', e)
         return scores
 
     def save_score(self, data_params, model_params, scores, scores_mean, scores_std, model_name):

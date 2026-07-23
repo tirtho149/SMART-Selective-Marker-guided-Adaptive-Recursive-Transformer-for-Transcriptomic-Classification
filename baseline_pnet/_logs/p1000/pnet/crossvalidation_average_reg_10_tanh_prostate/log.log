@@ -1,0 +1,258 @@
+07/22 10:53 - {logs.py:22} - setting logs
+07/22 10:53 - {run_me.py:114} - random seed 234
+07/22 10:53 - {crossvalidation_pipeline.py:59} - loading data....
+07/22 10:53 - {data_reader.py:164} - BRCADataReader: 1011 patients × 8434 genes; class balance {0: np.int64(678), 1: np.int64(333)}
+07/22 10:53 - {data_reader.py:223} - BRCADataReader split: train=727 val=81 test=203
+07/22 10:53 - {crossvalidation_pipeline.py:72} - fitting model ...
+07/22 10:53 - {crossvalidation_pipeline.py:84} - fitting model ...
+07/22 10:53 - {crossvalidation_pipeline.py:134} - model_params: {'type': 'nn', 'id': 'P-net_PROSTATE', 'params': {'build_fn': <function build_pnet2 at 0x14fd599c7920>, 'model_params': {'use_bias': True, 'w_reg': [0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001], 'w_reg_outcomes': [0.01, 0.01, 0.01, 0.01, 0.01, 0.01], 'dropout': [0.2, 0.1, 0.1], 'loss_weights': [2, 7], 'optimizer': 'Adam', 'activation': 'tanh', 'data_params': {'id': 'PROSTATE', 'type': 'brca', 'params': {'data_dir': '/work/mech-ai-scratch/tirtho/RecusrsiveQFormer/data/prostate', 'labels_filename': 'patient_labels.csv', 'selected_genes_filename': None, 'val_size': 0.1, 'test_size': 0.2, 'random_state': 42, 'zscore_cnv': False}}, 'add_unk_genes': False, 'shuffle_genes': False, 'kernel_initializer': 'lecun_uniform', 'n_hidden_layers': 1, 'attention': False, 'dropout_testing': False}, 'fitting_params': {'samples_per_epoch': 10, 'select_best_model': False, 'monitor': 'val_o2_f1', 'verbose': 2, 'epoch': 200, 'shuffle': True, 'batch_size': 16, 'save_name': 'pnet', 'debug': False, 'save_gradient': False, 'class_weight': 'auto', 'n_outputs': 2, 'prediction_output': 'average', 'early_stop': False, 'reduce_lr': False, 'reduce_lr_after_nepochs': {'drop': 0.25, 'epochs_drop': 50}, 'lr': 0.0001, 'max_f1': True}, 'feature_importance': None}}
+07/22 10:53 - {nn.py:112} - class_weight auto
+07/22 10:53 - {crossvalidation_pipeline.py:150} - fold # ----------------0---------
+07/22 10:53 - {one_split.py:313} - preprocessing....
+07/22 10:53 - {pre.py:10} - Pre-processing: None
+07/22 10:53 - {data_reader.py:164} - BRCADataReader: 1011 patients × 8434 genes; class balance {0: np.int64(678), 1: np.int64(333)}
+07/22 10:53 - {data_reader.py:223} - BRCADataReader split: train=727 val=81 test=203
+07/22 10:53 - {prostate_models.py:125} - x shape (1011, 16868) , y shape (1011,) info (1011,) genes (16868,)
+07/22 10:53 - {prostate_models.py:127} - x shape (1011, 16868) , y shape (1011,) info (1011,) genes (16868,)
+07/22 10:54 - {builders_utils.py:65} - layer 0 , # of edges  36198.0
+07/22 10:54 - {builders_utils.py:65} - layer 1 , # of edges  1268.0
+07/22 10:54 - {builders_utils.py:205} - n_genes, n_pathways 8434 1268 
+07/22 10:54 - {prostate_models.py:187} - done compiling
+07/22 10:54 - {model_utils.py:44} -   - 0 inputs (None, 16868)
+07/22 10:54 - {model_utils.py:44} -   - 1 h0 (None, 8434)
+07/22 10:54 - {model_utils.py:44} -   - 2 dropout_0 (None, 8434)
+07/22 10:54 - {model_utils.py:44} -   - 3 h1 (None, 1268)
+07/22 10:54 - {model_utils.py:44} -   - 4 o_linear1 (None, 1)
+07/22 10:54 - {model_utils.py:44} -   - 5 o_linear2 (None, 1)
+07/22 10:54 - {model_utils.py:44} -   - 6 o1 (None, 1)
+07/22 10:54 - {model_utils.py:44} -   - 7 o2 (None, 1)
+07/22 10:54 - {prostate_models.py:191} - None
+07/22 10:54 - {prostate_models.py:192} - # of trainable params of the model is 72472
+07/22 10:54 - {nn.py:198} - start fitting
+07/22 10:54 - {nn.py:209} - class_weight {np.int64(0): np.float64(0.7448770491803278), np.int64(1): np.float64(1.5209205020920502)}
+07/22 10:54 - {nn.py:262} - prediction threshold 0.4999999999999998
+07/22 10:54 - {one_split.py:296} - predicitng ...
+07/22 10:54 - {evaluate.py:52} -               precision    recall  f1-score   support
+
+           0       0.93      0.91      0.92       136
+           1       0.83      0.87      0.85        67
+
+    accuracy                           0.90       203
+   macro avg       0.88      0.89      0.88       203
+weighted avg       0.90      0.90      0.90       203
+
+07/22 10:54 - {crossvalidation_pipeline.py:174} - model P-net_PROSTATE -- Test score {'accuracy': 0.896551724137931, 'precision': 0.8285714285714286, 'auc': 0.9336040386303776, 'f1': 0.8467153284671532, 'f1_macro': 0.884324206984506, 'aupr': 0.8855880930953746, 'recall': 0.8656716417910447}
+07/22 10:54 - {crossvalidation_pipeline.py:109} - saving : /work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/./pnet/crossvalidation_average_reg_10_tanh_prostate/P-net_PROSTATE_testing_fold_0.csv
+07/22 10:54 - {crossvalidation_pipeline.py:178} - saving coef
+07/22 10:54 - {crossvalidation_pipeline.py:33} - saving model P-net_PROSTATE_0 coef to dir (/work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/pnet/crossvalidation_average_reg_10_tanh_prostate/fs)
+07/22 10:54 - {crossvalidation_pipeline.py:37} - FS dir (/work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/pnet/crossvalidation_average_reg_10_tanh_prostate/fs/P-net_PROSTATE_0.h5)
+07/22 10:54 - {crossvalidation_pipeline.py:182} - predicting training ...
+07/22 10:54 - {one_split.py:296} - predicitng ...
+07/22 10:54 - {crossvalidation_pipeline.py:109} - saving : /work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/./pnet/crossvalidation_average_reg_10_tanh_prostate/P-net_PROSTATE_traing_fold_0.csv
+07/22 10:54 - {nn.py:112} - class_weight auto
+07/22 10:54 - {crossvalidation_pipeline.py:150} - fold # ----------------1---------
+07/22 10:54 - {one_split.py:313} - preprocessing....
+07/22 10:54 - {pre.py:10} - Pre-processing: None
+07/22 10:54 - {data_reader.py:164} - BRCADataReader: 1011 patients × 8434 genes; class balance {0: np.int64(678), 1: np.int64(333)}
+07/22 10:54 - {data_reader.py:223} - BRCADataReader split: train=727 val=81 test=203
+07/22 10:54 - {prostate_models.py:125} - x shape (1011, 16868) , y shape (1011,) info (1011,) genes (16868,)
+07/22 10:54 - {prostate_models.py:127} - x shape (1011, 16868) , y shape (1011,) info (1011,) genes (16868,)
+07/22 10:55 - {builders_utils.py:65} - layer 0 , # of edges  36198.0
+07/22 10:55 - {builders_utils.py:65} - layer 1 , # of edges  1268.0
+07/22 10:55 - {builders_utils.py:205} - n_genes, n_pathways 8434 1268 
+07/22 10:55 - {prostate_models.py:187} - done compiling
+07/22 10:55 - {model_utils.py:44} -   - 0 inputs (None, 16868)
+07/22 10:55 - {model_utils.py:44} -   - 1 h0 (None, 8434)
+07/22 10:55 - {model_utils.py:44} -   - 2 dropout_0 (None, 8434)
+07/22 10:55 - {model_utils.py:44} -   - 3 h1 (None, 1268)
+07/22 10:55 - {model_utils.py:44} -   - 4 o_linear1 (None, 1)
+07/22 10:55 - {model_utils.py:44} -   - 5 o_linear2 (None, 1)
+07/22 10:55 - {model_utils.py:44} -   - 6 o1 (None, 1)
+07/22 10:55 - {model_utils.py:44} -   - 7 o2 (None, 1)
+07/22 10:55 - {prostate_models.py:191} - None
+07/22 10:55 - {prostate_models.py:192} - # of trainable params of the model is 72472
+07/22 10:55 - {nn.py:198} - start fitting
+07/22 10:55 - {nn.py:209} - class_weight {np.int64(0): np.float64(0.7443762781186094), np.int64(1): np.float64(1.5230125523012552)}
+07/22 10:55 - {nn.py:262} - prediction threshold 0.3799999999999999
+07/22 10:55 - {one_split.py:296} - predicitng ...
+07/22 10:55 - {evaluate.py:52} -               precision    recall  f1-score   support
+
+           0       0.93      0.79      0.86       135
+           1       0.68      0.88      0.77        67
+
+    accuracy                           0.82       202
+   macro avg       0.80      0.84      0.81       202
+weighted avg       0.85      0.82      0.83       202
+
+07/22 10:55 - {crossvalidation_pipeline.py:174} - model P-net_PROSTATE -- Test score {'accuracy': 0.8217821782178217, 'precision': 0.6781609195402298, 'auc': 0.909452736318408, 'f1': 0.7662337662337663, 'f1_macro': 0.8111168831168831, 'aupr': 0.8260504847416492, 'recall': 0.8805970149253731}
+07/22 10:55 - {crossvalidation_pipeline.py:109} - saving : /work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/./pnet/crossvalidation_average_reg_10_tanh_prostate/P-net_PROSTATE_testing_fold_1.csv
+07/22 10:55 - {crossvalidation_pipeline.py:178} - saving coef
+07/22 10:55 - {crossvalidation_pipeline.py:33} - saving model P-net_PROSTATE_1 coef to dir (/work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/pnet/crossvalidation_average_reg_10_tanh_prostate/fs)
+07/22 10:55 - {crossvalidation_pipeline.py:37} - FS dir (/work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/pnet/crossvalidation_average_reg_10_tanh_prostate/fs/P-net_PROSTATE_1.h5)
+07/22 10:55 - {crossvalidation_pipeline.py:182} - predicting training ...
+07/22 10:55 - {one_split.py:296} - predicitng ...
+07/22 10:55 - {crossvalidation_pipeline.py:109} - saving : /work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/./pnet/crossvalidation_average_reg_10_tanh_prostate/P-net_PROSTATE_traing_fold_1.csv
+07/22 10:55 - {nn.py:112} - class_weight auto
+07/22 10:55 - {crossvalidation_pipeline.py:150} - fold # ----------------2---------
+07/22 10:55 - {one_split.py:313} - preprocessing....
+07/22 10:55 - {pre.py:10} - Pre-processing: None
+07/22 10:55 - {data_reader.py:164} - BRCADataReader: 1011 patients × 8434 genes; class balance {0: np.int64(678), 1: np.int64(333)}
+07/22 10:55 - {data_reader.py:223} - BRCADataReader split: train=727 val=81 test=203
+07/22 10:55 - {prostate_models.py:125} - x shape (1011, 16868) , y shape (1011,) info (1011,) genes (16868,)
+07/22 10:55 - {prostate_models.py:127} - x shape (1011, 16868) , y shape (1011,) info (1011,) genes (16868,)
+07/22 10:55 - {builders_utils.py:65} - layer 0 , # of edges  36198.0
+07/22 10:55 - {builders_utils.py:65} - layer 1 , # of edges  1268.0
+07/22 10:55 - {builders_utils.py:205} - n_genes, n_pathways 8434 1268 
+07/22 10:55 - {prostate_models.py:187} - done compiling
+07/22 10:55 - {model_utils.py:44} -   - 0 inputs (None, 16868)
+07/22 10:55 - {model_utils.py:44} -   - 1 h0 (None, 8434)
+07/22 10:55 - {model_utils.py:44} -   - 2 dropout_0 (None, 8434)
+07/22 10:55 - {model_utils.py:44} -   - 3 h1 (None, 1268)
+07/22 10:55 - {model_utils.py:44} -   - 4 o_linear1 (None, 1)
+07/22 10:55 - {model_utils.py:44} -   - 5 o_linear2 (None, 1)
+07/22 10:55 - {model_utils.py:44} -   - 6 o1 (None, 1)
+07/22 10:55 - {model_utils.py:44} -   - 7 o2 (None, 1)
+07/22 10:55 - {prostate_models.py:191} - None
+07/22 10:55 - {prostate_models.py:192} - # of trainable params of the model is 72472
+07/22 10:55 - {nn.py:198} - start fitting
+07/22 10:55 - {nn.py:209} - class_weight {np.int64(0): np.float64(0.7443762781186094), np.int64(1): np.float64(1.5230125523012552)}
+07/22 10:56 - {nn.py:262} - prediction threshold 0.4999999999999998
+07/22 10:56 - {one_split.py:296} - predicitng ...
+07/22 10:56 - {evaluate.py:52} -               precision    recall  f1-score   support
+
+           0       0.86      0.95      0.90       135
+           1       0.87      0.70      0.78        67
+
+    accuracy                           0.87       202
+   macro avg       0.87      0.82      0.84       202
+weighted avg       0.87      0.87      0.86       202
+
+07/22 10:56 - {crossvalidation_pipeline.py:174} - model P-net_PROSTATE -- Test score {'accuracy': 0.8663366336633663, 'precision': 0.8703703703703703, 'auc': 0.9258153676064124, 'f1': 0.7768595041322314, 'f1_macro': 0.8407265718541015, 'aupr': 0.8877010643971386, 'recall': 0.7014925373134329}
+07/22 10:56 - {crossvalidation_pipeline.py:109} - saving : /work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/./pnet/crossvalidation_average_reg_10_tanh_prostate/P-net_PROSTATE_testing_fold_2.csv
+07/22 10:56 - {crossvalidation_pipeline.py:178} - saving coef
+07/22 10:56 - {crossvalidation_pipeline.py:33} - saving model P-net_PROSTATE_2 coef to dir (/work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/pnet/crossvalidation_average_reg_10_tanh_prostate/fs)
+07/22 10:56 - {crossvalidation_pipeline.py:37} - FS dir (/work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/pnet/crossvalidation_average_reg_10_tanh_prostate/fs/P-net_PROSTATE_2.h5)
+07/22 10:56 - {crossvalidation_pipeline.py:182} - predicting training ...
+07/22 10:56 - {one_split.py:296} - predicitng ...
+07/22 10:56 - {crossvalidation_pipeline.py:109} - saving : /work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/./pnet/crossvalidation_average_reg_10_tanh_prostate/P-net_PROSTATE_traing_fold_2.csv
+07/22 10:56 - {nn.py:112} - class_weight auto
+07/22 10:56 - {crossvalidation_pipeline.py:150} - fold # ----------------3---------
+07/22 10:56 - {one_split.py:313} - preprocessing....
+07/22 10:56 - {pre.py:10} - Pre-processing: None
+07/22 10:56 - {data_reader.py:164} - BRCADataReader: 1011 patients × 8434 genes; class balance {0: np.int64(678), 1: np.int64(333)}
+07/22 10:56 - {data_reader.py:223} - BRCADataReader split: train=727 val=81 test=203
+07/22 10:56 - {prostate_models.py:125} - x shape (1011, 16868) , y shape (1011,) info (1011,) genes (16868,)
+07/22 10:56 - {prostate_models.py:127} - x shape (1011, 16868) , y shape (1011,) info (1011,) genes (16868,)
+07/22 10:56 - {builders_utils.py:65} - layer 0 , # of edges  36198.0
+07/22 10:56 - {builders_utils.py:65} - layer 1 , # of edges  1268.0
+07/22 10:56 - {builders_utils.py:205} - n_genes, n_pathways 8434 1268 
+07/22 10:56 - {prostate_models.py:187} - done compiling
+07/22 10:56 - {model_utils.py:44} -   - 0 inputs (None, 16868)
+07/22 10:56 - {model_utils.py:44} -   - 1 h0 (None, 8434)
+07/22 10:56 - {model_utils.py:44} -   - 2 dropout_0 (None, 8434)
+07/22 10:56 - {model_utils.py:44} -   - 3 h1 (None, 1268)
+07/22 10:56 - {model_utils.py:44} -   - 4 o_linear1 (None, 1)
+07/22 10:56 - {model_utils.py:44} -   - 5 o_linear2 (None, 1)
+07/22 10:56 - {model_utils.py:44} -   - 6 o1 (None, 1)
+07/22 10:56 - {model_utils.py:44} -   - 7 o2 (None, 1)
+07/22 10:56 - {prostate_models.py:191} - None
+07/22 10:56 - {prostate_models.py:192} - # of trainable params of the model is 72472
+07/22 10:56 - {nn.py:198} - start fitting
+07/22 10:56 - {nn.py:209} - class_weight {np.int64(0): np.float64(0.7459016393442623), np.int64(1): np.float64(1.5166666666666666)}
+07/22 10:57 - {nn.py:262} - prediction threshold 0.3999999999999998
+07/22 10:57 - {one_split.py:296} - predicitng ...
+07/22 10:57 - {evaluate.py:52} -               precision    recall  f1-score   support
+
+           0       0.90      0.82      0.86       136
+           1       0.68      0.82      0.74        66
+
+    accuracy                           0.82       202
+   macro avg       0.79      0.82      0.80       202
+weighted avg       0.83      0.82      0.82       202
+
+07/22 10:57 - {crossvalidation_pipeline.py:174} - model P-net_PROSTATE -- Test score {'accuracy': 0.8168316831683168, 'precision': 0.6835443037974683, 'auc': 0.9112076648841354, 'f1': 0.7448275862068966, 'f1_macro': 0.8009852216748768, 'aupr': 0.8224776878616865, 'recall': 0.8181818181818182}
+07/22 10:57 - {crossvalidation_pipeline.py:109} - saving : /work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/./pnet/crossvalidation_average_reg_10_tanh_prostate/P-net_PROSTATE_testing_fold_3.csv
+07/22 10:57 - {crossvalidation_pipeline.py:178} - saving coef
+07/22 10:57 - {crossvalidation_pipeline.py:33} - saving model P-net_PROSTATE_3 coef to dir (/work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/pnet/crossvalidation_average_reg_10_tanh_prostate/fs)
+07/22 10:57 - {crossvalidation_pipeline.py:37} - FS dir (/work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/pnet/crossvalidation_average_reg_10_tanh_prostate/fs/P-net_PROSTATE_3.h5)
+07/22 10:57 - {crossvalidation_pipeline.py:182} - predicting training ...
+07/22 10:57 - {one_split.py:296} - predicitng ...
+07/22 10:57 - {crossvalidation_pipeline.py:109} - saving : /work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/./pnet/crossvalidation_average_reg_10_tanh_prostate/P-net_PROSTATE_traing_fold_3.csv
+07/22 10:57 - {nn.py:112} - class_weight auto
+07/22 10:57 - {crossvalidation_pipeline.py:150} - fold # ----------------4---------
+07/22 10:57 - {one_split.py:313} - preprocessing....
+07/22 10:57 - {pre.py:10} - Pre-processing: None
+07/22 10:57 - {data_reader.py:164} - BRCADataReader: 1011 patients × 8434 genes; class balance {0: np.int64(678), 1: np.int64(333)}
+07/22 10:57 - {data_reader.py:223} - BRCADataReader split: train=727 val=81 test=203
+07/22 10:57 - {prostate_models.py:125} - x shape (1011, 16868) , y shape (1011,) info (1011,) genes (16868,)
+07/22 10:57 - {prostate_models.py:127} - x shape (1011, 16868) , y shape (1011,) info (1011,) genes (16868,)
+07/22 10:57 - {builders_utils.py:65} - layer 0 , # of edges  36198.0
+07/22 10:57 - {builders_utils.py:65} - layer 1 , # of edges  1268.0
+07/22 10:57 - {builders_utils.py:205} - n_genes, n_pathways 8434 1268 
+07/22 10:57 - {prostate_models.py:187} - done compiling
+07/22 10:57 - {model_utils.py:44} -   - 0 inputs (None, 16868)
+07/22 10:57 - {model_utils.py:44} -   - 1 h0 (None, 8434)
+07/22 10:57 - {model_utils.py:44} -   - 2 dropout_0 (None, 8434)
+07/22 10:57 - {model_utils.py:44} -   - 3 h1 (None, 1268)
+07/22 10:57 - {model_utils.py:44} -   - 4 o_linear1 (None, 1)
+07/22 10:57 - {model_utils.py:44} -   - 5 o_linear2 (None, 1)
+07/22 10:57 - {model_utils.py:44} -   - 6 o1 (None, 1)
+07/22 10:57 - {model_utils.py:44} -   - 7 o2 (None, 1)
+07/22 10:57 - {prostate_models.py:191} - None
+07/22 10:57 - {prostate_models.py:192} - # of trainable params of the model is 72472
+07/22 10:57 - {nn.py:198} - start fitting
+07/22 10:57 - {nn.py:209} - class_weight {np.int64(0): np.float64(0.7459016393442623), np.int64(1): np.float64(1.5166666666666666)}
+07/22 10:57 - {nn.py:262} - prediction threshold 0.5199999999999998
+07/22 10:57 - {one_split.py:296} - predicitng ...
+07/22 10:57 - {evaluate.py:52} -               precision    recall  f1-score   support
+
+           0       0.88      0.90      0.89       136
+           1       0.79      0.74      0.77        66
+
+    accuracy                           0.85       202
+   macro avg       0.83      0.82      0.83       202
+weighted avg       0.85      0.85      0.85       202
+
+07/22 10:57 - {crossvalidation_pipeline.py:174} - model P-net_PROSTATE -- Test score {'accuracy': 0.8514851485148515, 'precision': 0.7903225806451613, 'auc': 0.8936051693404634, 'f1': 0.765625, 'f1_macro': 0.8284646739130435, 'aupr': 0.7930346699969251, 'recall': 0.7424242424242424}
+07/22 10:57 - {crossvalidation_pipeline.py:109} - saving : /work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/./pnet/crossvalidation_average_reg_10_tanh_prostate/P-net_PROSTATE_testing_fold_4.csv
+07/22 10:57 - {crossvalidation_pipeline.py:178} - saving coef
+07/22 10:57 - {crossvalidation_pipeline.py:33} - saving model P-net_PROSTATE_4 coef to dir (/work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/pnet/crossvalidation_average_reg_10_tanh_prostate/fs)
+07/22 10:57 - {crossvalidation_pipeline.py:37} - FS dir (/work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/pnet/crossvalidation_average_reg_10_tanh_prostate/fs/P-net_PROSTATE_4.h5)
+07/22 10:57 - {crossvalidation_pipeline.py:182} - predicting training ...
+07/22 10:57 - {one_split.py:296} - predicitng ...
+07/22 10:57 - {crossvalidation_pipeline.py:109} - saving : /work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/./pnet/crossvalidation_average_reg_10_tanh_prostate/P-net_PROSTATE_traing_fold_4.csv
+07/22 10:57 - {one_split.py:243} - saving coef 
+07/22 10:57 - {one_split.py:243} - saving coef 
+07/22 10:57 - {one_split.py:243} - saving coef 
+07/22 10:57 - {one_split.py:243} - saving coef 
+07/22 10:57 - {one_split.py:243} - saving coef 
+07/22 10:57 - {crossvalidation_pipeline.py:201} - [{'accuracy': 0.896551724137931, 'precision': 0.8285714285714286, 'auc': 0.9336040386303776, 'f1': 0.8467153284671532, 'f1_macro': 0.884324206984506, 'aupr': 0.8855880930953746, 'recall': 0.8656716417910447}, {'accuracy': 0.8217821782178217, 'precision': 0.6781609195402298, 'auc': 0.909452736318408, 'f1': 0.7662337662337663, 'f1_macro': 0.8111168831168831, 'aupr': 0.8260504847416492, 'recall': 0.8805970149253731}, {'accuracy': 0.8663366336633663, 'precision': 0.8703703703703703, 'auc': 0.9258153676064124, 'f1': 0.7768595041322314, 'f1_macro': 0.8407265718541015, 'aupr': 0.8877010643971386, 'recall': 0.7014925373134329}, {'accuracy': 0.8168316831683168, 'precision': 0.6835443037974683, 'auc': 0.9112076648841354, 'f1': 0.7448275862068966, 'f1_macro': 0.8009852216748768, 'aupr': 0.8224776878616865, 'recall': 0.8181818181818182}, {'accuracy': 0.8514851485148515, 'precision': 0.7903225806451613, 'auc': 0.8936051693404634, 'f1': 0.765625, 'f1_macro': 0.8284646739130435, 'aupr': 0.7930346699969251, 'recall': 0.7424242424242424}]
+07/22 10:57 - {crossvalidation_pipeline.py:209} - bioMOR scores written to /work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/work_dirs/prostate/scores_202607222257.csv
+07/22 10:57 - {crossvalidation_pipeline.py:217} - saving yml : /work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/./pnet/crossvalidation_average_reg_10_tanh_prostate/P-net_PROSTATE_params.yml
+07/22 10:57 - {crossvalidation_pipeline.py:232} - saving cv summary csv : /work/mech-ai-scratch/tirtho/bioMOR-baselines/baseline_pnet/_logs/p1000/./pnet/crossvalidation_average_reg_10_tanh_prostate/P-net_PROSTATE_scores.csv
+07/22 10:57 - {crossvalidation_pipeline.py:91} - scores
+07/22 10:57 - {crossvalidation_pipeline.py:92} -    accuracy  precision       auc        f1  f1_macro      aupr    recall
+0  0.896552   0.828571  0.933604  0.846715  0.884324  0.885588  0.865672
+1  0.821782   0.678161  0.909453  0.766234  0.811117  0.826050  0.880597
+2  0.866337   0.870370  0.925815  0.776860  0.840727  0.887701  0.701493
+3  0.816832   0.683544  0.911208  0.744828  0.800985  0.822478  0.818182
+4  0.851485   0.790323  0.893605  0.765625  0.828465  0.793035  0.742424
+07/22 10:57 - {crossvalidation_pipeline.py:93} - mean
+07/22 10:57 - {crossvalidation_pipeline.py:94} - accuracy     0.850597
+precision    0.770194
+auc          0.914737
+f1           0.780052
+f1_macro     0.833124
+aupr         0.842970
+recall       0.801673
+dtype: float64
+07/22 10:57 - {crossvalidation_pipeline.py:95} - std
+07/22 10:57 - {crossvalidation_pipeline.py:96} - accuracy     0.032904
+precision    0.086352
+auc          0.015537
+f1           0.039032
+f1_macro     0.032474
+aupr         0.041884
+recall       0.077692
+dtype: float64
+07/22 10:57 - {run_me.py:143} - Elapsed Time: 4m 8s

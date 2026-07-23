@@ -1,0 +1,4 @@
+dataset,model,fold,macro_f1,accuracy,n_test
+prostate,MOGONET,1,24.814814814814813,33.004926108374384,203.0
+prostate,MOGONET,mean,24.814814814814813,33.004926108374384,203.0
+prostate,MOGONET,std,0.0,0.0,

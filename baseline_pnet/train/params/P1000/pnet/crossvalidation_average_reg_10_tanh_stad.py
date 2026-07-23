@@ -2,23 +2,27 @@ from model.builders.prostate_models import build_pnet2
 
 task = 'classification_binary'
 
+import os as _os
+_DATA_ROOT = _os.environ.get('BIOMOR_DATA_ROOT',
+                             '/work/mech-ai-scratch/tirtho/RecusrsiveQFormer/data')
+
 data_base = {'id': 'STAD', 'type': 'brca',
              'params': {
-                 'data_dir': '/lustre/hdd/LAS/weile-lab/howlader/Graph_Transformer/data_tcga/stad',
+                 'data_dir': _os.path.join(_DATA_ROOT, 'stad'),
                  'labels_filename': 'patient_labels.csv',
-                 'selected_genes_filename': '/lustre/hdd/LAS/weile-lab/howlader/GraphPath/p_net_data/tcga_prostate_expressed_genes_and_cancer_genes.csv',
+                 'selected_genes_filename': None,
                  'val_size': 0.10,
                  'test_size': 0.2,
                  'random_state': 42,
-                 'zscore_cnv': True,
+                 'zscore_cnv': False,
              }
              }
 data = [data_base]
 
-n_hidden_layers = 5
+n_hidden_layers = 1
 base_dropout = 0.2
 wregs = [0.001] * 7
-loss_weights = [2, 7, 20, 54, 148, 400]
+loss_weights = [2, 7]
 wreg_outcomes = [0.01] * 6
 pre = {'type': None}
 
@@ -46,7 +50,7 @@ nn_pathway = {
             },
             'fitting_params': dict(samples_per_epoch=10,
                                    select_best_model=False,
-                                   monitor='val_o6_f1',
+                                   monitor='val_o2_f1',
                                    verbose=2,
                                    epoch=200,
                                    shuffle=True,

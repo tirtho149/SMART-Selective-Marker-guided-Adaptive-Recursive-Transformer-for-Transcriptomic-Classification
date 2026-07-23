@@ -1,0 +1,4 @@
+dataset,model,fold,macro_f1,accuracy,n_test
+prostate,P-NET,1,71.57079927685687,72.9064039408867,203.0
+prostate,P-NET,mean,71.57079927685687,72.9064039408867,203.0
+prostate,P-NET,std,0.0,0.0,
